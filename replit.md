@@ -1,27 +1,33 @@
-# Workspace
+# E-commerce Storefront
 
-## Overview
+Single-store e-commerce site with multiple customer accounts, integrated payments, live shipping rates, blog, and SEO-optimized marketing pages.
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+## Architecture
 
-## Stack
+Monorepo (pnpm workspaces) with:
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
+- **`artifacts/storefront`** — React + Vite + Tailwind v4 + shadcn/ui SPA at `/`. Hosts the marketing site, product catalog, cart/checkout, customer account, blog, and admin dashboard. Uses `wouter` for routing and `@tanstack/react-query` via generated `@workspace/api-client-react` hooks.
+- **`artifacts/api-server`** — Express 5 API at `/api/*`. Routes by domain in `src/routes/`. Uses Drizzle ORM, Clerk for auth, Stripe for payments, EasyPost for shipping, Resend for email, Replit Object Storage for product/blog images.
+- **`lib/api-spec`** — single OpenAPI 3.1 source of truth (`openapi.yaml`). Run `pnpm --filter @workspace/api-spec run codegen` after every change.
+- **`lib/api-zod`** — generated Zod request/response schemas (server validation).
+- **`lib/api-client-react`** — generated React Query hooks (frontend).
+- **`lib/db`** — Drizzle schema and Postgres pool. Schema in `src/schema/`, push with `pnpm --filter @workspace/db run push`.
 
-## Key Commands
+## Integrations
 
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- `pnpm --filter @workspace/api-server run dev` — run API server locally
+- **Auth: Clerk** — Replit-managed. `CLERK_PROXY_PATH` mounted before body parsers in `app.ts`. Admin gated by `ADMIN_EMAILS` env var (comma-separated allowlist; if empty, any signed-in user is admin in dev).
+- **Payments: Stripe** — Stripe Checkout sessions; webhook `/api/webhooks/stripe` mounted with raw body before `express.json()`. Falls back to dev "instant paid" if no key.
+- **Shipping: EasyPost** — Live rates and label purchase. Falls back to flat-rate options if no key.
+- **Email: Resend** — Order confirmation and shipping notifications. Silently no-op if no key.
+- **Object storage** — Public/private buckets via standard `/api/storage/*` routes.
 
-See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+## Domain model
+
+- `products` — catalog items with images, inventory, weight, SEO fields, featured/published flags
+- `carts` + `cart_items` — anonymous-or-user shopping carts (string nanoid IDs)
+- `orders` + `order_items` — orders with shipping address (jsonb), Stripe + EasyPost identifiers, tracking
+- `blog_posts` — markdown content with SEO fields, publish state
+
+## Status
+
+Backend, schema, codegen, seed data, and integration scaffolding done. Stripe + Resend + EasyPost API keys still need to be wired. Frontend awaits user-provided brand assets before the design subagent is launched.

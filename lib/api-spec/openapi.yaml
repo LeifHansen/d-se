@@ -3,34 +3,721 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: E-commerce storefront API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: products
+  - name: cart
+  - name: orders
+  - name: shipping
+  - name: blog
+  - name: admin
+  - name: webhooks
+  - name: Storage
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
           content:
             application/json:
+              schema: { $ref: "#/components/schemas/HealthStatus" }
+
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List published products
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: tag
+          in: query
+          schema: { type: string }
+        - name: featured
+          in: query
+          schema: { type: boolean }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 24 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
               schema:
-                $ref: "#/components/schemas/HealthStatus"
+                type: array
+                items: { $ref: "#/components/schemas/Product" }
+  /products/featured:
+    get:
+      operationId: listFeaturedProducts
+      tags: [products]
+      summary: Featured products for homepage
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Product" }
+  /products/{slug}:
+    get:
+      operationId: getProductBySlug
+      tags: [products]
+      summary: Get product by slug
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Product" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /cart:
+    get:
+      operationId: getCart
+      tags: [cart]
+      summary: Get current cart
+      parameters:
+        - name: cartId
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cart" }
+  /cart/items:
+    post:
+      operationId: addCartItem
+      tags: [cart]
+      summary: Add item to cart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [productId, quantity]
+              properties:
+                cartId: { type: string }
+                productId: { type: integer }
+                quantity: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cart" }
+  /cart/items/{itemId}:
+    patch:
+      operationId: updateCartItem
+      tags: [cart]
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cartId, quantity]
+              properties:
+                cartId: { type: string }
+                quantity: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cart" }
+    delete:
+      operationId: removeCartItem
+      tags: [cart]
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: cartId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cart" }
+
+  /shipping/rates:
+    post:
+      operationId: getShippingRates
+      tags: [shipping]
+      summary: Get live shipping rates from EasyPost
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cartId, address]
+              properties:
+                cartId: { type: string }
+                address: { $ref: "#/components/schemas/AddressInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ShippingRate" }
+
+  /checkout:
+    post:
+      operationId: createCheckout
+      tags: [orders]
+      summary: Create Stripe checkout session for cart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cartId, address, shippingRateId]
+              properties:
+                cartId: { type: string }
+                email: { type: string, format: email }
+                address: { $ref: "#/components/schemas/AddressInput" }
+                shippingRateId: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url, orderId]
+                properties:
+                  url: { type: string }
+                  orderId: { type: integer }
+
+  /orders/me:
+    get:
+      operationId: listMyOrders
+      tags: [orders]
+      summary: List signed-in user's orders
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Order" }
+  /orders/{id}:
+    get:
+      operationId: getOrder
+      tags: [orders]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /blog/posts:
+    get:
+      operationId: listBlogPosts
+      tags: [blog]
+      summary: List published blog posts
+      parameters:
+        - name: tag
+          in: query
+          schema: { type: string }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/BlogPost" }
+  /blog/posts/{slug}:
+    get:
+      operationId: getBlogPostBySlug
+      tags: [blog]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BlogPost" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /admin/stats:
+    get:
+      operationId: getAdminStats
+      tags: [admin]
+      summary: Dashboard summary
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminStats" }
+  /admin/products:
+    get:
+      operationId: listAdminProducts
+      tags: [admin]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Product" }
+    post:
+      operationId: createProduct
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Product" }
+  /admin/products/{id}:
+    patch:
+      operationId: updateProduct
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Product" }
+    delete:
+      operationId: deleteProduct
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204": { description: Deleted }
+  /admin/orders:
+    get:
+      operationId: listAdminOrders
+      tags: [admin]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Order" }
+  /admin/orders/{id}/fulfill:
+    post:
+      operationId: fulfillOrder
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [shippingRateId]
+              properties:
+                shippingRateId: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+  /admin/blog/posts:
+    get:
+      operationId: listAdminBlogPosts
+      tags: [admin]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/BlogPost" }
+    post:
+      operationId: createBlogPost
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BlogPostInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BlogPost" }
+  /admin/blog/posts/{id}:
+    patch:
+      operationId: updateBlogPost
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BlogPostInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BlogPost" }
+    delete:
+      operationId: deleteBlogPost
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204": { description: Deleted }
+
+  /storage/uploads/request-url:
+    post:
+      tags: [Storage]
+      operationId: requestUploadUrl
+      summary: Request a presigned URL for file upload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UploadUrlRequest" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UploadUrlResponse" }
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /storage/public-objects/{filePath}:
+    get:
+      tags: [Storage]
+      operationId: getPublicObject
+      parameters:
+        - name: filePath
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema: { type: string, format: binary }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /storage/objects/{objectPath}:
+    get:
+      tags: [Storage]
+      operationId: getStorageObject
+      parameters:
+        - name: objectPath
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema: { type: string, format: binary }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
 components:
+  responses:
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
   schemas:
     HealthStatus:
       type: object
       properties:
-        status:
-          type: string
-      required:
-        - status
+        status: { type: string }
+      required: [status]
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+      required: [error]
 
+    Product:
+      type: object
+      required: [id, slug, name, description, priceCents, currency, images, inventory, featured, published, createdAt]
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string }
+        shortDescription: { type: ["string", "null"] }
+        priceCents: { type: integer }
+        compareAtCents: { type: ["integer", "null"] }
+        currency: { type: string }
+        images:
+          type: array
+          items: { type: string }
+        inventory: { type: integer }
+        weightOz: { type: ["number", "null"] }
+        tags:
+          type: array
+          items: { type: string }
+        seoTitle: { type: ["string", "null"] }
+        seoDescription: { type: ["string", "null"] }
+        featured: { type: boolean }
+        published: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    ProductInput:
+      type: object
+      required: [slug, name, description, priceCents, inventory]
+      properties:
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string }
+        shortDescription: { type: ["string", "null"] }
+        priceCents: { type: integer }
+        compareAtCents: { type: ["integer", "null"] }
+        currency: { type: string, default: usd }
+        images:
+          type: array
+          items: { type: string }
+        inventory: { type: integer }
+        weightOz: { type: ["number", "null"] }
+        tags:
+          type: array
+          items: { type: string }
+        seoTitle: { type: ["string", "null"] }
+        seoDescription: { type: ["string", "null"] }
+        featured: { type: boolean }
+        published: { type: boolean }
+
+    Cart:
+      type: object
+      required: [id, items, subtotalCents, currency]
+      properties:
+        id: { type: string }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/CartItem" }
+        subtotalCents: { type: integer }
+        currency: { type: string }
+    CartItem:
+      type: object
+      required: [id, productId, quantity, product, lineTotalCents]
+      properties:
+        id: { type: integer }
+        productId: { type: integer }
+        quantity: { type: integer }
+        product: { $ref: "#/components/schemas/Product" }
+        lineTotalCents: { type: integer }
+
+    AddressInput:
+      type: object
+      required: [name, street1, city, state, zip, country]
+      properties:
+        name: { type: string }
+        street1: { type: string }
+        street2: { type: ["string", "null"] }
+        city: { type: string }
+        state: { type: string }
+        zip: { type: string }
+        country: { type: string }
+        phone: { type: ["string", "null"] }
+
+    ShippingRate:
+      type: object
+      required: [id, carrier, service, amountCents, currency, deliveryDays]
+      properties:
+        id: { type: string }
+        carrier: { type: string }
+        service: { type: string }
+        amountCents: { type: integer }
+        currency: { type: string }
+        deliveryDays: { type: ["integer", "null"] }
+
+    Order:
+      type: object
+      required: [id, status, items, subtotalCents, shippingCents, taxCents, totalCents, currency, createdAt]
+      properties:
+        id: { type: integer }
+        status: { type: string }
+        email: { type: ["string", "null"] }
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/OrderItem" }
+        subtotalCents: { type: integer }
+        shippingCents: { type: integer }
+        taxCents: { type: integer }
+        totalCents: { type: integer }
+        currency: { type: string }
+        shippingAddress: { $ref: "#/components/schemas/AddressInput" }
+        trackingCode: { type: ["string", "null"] }
+        labelUrl: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    OrderItem:
+      type: object
+      required: [id, productId, productName, quantity, priceCents]
+      properties:
+        id: { type: integer }
+        productId: { type: integer }
+        productName: { type: string }
+        productImage: { type: ["string", "null"] }
+        quantity: { type: integer }
+        priceCents: { type: integer }
+
+    BlogPost:
+      type: object
+      required: [id, slug, title, excerpt, content, published, createdAt]
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        title: { type: string }
+        excerpt: { type: string }
+        content: { type: string }
+        coverImage: { type: ["string", "null"] }
+        author: { type: ["string", "null"] }
+        tags:
+          type: array
+          items: { type: string }
+        seoTitle: { type: ["string", "null"] }
+        seoDescription: { type: ["string", "null"] }
+        published: { type: boolean }
+        publishedAt: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+    BlogPostInput:
+      type: object
+      required: [slug, title, excerpt, content]
+      properties:
+        slug: { type: string }
+        title: { type: string }
+        excerpt: { type: string }
+        content: { type: string }
+        coverImage: { type: ["string", "null"] }
+        author: { type: ["string", "null"] }
+        tags:
+          type: array
+          items: { type: string }
+        seoTitle: { type: ["string", "null"] }
+        seoDescription: { type: ["string", "null"] }
+        published: { type: boolean }
+
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name: { type: string, minLength: 1 }
+        size: { type: integer, minimum: 1 }
+        contentType: { type: string, minLength: 1 }
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL: { type: string, format: uri }
+        objectPath: { type: string }
+        metadata: { $ref: "#/components/schemas/UploadUrlRequest" }
+
+    AdminStats:
+      type: object
+      required: [totalOrders, ordersThisMonth, revenueCentsThisMonth, pendingFulfillment, lowStock, totalProducts]
+      properties:
+        totalOrders: { type: integer }
+        ordersThisMonth: { type: integer }
+        revenueCentsThisMonth: { type: integer }
+        pendingFulfillment: { type: integer }
+        lowStock: { type: integer }
+        totalProducts: { type: integer }
+        recentOrders:
+          type: array
+          items: { $ref: "#/components/schemas/Order" }
