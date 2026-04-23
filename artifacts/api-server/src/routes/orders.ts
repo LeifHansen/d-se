@@ -93,7 +93,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
     })),
   );
 
-  if (!isStripeConfigured()) {
+  if (!(await isStripeConfigured())) {
     // Dev fallback: skip Stripe; mark order as paid immediately.
     await db
       .update(ordersTable)
@@ -112,7 +112,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
   }
 
   try {
-    const stripe = getStripe();
+    const stripe = await getStripe();
     const baseUrl =
       process.env.PUBLIC_APP_URL ??
       `https://${process.env.REPLIT_DEV_DOMAIN ?? "localhost"}`;

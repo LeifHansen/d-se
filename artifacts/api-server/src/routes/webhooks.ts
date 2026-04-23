@@ -16,7 +16,7 @@ router.post(
   "/webhooks/stripe",
   raw({ type: "application/json" }),
   async (req, res): Promise<void> => {
-    if (!isStripeConfigured()) {
+    if (!(await isStripeConfigured())) {
       res.status(503).json({ error: "Stripe not configured" });
       return;
     }
@@ -26,7 +26,7 @@ router.post(
       res.status(400).json({ error: "Missing signature" });
       return;
     }
-    const stripe = getStripe();
+    const stripe = await getStripe();
     let event;
     try {
       event = stripe.webhooks.constructEvent(req.body, sig, secret);
