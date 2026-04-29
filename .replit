@@ -14,7 +14,7 @@ runButton = "Project"
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
-integrations = ["stripe:1.0.0"]
+integrations = ["stripe:1.0.0", "resend:1.0.0"]
 
 [postMerge]
 path = "scripts/post-merge.sh"
@@ -27,6 +27,10 @@ externalPort = 80
 [[ports]]
 localPort = 8081
 externalPort = 8081
+
+[[ports]]
+localPort = 18539
+externalPort = 3000
 
 [userenv]
 

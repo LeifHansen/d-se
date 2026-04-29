@@ -24,7 +24,7 @@
     "nanoid": "^5.1.9",
     "pino": "^9",
     "pino-http": "^10",
-    "resend": "^6.12.2",
+    "resend": "^4.0.0",
     "stripe": "^20.0.0",
     "stripe-replit-sync": "1.0.0"
   },

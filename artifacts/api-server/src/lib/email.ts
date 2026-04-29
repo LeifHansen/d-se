@@ -1,17 +1,57 @@
 import { Resend } from "resend";
 
-let _resend: Resend | null = null;
+// Replit Resend connector — fetches API key + verified from-email from the
+// connector hostname. See snippets/resend.
+type ResendCreds = { apiKey: string; fromEmail: string };
 
-export function getResend(): Resend | null {
-  if (_resend) return _resend;
-  const key = process.env.RESEND_API_KEY;
-  if (!key) return null;
-  _resend = new Resend(key);
-  return _resend;
+let cachedCreds: ResendCreds | null = null;
+let cachedAt = 0;
+const CRED_TTL_MS = 60_000;
+
+async function fetchCreds(): Promise<ResendCreds | null> {
+  const now = Date.now();
+  if (cachedCreds && now - cachedAt < CRED_TTL_MS) return cachedCreds;
+  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  const xReplitToken = process.env.REPL_IDENTITY
+    ? "repl " + process.env.REPL_IDENTITY
+    : process.env.WEB_REPL_RENEWAL
+      ? "depl " + process.env.WEB_REPL_RENEWAL
+      : null;
+  if (!hostname || !xReplitToken) return null;
+  try {
+    const url = `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=resend`;
+    const res = await fetch(url, {
+      headers: { Accept: "application/json", "X-Replit-Token": xReplitToken },
+    });
+    const data = (await res.json()) as {
+      items?: Array<{ settings?: { api_key?: string; from_email?: string } }>;
+    };
+    const settings = data.items?.[0]?.settings;
+    if (!settings?.api_key) return null;
+    cachedCreds = {
+      apiKey: settings.api_key,
+      fromEmail:
+        settings.from_email ??
+        process.env.RESEND_FROM_EMAIL ??
+        "noreply@example.com",
+    };
+    cachedAt = now;
+    return cachedCreds;
+  } catch {
+    return null;
+  }
 }
 
-export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL ?? "noreply@example.com";
 export const STORE_NAME = process.env.STORE_NAME ?? "Store";
+
+async function getResend(): Promise<{
+  client: Resend;
+  fromEmail: string;
+} | null> {
+  const creds = await fetchCreds();
+  if (!creds) return null;
+  return { client: new Resend(creds.apiKey), fromEmail: creds.fromEmail };
+}
 
 export async function sendOrderConfirmation(opts: {
   to: string;
@@ -19,8 +59,8 @@ export async function sendOrderConfirmation(opts: {
   totalCents: number;
   items: Array<{ name: string; quantity: number; priceCents: number }>;
 }): Promise<void> {
-  const resend = getResend();
-  if (!resend) return;
+  const r = await getResend();
+  if (!r) return;
   const lines = opts.items
     .map(
       (i) =>
@@ -29,8 +69,8 @@ export async function sendOrderConfirmation(opts: {
         ).toFixed(2)}</td></tr>`,
     )
     .join("");
-  await resend.emails.send({
-    from: `${STORE_NAME} <${FROM_EMAIL}>`,
+  await r.client.emails.send({
+    from: `${STORE_NAME} <${r.fromEmail}>`,
     to: opts.to,
     subject: `Order #${opts.orderId} confirmed`,
     html: `<h1>Thanks for your order!</h1>
@@ -46,10 +86,10 @@ export async function sendShipmentEmail(opts: {
   trackingCode: string;
   carrier: string;
 }): Promise<void> {
-  const resend = getResend();
-  if (!resend) return;
-  await resend.emails.send({
-    from: `${STORE_NAME} <${FROM_EMAIL}>`,
+  const r = await getResend();
+  if (!r) return;
+  await r.client.emails.send({
+    from: `${STORE_NAME} <${r.fromEmail}>`,
     to: opts.to,
     subject: `Order #${opts.orderId} shipped`,
     html: `<h1>Your order is on its way!</h1>
