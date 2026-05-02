@@ -37,8 +37,19 @@ export async function requireAdmin(
       res.status(403).json({ error: "Forbidden" });
       return;
     }
-    if (ADMIN_EMAILS.length === 0 || ADMIN_EMAILS.includes(email)) {
-      // If no allowlist set, treat any signed-in user as admin (dev convenience).
+    if (ADMIN_EMAILS.length === 0) {
+      // Fail closed in production when no allowlist is configured.
+      if (process.env.NODE_ENV === "production") {
+        res
+          .status(403)
+          .json({ error: "Admin access not configured (set ADMIN_EMAILS)" });
+        return;
+      }
+      // Dev convenience: any signed-in user is admin until ADMIN_EMAILS is set.
+      next();
+      return;
+    }
+    if (ADMIN_EMAILS.includes(email)) {
       next();
       return;
     }

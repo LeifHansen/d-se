@@ -16,6 +16,7 @@ import {
   GetOrderResponse,
 } from "@workspace/api-zod";
 import { loadCart } from "./cart";
+import { computeShippingRates } from "./shipping";
 import { getStripe, isStripeConfigured } from "../lib/stripe";
 import { getUserId, requireAuth } from "../lib/auth";
 import { sendOrderConfirmation } from "../lib/email";
@@ -61,10 +62,27 @@ router.post("/checkout", async (req, res): Promise<void> => {
     return;
   }
   const userId = getUserId(req);
-  const shippingCents = req.body?.shippingCents ?? 0;
+  const address = parsed.data.address as OrderAddress;
+
+  // Server-side shipping price lookup — never trust client-supplied amounts.
+  let shippingCents = 0;
+  if (parsed.data.shippingRateId) {
+    try {
+      const rates = await computeShippingRates(cart, address);
+      const chosen = rates.find((r) => r.id === parsed.data.shippingRateId);
+      if (!chosen) {
+        res.status(400).json({ error: "Selected shipping rate is no longer available" });
+        return;
+      }
+      shippingCents = chosen.amountCents;
+    } catch (err) {
+      req.log.error({ err }, "Failed to verify shipping rate");
+      res.status(500).json({ error: "Failed to verify shipping rate" });
+      return;
+    }
+  }
   const subtotalCents = cart.subtotalCents;
   const totalCents = subtotalCents + shippingCents;
-  const address = parsed.data.address as OrderAddress;
 
   const [order] = await db
     .insert(ordersTable)
@@ -178,17 +196,27 @@ router.get("/orders/me", requireAuth, async (req, res): Promise<void> => {
   res.json(ListMyOrdersResponse.parse(enriched));
 });
 
-router.get("/orders/:id", async (req, res): Promise<void> => {
+router.get("/orders/:id", requireAuth, async (req, res): Promise<void> => {
   const params = GetOrderParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const order = await buildOrderResponse(params.data.id);
-  if (!order) {
+  const userId = getUserId(req)!;
+  const [row] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, params.data.id));
+  if (!row) {
     res.status(404).json({ error: "Order not found" });
     return;
   }
+  if (row.userId !== userId) {
+    // Don't leak existence to non-owners.
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  const order = await buildOrderResponse(params.data.id);
   res.json(GetOrderResponse.parse(order));
 });
 

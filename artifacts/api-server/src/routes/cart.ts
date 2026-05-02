@@ -208,3 +208,4 @@ router.delete("/cart/items/:itemId", async (req, res): Promise<void> => {
 
 export default router;
 export { loadCart };
+export type LoadedCart = Awaited<ReturnType<typeof loadCart>>;

@@ -53,7 +53,13 @@ router.post(
           .select()
           .from(ordersTable)
           .where(eq(ordersTable.id, orderId));
-        if (order && order.status === "pending") {
+        // Defense-in-depth: confirm the metadata orderId actually belongs to
+        // the session that triggered this event before mutating the order.
+        if (
+          order &&
+          order.status === "pending" &&
+          (!order.stripeSessionId || order.stripeSessionId === session.id)
+        ) {
           await db
             .update(ordersTable)
             .set({
