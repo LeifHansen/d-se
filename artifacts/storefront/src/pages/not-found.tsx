@@ -1,21 +1,43 @@
-import { Card, CardContent } from "@/components/ui/card";
-import { AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Logo } from "@/components/dose/Logo";
 
 export default function NotFound() {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50">
-      <Card className="w-full max-w-md mx-4">
-        <CardContent className="pt-6">
-          <div className="flex mb-4 gap-2">
-            <AlertCircle className="h-8 w-8 text-red-500" />
-            <h1 className="text-2xl font-bold text-gray-900">404 Page Not Found</h1>
-          </div>
-
-          <p className="mt-4 text-sm text-gray-600">
-            Did you forget to add the page to the router?
-          </p>
-        </CardContent>
-      </Card>
+    <div
+      className="flex min-h-screen w-full flex-col items-center justify-center px-6 text-center"
+      style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
+      data-testid="not-found"
+    >
+      <Logo variant="stacked" tone="cream" />
+      <p
+        className="mt-10 text-[11px] font-medium uppercase tracking-[0.22em]"
+        style={{ color: "hsl(42 53% 64%)" }}
+      >
+        Error 404
+      </p>
+      <h1 className="mt-3 max-w-xl font-display text-5xl leading-tight md:text-6xl">
+        This drop seems to have <span className="font-display-italic">evaporated.</span>
+      </h1>
+      <p
+        className="mt-5 max-w-md text-base"
+        style={{ color: "hsla(45,49%,90%,0.75)" }}
+      >
+        The page you're looking for couldn't be found. Let's get you back to something
+        that hits.
+      </p>
+      <Button
+        asChild
+        size="lg"
+        className="mt-10 rounded-full px-8 py-6 text-[12px] font-semibold uppercase tracking-[0.22em]"
+        style={{
+          background: "hsl(42 53% 54%)",
+          color: "hsl(170 58% 14%)",
+          borderColor: "hsl(42 53% 46%)",
+        }}
+        data-testid="not-found-cta"
+      >
+        <a href="/">Take me home</a>
+      </Button>
     </div>
   );
 }

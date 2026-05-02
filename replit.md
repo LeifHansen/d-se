@@ -28,6 +28,26 @@ Monorepo (pnpm workspaces) with:
 - `orders` + `order_items` — orders with shipping address (jsonb), Stripe + EasyPost identifiers, tracking
 - `blog_posts` — markdown content with SEO fields, publish state
 
+## Brand: DŌSE
+
+Storefront is branded as **DŌSE** — a precision THC-infused beverage dropper (10 mg per drop, 30 doses per bottle).
+
+- **Palette** (defined in `artifacts/storefront/src/index.css`):
+  - Deep teal `#0F3933` (primary surface / ink)
+  - Cream `#F1ECDC` (secondary surface / inverse ink)
+  - Sage `#A8B89D` (secondary)
+  - Seafoam `#B6C8C2` (accent in dark)
+  - Gold `#C9A24C` (primary accent / CTAs)
+- **Typography**: `Cormorant Garamond` for display/serif, `Inter` for body/UI. Loaded via Google Fonts in `index.html`.
+- **Logo**: Mountain-inside-droplet emblem + `DŌSE` wordmark. SVG component at `artifacts/storefront/src/components/dose/Logo.tsx`.
+- **Favicon**: `artifacts/storefront/public/favicon.svg` (gold emblem on teal).
+- **Brand assets**: Sourced one-time from the user's Google Drive folder and committed to `artifacts/storefront/src/assets/brand/`. Re-pull on demand by re-running the Drive listing/download flow used in task 2.
+
+## Storefront marketing landing
+
+`artifacts/storefront/src/pages/home.tsx` composes the brand-applied landing from `src/components/dose/`:
+`PromoBanner`, `Header` (with mobile drawer), `AgeGate` (21+ gate, persists in `localStorage` key `dose-age-confirmed`), `Hero`, `StorySection`, `ProductSection`, `RitualSection`, `TestimonialSection`, `JournalSection`, `NewsletterSection`, `Footer`, `MysteryOfferPill`, `CookieBanner` (`localStorage` key `dose-cookies-ack`).
+
 ## Status
 
-Backend, schema, codegen, seed data, and integration scaffolding done. Stripe + Resend + EasyPost API keys still need to be wired. Frontend awaits user-provided brand assets before the design subagent is launched.
+Backend, schema, codegen, seed data, and integration scaffolding done. Stripe + Resend + EasyPost API keys still need to be wired. Storefront branding (logo, palette, typography, marketing landing) is applied; product/cart/checkout/blog/admin UI flows still need wiring to the API.
