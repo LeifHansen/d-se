@@ -11,6 +11,7 @@ import seoRouter from "./seo";
 import discountsRouter from "./discounts";
 import reviewsRouter from "./reviews";
 import newsletterRouter from "./newsletter";
+import contactRouter from "./contact";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(adminRouter);
 router.use(storageRouter);
 router.use(seoRouter);
 router.use(newsletterRouter);
+router.use(contactRouter);
 
 export default router;

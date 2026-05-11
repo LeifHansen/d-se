@@ -118,7 +118,7 @@ export function ProductSection() {
                     <h3 className="font-display text-2xl">{p.name}</h3>
                     <p
                       className="text-xs uppercase tracking-[0.22em]"
-                      style={{ color: "hsla(45,49%,90%,0.6)" }}
+                      style={{ color: "hsla(45,49%,90%,0.88)" }}
                     >
                       {p.tagline}
                     </p>

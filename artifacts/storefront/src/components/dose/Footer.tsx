@@ -1,23 +1,50 @@
 import { Logo, Emblem } from "./Logo";
 import { Instagram, Twitter, Youtube } from "lucide-react";
 import { NewsletterForm } from "./NewsletterForm";
+import { openCookiePreferences } from "./CookieBanner";
 
-const cols: { title: string; links: string[] }[] = [
+type FooterLink = { label: string; href: string; onClick?: () => void };
+
+const cols: { title: string; links: FooterLink[] }[] = [
   {
     title: "Shop",
-    links: ["Original Dropper", "Wellness Elixir", "Nightcap", "Bundle & Save", "Gift Cards"],
+    links: [
+      { label: "Original Dropper", href: "/#shop" },
+      { label: "Wellness Elixir", href: "/#shop" },
+      { label: "Nightcap", href: "/#shop" },
+      { label: "Bundle & Save", href: "/#bundles" },
+      { label: "Gift Cards", href: "/#shop" },
+    ],
   },
   {
     title: "Learn",
-    links: ["The Ritual", "Lab Reports", "Journal", "FAQ", "Dosage Guide"],
+    links: [
+      { label: "The Ritual", href: "/#ritual" },
+      { label: "Lab Reports", href: "/#labs" },
+      { label: "Journal", href: "/#journal" },
+      { label: "FAQ", href: "/#faq" },
+      { label: "Dosage Guide", href: "/#ritual" },
+    ],
   },
   {
     title: "Company",
-    links: ["Our Story", "Sustainability", "Wholesale", "Careers", "Contact"],
+    links: [
+      { label: "Our Story", href: "/#story" },
+      { label: "Sustainability", href: "/#story" },
+      { label: "Wholesale", href: "/contact" },
+      { label: "Careers", href: "/contact" },
+      { label: "Contact", href: "/contact" },
+    ],
   },
   {
     title: "Support",
-    links: ["Shipping", "Returns", "Track Order", "Accessibility", "Help Center"],
+    links: [
+      { label: "Shipping", href: "/shipping-policy" },
+      { label: "Returns", href: "/returns" },
+      { label: "Track Order", href: "/contact" },
+      { label: "Accessibility", href: "/accessibility" },
+      { label: "Help Center", href: "/contact" },
+    ],
   },
 ];
 
@@ -45,7 +72,8 @@ export function Footer() {
               <a
                 href="#instagram"
                 aria-label="Instagram"
-                className="rounded-full p-2 hover:bg-white/5"
+                className="rounded-full p-2 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{ outlineColor: "hsl(42 53% 64%)" }}
                 data-testid="social-instagram"
               >
                 <Instagram className="h-4 w-4" />
@@ -53,7 +81,8 @@ export function Footer() {
               <a
                 href="#twitter"
                 aria-label="X / Twitter"
-                className="rounded-full p-2 hover:bg-white/5"
+                className="rounded-full p-2 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{ outlineColor: "hsl(42 53% 64%)" }}
                 data-testid="social-twitter"
               >
                 <Twitter className="h-4 w-4" />
@@ -61,7 +90,8 @@ export function Footer() {
               <a
                 href="#youtube"
                 aria-label="YouTube"
-                className="rounded-full p-2 hover:bg-white/5"
+                className="rounded-full p-2 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                style={{ outlineColor: "hsl(42 53% 64%)" }}
                 data-testid="social-youtube"
               >
                 <Youtube className="h-4 w-4" />
@@ -103,13 +133,13 @@ export function Footer() {
                 </h4>
                 <ul className="mt-4 space-y-2.5">
                   {c.links.map((l) => (
-                    <li key={l}>
+                    <li key={l.label}>
                       <a
-                        href="#"
-                        className="text-sm hover:underline"
+                        href={l.href}
+                        className="text-sm hover:underline focus-visible:underline focus-visible:outline-none"
                         style={{ color: "hsla(45,49%,90%,0.85)" }}
                       >
-                        {l}
+                        {l.label}
                       </a>
                     </li>
                   ))}
@@ -129,16 +159,28 @@ export function Footer() {
             For adults 21+ only. Hemp-derived ∆9-THC product. Do not drive or operate
             machinery after use. Keep out of reach of children and pets.
           </p>
-          <div className="flex gap-4">
-            <a href="#privacy" className="hover:underline">
+          <div className="flex flex-wrap gap-x-4 gap-y-2">
+            <a href="/privacy" className="hover:underline" data-testid="footer-privacy">
               Privacy
             </a>
-            <a href="#terms" className="hover:underline">
+            <a href="/terms" className="hover:underline" data-testid="footer-terms">
               Terms
             </a>
-            <a href="#accessibility" className="hover:underline">
+            <a
+              href="/accessibility"
+              className="hover:underline"
+              data-testid="footer-accessibility"
+            >
               Accessibility
             </a>
+            <button
+              type="button"
+              onClick={openCookiePreferences}
+              className="hover:underline"
+              data-testid="footer-cookie-prefs"
+            >
+              Cookie preferences
+            </button>
           </div>
         </div>
       </div>

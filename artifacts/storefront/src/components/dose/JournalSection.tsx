@@ -85,14 +85,14 @@ export function JournalSection() {
               <div className="p-6">
                 <p
                   className="text-[10px] font-medium uppercase tracking-[0.22em]"
-                  style={{ color: "hsla(45,49%,90%,0.6)" }}
+                  style={{ color: "hsla(45,49%,90%,0.88)" }}
                 >
                   {p.eyebrow}
                 </p>
                 <h3 className="mt-2 font-display text-2xl leading-snug">{p.title}</h3>
                 <p
                   className="mt-2 text-sm leading-relaxed"
-                  style={{ color: "hsla(45,49%,90%,0.78)" }}
+                  style={{ color: "hsla(45,49%,90%,0.92)" }}
                 >
                   {p.excerpt}
                 </p>

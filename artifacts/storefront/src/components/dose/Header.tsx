@@ -33,8 +33,8 @@ export function Header() {
       )}
       style={{
         background: scrolled
-          ? "hsla(170, 58%, 14%, 0.92)"
-          : "hsla(170, 58%, 14%, 0.6)",
+          ? "hsla(170, 58%, 14%, 0.96)"
+          : "hsla(170, 58%, 14%, 0.92)",
         color: "hsl(45 49% 90%)",
         borderBottom: scrolled
           ? "1px solid hsla(45, 49%, 90%, 0.10)"

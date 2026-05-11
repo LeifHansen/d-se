@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Logo } from "./Logo";
 import { Button } from "@/components/ui/button";
 import { Image } from "./Image";
@@ -9,6 +9,9 @@ const STORAGE_KEY = "dose-age-confirmed";
 export function AgeGate() {
   const [open, setOpen] = useState(false);
   const [denied, setDenied] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const yesButtonRef = useRef<HTMLButtonElement>(null);
+  const previouslyFocused = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     try {
@@ -18,6 +21,43 @@ export function AgeGate() {
       setOpen(true);
     }
   }, []);
+
+  // Focus management + focus trap while the modal is open.
+  useEffect(() => {
+    if (!open) return;
+    previouslyFocused.current = document.activeElement as HTMLElement | null;
+    const t = window.setTimeout(() => yesButtonRef.current?.focus(), 0);
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const root = dialogRef.current;
+      if (!root) return;
+      const focusables = root.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+      previouslyFocused.current?.focus?.();
+    };
+  }, [open]);
 
   const confirm = () => {
     try {
@@ -36,7 +76,8 @@ export function AgeGate() {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Age verification"
+      aria-labelledby="age-gate-title"
+      ref={dialogRef}
       className="fixed inset-0 z-[100] flex items-center justify-center px-4"
       data-testid="age-gate"
       style={{ background: "hsla(170, 58%, 8%, 0.78)" }}
@@ -49,7 +90,9 @@ export function AgeGate() {
           <Logo variant="stacked" tone="teal" />
           {denied ? (
             <>
-              <h2 className="font-display text-2xl">We'll see you later.</h2>
+              <h2 id="age-gate-title" className="font-display text-2xl">
+                We'll see you later.
+              </h2>
               <p className="max-w-xs text-sm" style={{ color: "hsl(170 18% 32%)" }}>
                 You must be 21 or older to enter this site. Please come back when you
                 meet the age requirement.
@@ -58,11 +101,15 @@ export function AgeGate() {
           ) : (
             <>
               <p className="text-sm tracking-wide">Please confirm your age</p>
-              <h2 className="font-display text-2xl leading-tight">
+              <h2
+                id="age-gate-title"
+                className="font-display text-2xl leading-tight"
+              >
                 Are you at least <span className="font-display-italic">21 years old?</span>
               </h2>
               <div className="flex gap-3">
                 <Button
+                  ref={yesButtonRef}
                   onClick={confirm}
                   variant="default"
                   className="min-w-[7rem] uppercase tracking-[0.22em] text-[11px]"
@@ -84,11 +131,11 @@ export function AgeGate() {
                 style={{ color: "hsl(170 18% 32%)" }}
               >
                 By entering this site you are agreeing to our{" "}
-                <a className="underline underline-offset-2" href="#terms">
+                <a className="underline underline-offset-2" href="/terms">
                   Terms of Service
                 </a>{" "}
                 and{" "}
-                <a className="underline underline-offset-2" href="#privacy">
+                <a className="underline underline-offset-2" href="/privacy">
                   Privacy Policy
                 </a>
                 .

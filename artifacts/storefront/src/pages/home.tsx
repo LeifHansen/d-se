@@ -1,5 +1,3 @@
-import { Seo } from "@/components/seo/Seo";
-import { OrganizationJsonLd, WebSiteJsonLd } from "@/components/seo/JsonLd";
 import { PromoBanner } from "@/components/dose/PromoBanner";
 import { Header } from "@/components/dose/Header";
 import { AgeGate } from "@/components/dose/AgeGate";
@@ -18,12 +16,9 @@ import { NewsletterModal } from "@/components/dose/NewsletterModal";
 export default function Home() {
   return (
     <div className="min-h-screen w-full bg-background text-foreground" data-testid="home">
-      <Seo canonical="/" />
-      <OrganizationJsonLd />
-      <WebSiteJsonLd />
       <PromoBanner />
       <Header />
-      <main>
+      <main id="main">
         <Hero />
         <StorySection />
         <ProductSection />

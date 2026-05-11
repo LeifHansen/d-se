@@ -2,29 +2,47 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CONSENT_EVENT } from "@/lib/analytics";
 
-const KEY = "dose-cookies-ack";
+const KEY = "dose-cookies-decision";
+export const COOKIE_OPEN_EVENT = "dose:cookie-open";
+export const COOKIE_DECISION_EVENT = "dose:cookie-decision";
+
+export type CookieDecision = "accept" | "decline";
+
+export function getCookieDecision(): CookieDecision | null {
+  try {
+    const v = window.localStorage.getItem(KEY);
+    return v === "accept" || v === "decline" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+export function openCookiePreferences() {
+  window.dispatchEvent(new CustomEvent(COOKIE_OPEN_EVENT));
+}
 
 export function CookieBanner() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    try {
-      if (window.localStorage.getItem(KEY) !== "yes") setShow(true);
-    } catch {
-      setShow(true);
-    }
+    if (getCookieDecision() === null) setShow(true);
+    const onOpen = () => setShow(true);
+    window.addEventListener(COOKIE_OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(COOKIE_OPEN_EVENT, onOpen);
   }, []);
 
-  const ack = (decision: "accept" | "decline") => {
+  const ack = (decision: CookieDecision) => {
     try {
-      window.localStorage.setItem(KEY, "yes");
-      window.localStorage.setItem("dose-cookies-decision", decision);
+      window.localStorage.setItem(KEY, decision);
     } catch {
       /* ignore */
     }
     try {
       window.dispatchEvent(
         new CustomEvent(CONSENT_EVENT, { detail: { decision } }),
+      );
+      window.dispatchEvent(
+        new CustomEvent(COOKIE_DECISION_EVENT, { detail: { decision } }),
       );
     } catch {
       /* ignore */
@@ -36,6 +54,8 @@ export function CookieBanner() {
 
   return (
     <div
+      role="region"
+      aria-label="Cookie consent"
       className="fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-md"
       style={{
         background: "hsla(45, 49%, 90%, 0.96)",
@@ -49,12 +69,11 @@ export function CookieBanner() {
           className="max-w-3xl leading-relaxed"
           style={{ color: "hsl(170 18% 28%)" }}
         >
-          This website uses cookies, pixels, software, and/or other technology for
-          advertising, analytics, and social media — to better understand how visitors
-          use our site and to offer you a more personalized experience. We share
-          information with our analytics, advertising, and social partners.{" "}
-          <a href="#cookies" className="underline">
-            Learn more
+          We use a few essential cookies to run the store. With your
+          permission, we also load analytics that help us improve the site.
+          Nothing non-essential loads until you choose. Read our{" "}
+          <a href="/privacy" className="underline">
+            Privacy Policy
           </a>
           .
         </p>
