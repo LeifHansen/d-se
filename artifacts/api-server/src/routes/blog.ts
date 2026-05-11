@@ -7,8 +7,12 @@ import {
   GetBlogPostBySlugParams,
   GetBlogPostBySlugResponse,
 } from "@workspace/api-zod";
+import { publicCache } from "../middlewares/cacheControl";
 
 const router: IRouter = Router();
+
+const blogIndexCache = publicCache({ sMaxAge: 300, staleWhileRevalidate: 3600 });
+const blogPostCache = publicCache({ sMaxAge: 600, staleWhileRevalidate: 86400 });
 
 function serialize(p: typeof blogPostsTable.$inferSelect) {
   return {
@@ -28,7 +32,7 @@ function serialize(p: typeof blogPostsTable.$inferSelect) {
   };
 }
 
-router.get("/blog/posts", async (req, res): Promise<void> => {
+router.get("/blog/posts", blogIndexCache, async (req, res): Promise<void> => {
   const parsed = ListBlogPostsQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -47,7 +51,7 @@ router.get("/blog/posts", async (req, res): Promise<void> => {
   res.json(ListBlogPostsResponse.parse(rows.map(serialize)));
 });
 
-router.get("/blog/posts/:slug", async (req, res): Promise<void> => {
+router.get("/blog/posts/:slug", blogPostCache, async (req, res): Promise<void> => {
   const params = GetBlogPostBySlugParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

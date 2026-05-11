@@ -1,8 +1,9 @@
 import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import productBoxes from "@/assets/brand/grok-image-2662d902-bd38-4be9-8533-9f47f6199d97.png";
-import singleBox from "@/assets/brand/Untitled-5.jpg";
-import bottleClose from "@/assets/brand/Untitled-11_copy.jpg";
+import { Image } from "./Image";
+import productBoxes from "@/assets/brand/grok-image-2662d902-bd38-4be9-8533-9f47f6199d97.png?picture";
+import singleBox from "@/assets/brand/Untitled-5.jpg?picture";
+import bottleClose from "@/assets/brand/Untitled-11_copy.jpg?picture";
 
 const products = [
   {
@@ -74,10 +75,12 @@ export function ProductSection() {
               data-testid={`product-card-${p.name.toLowerCase().replace(/\s+/g, "-")}`}
             >
               <div className="relative aspect-[4/5] w-full overflow-hidden">
-                <img
-                  src={p.img}
+                <Image
+                  picture={p.img}
                   alt={`${p.name} packaging`}
                   className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+                  pictureClassName="block h-full w-full"
+                  sizes="(min-width: 768px) 30vw, 90vw"
                 />
                 <span
                   className="absolute left-4 top-4 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em]"

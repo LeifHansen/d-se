@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { Logo } from "./Logo";
 import { Button } from "@/components/ui/button";
-import productBoxes from "@/assets/brand/grok-image-2662d902-bd38-4be9-8533-9f47f6199d97.png";
+import { Image } from "./Image";
+import productBoxes from "@/assets/brand/grok-image-2662d902-bd38-4be9-8533-9f47f6199d97.png?picture";
 
 const STORAGE_KEY = "dose-age-confirmed";
 
@@ -96,10 +97,12 @@ export function AgeGate() {
           )}
         </div>
         <div className="hidden md:block">
-          <img
-            src={productBoxes}
+          <Image
+            picture={productBoxes}
             alt="DŌSE wellness elixir packaging"
             className="h-full w-full object-cover"
+            pictureClassName="block h-full w-full"
+            sizes="(min-width: 768px) 45vw, 90vw"
           />
         </div>
       </div>

@@ -1,7 +1,8 @@
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import bottleClose from "@/assets/brand/Untitled-11_copy.jpg";
-import packaging from "@/assets/brand/Untitled-10.jpg";
+import { Image } from "./Image";
+import bottleClose from "@/assets/brand/Untitled-11_copy.jpg?picture";
+import packaging from "@/assets/brand/Untitled-10.jpg?picture";
 
 export function Hero() {
   return (
@@ -98,10 +99,13 @@ export function Hero() {
         {/* Visual */}
         <div className="relative md:col-span-5 lg:col-span-5">
           <div className="relative mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-3xl shadow-2xl">
-            <img
-              src={packaging}
+            <Image
+              picture={packaging}
               alt="DŌSE THC Infused Beverage Dropper packaging"
               className="h-full w-full object-cover"
+              pictureClassName="block h-full w-full"
+              sizes="(min-width: 1024px) 420px, (min-width: 768px) 38vw, 90vw"
+              priority
             />
             {/* subtle bottom fade */}
             <div
@@ -117,10 +121,12 @@ export function Hero() {
             className="absolute -bottom-10 -left-6 hidden w-44 overflow-hidden rounded-2xl shadow-xl ring-1 md:block"
             style={{ borderColor: "hsla(45,49%,90%,0.15)" }}
           >
-            <img
-              src={bottleClose}
+            <Image
+              picture={bottleClose}
               alt="DŌSE bottle detail"
               className="h-44 w-full object-cover"
+              pictureClassName="block h-44 w-full"
+              sizes="176px"
             />
           </div>
         </div>

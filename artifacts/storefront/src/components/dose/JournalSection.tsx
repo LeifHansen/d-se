@@ -1,7 +1,8 @@
 import { ArrowUpRight } from "lucide-react";
-import wellnessImg from "@/assets/brand/grok-image-2662d902-bd38-4be9-8533-9f47f6199d97.png";
-import goldImg from "@/assets/brand/Untitled-9.jpg";
-import bottleImg from "@/assets/brand/Untitled-11_copy.jpg";
+import { Image } from "./Image";
+import wellnessImg from "@/assets/brand/grok-image-2662d902-bd38-4be9-8533-9f47f6199d97.png?picture";
+import goldImg from "@/assets/brand/Untitled-9.jpg?picture";
+import bottleImg from "@/assets/brand/Untitled-11_copy.jpg?picture";
 
 const posts = [
   {
@@ -73,10 +74,12 @@ export function JournalSection() {
               data-testid={`journal-post-${i + 1}`}
             >
               <div className="aspect-[5/4] w-full overflow-hidden">
-                <img
-                  src={p.img}
+                <Image
+                  picture={p.img}
                   alt=""
                   className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.05]"
+                  pictureClassName="block h-full w-full"
+                  sizes="(min-width: 768px) 30vw, 90vw"
                 />
               </div>
               <div className="p-6">

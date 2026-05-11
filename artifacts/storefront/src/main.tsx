@@ -9,6 +9,8 @@ import {
   isSentryEnabled,
 } from "./lib/sentry";
 import { RootErrorBoundary } from "./components/RootErrorBoundary";
+import { startWebVitals } from "./lib/web-vitals";
+import heroPicture from "@/assets/brand/Untitled-10.jpg?picture";
 
 initSentry();
 installFetchRequestIdBreadcrumbs();
@@ -28,6 +30,41 @@ if (typeof window !== "undefined") {
   });
 }
 
+function preloadHero() {
+  if (typeof document === "undefined") return;
+  const sizes = "(min-width: 1024px) 420px, (min-width: 768px) 38vw, 90vw";
+  const candidates: Array<{ type: string; srcset: string }> = [];
+  for (const fmt of ["avif", "webp"] as const) {
+    const srcset = heroPicture.sources[fmt];
+    if (srcset) candidates.push({ type: `image/${fmt}`, srcset });
+  }
+  const jpegSrcset = heroPicture.sources["jpeg"] ?? heroPicture.sources["jpg"];
+  if (jpegSrcset) candidates.push({ type: "image/jpeg", srcset: jpegSrcset });
+
+  if (candidates.length === 0) {
+    const link = document.createElement("link");
+    link.rel = "preload";
+    link.as = "image";
+    link.fetchPriority = "high";
+    link.href = heroPicture.img.src;
+    document.head.appendChild(link);
+    return;
+  }
+
+  for (const c of candidates) {
+    const link = document.createElement("link");
+    link.rel = "preload";
+    link.as = "image";
+    link.fetchPriority = "high";
+    link.type = c.type;
+    link.href = heroPicture.img.src;
+    link.setAttribute("imagesrcset", c.srcset);
+    link.setAttribute("imagesizes", sizes);
+    document.head.appendChild(link);
+  }
+}
+
+preloadHero();
 createRoot(document.getElementById("root")!).render(
   <RootErrorBoundary>
     <HelmetProvider>
@@ -35,3 +72,12 @@ createRoot(document.getElementById("root")!).render(
     </HelmetProvider>
   </RootErrorBoundary>,
 );
+
+if (typeof window !== "undefined") {
+  if ("requestIdleCallback" in window) {
+    (window as Window & { requestIdleCallback: (cb: () => void) => void })
+      .requestIdleCallback(startWebVitals);
+  } else {
+    setTimeout(startWebVitals, 0);
+  }
+}

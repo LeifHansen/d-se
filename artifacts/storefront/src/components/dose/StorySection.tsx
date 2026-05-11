@@ -1,5 +1,6 @@
 import { Emblem } from "./Logo";
-import goldEmblem from "@/assets/brand/Untitled-9.jpg";
+import { Image } from "./Image";
+import goldEmblem from "@/assets/brand/Untitled-9.jpg?picture";
 
 export function StorySection() {
   return (
@@ -12,10 +13,12 @@ export function StorySection() {
       <div className="mx-auto grid max-w-7xl gap-12 px-6 py-24 md:grid-cols-12 md:gap-16 md:px-10 md:py-32">
         <div className="md:col-span-5">
           <div className="aspect-[4/5] w-full overflow-hidden rounded-3xl shadow-xl">
-            <img
-              src={goldEmblem}
+            <Image
+              picture={goldEmblem}
               alt="DŌSE gold emblem on deep teal"
               className="h-full w-full object-cover"
+              pictureClassName="block h-full w-full"
+              sizes="(min-width: 768px) 40vw, 90vw"
             />
           </div>
         </div>

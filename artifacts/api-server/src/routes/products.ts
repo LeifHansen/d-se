@@ -12,8 +12,12 @@ import {
   getProductRatingStats,
   getProductRatingStatsBatch,
 } from "./reviews";
+import { publicCache } from "../middlewares/cacheControl";
 
 const router: IRouter = Router();
+
+const productsCache = publicCache({ sMaxAge: 60, staleWhileRevalidate: 600 });
+const productCache = publicCache({ sMaxAge: 300, staleWhileRevalidate: 86400 });
 
 function serialize(
   p: typeof productsTable.$inferSelect,
@@ -51,7 +55,7 @@ async function attachRatings(
   );
 }
 
-router.get("/products", async (req, res): Promise<void> => {
+router.get("/products", productsCache, async (req, res): Promise<void> => {
   const parsed = ListProductsQueryParams.safeParse(req.query);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -82,7 +86,7 @@ router.get("/products", async (req, res): Promise<void> => {
   res.json(ListProductsResponse.parse(await attachRatings(rows)));
 });
 
-router.get("/products/featured", async (_req, res): Promise<void> => {
+router.get("/products/featured", productsCache, async (_req, res): Promise<void> => {
   const rows = await db
     .select()
     .from(productsTable)
@@ -94,7 +98,7 @@ router.get("/products/featured", async (_req, res): Promise<void> => {
   res.json(ListFeaturedProductsResponse.parse(await attachRatings(rows)));
 });
 
-router.get("/products/:slug", async (req, res): Promise<void> => {
+router.get("/products/:slug", productCache, async (req, res): Promise<void> => {
   const params = GetProductBySlugParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });

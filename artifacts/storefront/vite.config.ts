@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { imagetools } from "vite-imagetools";
 
 const rawPort = process.env.PORT;
 
@@ -31,6 +32,18 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    imagetools({
+      defaultDirectives: (url) => {
+        if (url.searchParams.has("picture")) {
+          const params = new URLSearchParams();
+          params.set("w", "400;640;960;1280;1600");
+          params.set("format", "avif;webp;jpeg");
+          params.set("as", "picture");
+          return params;
+        }
+        return new URLSearchParams();
+      },
+    }),
     runtimeErrorOverlay(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
