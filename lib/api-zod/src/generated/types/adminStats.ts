@@ -9,10 +9,15 @@ import type { Order } from "./order";
 
 export interface AdminStats {
   totalOrders: number;
+  ordersToday: number;
+  revenueCentsToday: number;
   ordersThisMonth: number;
   revenueCentsThisMonth: number;
   pendingFulfillment: number;
   lowStock: number;
   totalProducts: number;
+  /** @nullable */
+  webhookLastReceivedAt?: Date | null;
+  webhookHealthy: boolean;
   recentOrders?: Order[];
 }

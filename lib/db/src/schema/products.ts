@@ -23,6 +23,7 @@ export const productsTable = pgTable(
     currency: text("currency").notNull().default("usd"),
     images: jsonb("images").$type<string[]>().notNull().default([]),
     inventory: integer("inventory").notNull().default(0),
+    lowStockThreshold: integer("low_stock_threshold").notNull().default(5),
     weightOz: numeric("weight_oz", { precision: 10, scale: 2 }),
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
     seoTitle: text("seo_title"),

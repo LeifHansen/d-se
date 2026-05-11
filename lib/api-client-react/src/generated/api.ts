@@ -24,6 +24,7 @@ import type {
   BadRequestResponse,
   BlogPost,
   BlogPostInput,
+  BulkInventoryInput,
   Cart,
   CreateCheckout200,
   CreateCheckoutBody,
@@ -1980,6 +1981,161 @@ export function useListAdminOrders<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListAdminOrdersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getBulkUpdateInventoryUrl = () => {
+  return `/api/admin/products/inventory/bulk`;
+};
+
+export const bulkUpdateInventory = async (
+  bulkInventoryInput: BulkInventoryInput,
+  options?: RequestInit,
+): Promise<Product[]> => {
+  return customFetch<Product[]>(getBulkUpdateInventoryUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(bulkInventoryInput),
+  });
+};
+
+export const getBulkUpdateInventoryMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkUpdateInventory>>,
+    TError,
+    { data: BodyType<BulkInventoryInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof bulkUpdateInventory>>,
+  TError,
+  { data: BodyType<BulkInventoryInput> },
+  TContext
+> => {
+  const mutationKey = ["bulkUpdateInventory"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof bulkUpdateInventory>>,
+    { data: BodyType<BulkInventoryInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return bulkUpdateInventory(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type BulkUpdateInventoryMutationResult = NonNullable<
+  Awaited<ReturnType<typeof bulkUpdateInventory>>
+>;
+export type BulkUpdateInventoryMutationBody = BodyType<BulkInventoryInput>;
+export type BulkUpdateInventoryMutationError = ErrorType<unknown>;
+
+export const useBulkUpdateInventory = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof bulkUpdateInventory>>,
+    TError,
+    { data: BodyType<BulkInventoryInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof bulkUpdateInventory>>,
+  TError,
+  { data: BodyType<BulkInventoryInput> },
+  TContext
+> => {
+  return useMutation(getBulkUpdateInventoryMutationOptions(options));
+};
+
+/**
+ * @summary CSV export of all products
+ */
+export const getExportProductsCsvUrl = () => {
+  return `/api/admin/products/export.csv`;
+};
+
+export const exportProductsCsv = async (
+  options?: RequestInit,
+): Promise<string> => {
+  return customFetch<string>(getExportProductsCsvUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getExportProductsCsvQueryKey = () => {
+  return [`/api/admin/products/export.csv`] as const;
+};
+
+export const getExportProductsCsvQueryOptions = <
+  TData = Awaited<ReturnType<typeof exportProductsCsv>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof exportProductsCsv>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getExportProductsCsvQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof exportProductsCsv>>
+  > = ({ signal }) => exportProductsCsv({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof exportProductsCsv>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ExportProductsCsvQueryResult = NonNullable<
+  Awaited<ReturnType<typeof exportProductsCsv>>
+>;
+export type ExportProductsCsvQueryError = ErrorType<unknown>;
+
+/**
+ * @summary CSV export of all products
+ */
+
+export function useExportProductsCsv<
+  TData = Awaited<ReturnType<typeof exportProductsCsv>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof exportProductsCsv>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getExportProductsCsvQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

@@ -6,9 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListAdminOrdersParams = {
-  status?: string;
-  search?: string;
-  from?: Date;
-  to?: Date;
-};
+export interface DependencyCheck {
+  ok: boolean;
+  /** @nullable */
+  detail?: string | null;
+}

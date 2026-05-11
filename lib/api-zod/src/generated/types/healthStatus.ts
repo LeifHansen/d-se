@@ -5,7 +5,11 @@
  * E-commerce storefront API
  * OpenAPI spec version: 0.1.0
  */
+import type { HealthStatusChecks } from "./healthStatusChecks";
 
 export interface HealthStatus {
   status: string;
+  /** @nullable */
+  requestId?: string | null;
+  checks: HealthStatusChecks;
 }

@@ -5,8 +5,24 @@
  * E-commerce storefront API
  * OpenAPI spec version: 0.1.0
  */
+export interface DependencyCheck {
+  ok: boolean;
+  /** @nullable */
+  detail?: string | null;
+}
+
+export type HealthStatusChecks = {
+  db: DependencyCheck;
+  stripe: DependencyCheck;
+  resend: DependencyCheck;
+  webhook?: DependencyCheck;
+};
+
 export interface HealthStatus {
   status: string;
+  /** @nullable */
+  requestId?: string | null;
+  checks: HealthStatusChecks;
 }
 
 export interface Error {
@@ -26,6 +42,7 @@ export interface Product {
   currency: string;
   images: string[];
   inventory: number;
+  lowStockThreshold: number;
   /** @nullable */
   weightOz?: number | null;
   tags?: string[];
@@ -53,6 +70,7 @@ export interface ProductInput {
   currency?: string;
   images?: string[];
   inventory: number;
+  lowStockThreshold?: number;
   /** @nullable */
   weightOz?: number | null;
   tags?: string[];
@@ -330,12 +348,32 @@ export interface TaxSummary {
 
 export interface AdminStats {
   totalOrders: number;
+  ordersToday: number;
+  revenueCentsToday: number;
   ordersThisMonth: number;
   revenueCentsThisMonth: number;
   pendingFulfillment: number;
   lowStock: number;
   totalProducts: number;
+  /** @nullable */
+  webhookLastReceivedAt?: string | null;
+  webhookHealthy: boolean;
   recentOrders?: Order[];
+}
+
+export type BulkInventoryInputUpdatesItem = {
+  id: number;
+  /** @minimum 0 */
+  inventory: number;
+  /**
+   * @minimum 0
+   * @nullable
+   */
+  lowStockThreshold?: number | null;
+};
+
+export interface BulkInventoryInput {
+  updates: BulkInventoryInputUpdatesItem[];
 }
 
 /**
@@ -424,6 +462,9 @@ export type ListBlogPostsParams = {
 
 export type ListAdminOrdersParams = {
   status?: string;
+  search?: string;
+  from?: string;
+  to?: string;
 };
 
 export type FulfillOrderBody = {

@@ -160,6 +160,31 @@ export async function sendAbandonedCartEmail(opts: {
   });
 }
 
+export async function sendLowStockDigest(opts: {
+  to: string;
+  items: Array<{ id: number; name: string; inventory: number; threshold: number }>;
+}): Promise<void> {
+  const r = await getResend();
+  if (!r) return;
+  const rows = opts.items
+    .map(
+      (i) =>
+        `<tr><td>#${i.id}</td><td>${i.name}</td><td>${i.inventory}</td><td>${i.threshold}</td></tr>`,
+    )
+    .join("");
+  await r.client.emails.send({
+    from: `${STORE_NAME} <${r.fromEmail}>`,
+    to: opts.to,
+    subject: `[${STORE_NAME}] Daily low-stock digest (${opts.items.length})`,
+    html: `<h1>Low stock report</h1>
+<p>${opts.items.length} product(s) are at or below their low-stock threshold.</p>
+<table border="1" cellpadding="6" cellspacing="0">
+<thead><tr><th>ID</th><th>Name</th><th>Inventory</th><th>Threshold</th></tr></thead>
+<tbody>${rows}</tbody>
+</table>`,
+  });
+}
+
 export async function sendShipmentEmail(opts: {
   to: string;
   orderId: number;

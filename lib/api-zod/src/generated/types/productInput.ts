@@ -18,6 +18,7 @@ export interface ProductInput {
   currency?: string;
   images?: string[];
   inventory: number;
+  lowStockThreshold?: number;
   /** @nullable */
   weightOz?: number | null;
   tags?: string[];

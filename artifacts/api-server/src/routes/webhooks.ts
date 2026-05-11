@@ -12,6 +12,7 @@ import {
 import { getStripe, isStripeConfigured } from "../lib/stripe";
 import { sendOrderConfirmation } from "../lib/email";
 import { markCartRecovered } from "../lib/abandonedCart";
+import { recordStripeWebhookReceived } from "../lib/metrics";
 
 const router: IRouter = Router();
 
@@ -37,6 +38,13 @@ router.post(
       req.log.warn({ err }, "Stripe webhook signature failed");
       res.status(400).json({ error: "Invalid signature" });
       return;
+    }
+
+    // Record receipt of any verified Stripe event for freshness monitoring.
+    try {
+      await recordStripeWebhookReceived();
+    } catch (err) {
+      req.log.warn({ err }, "Failed to record webhook timestamp");
     }
 
     if (

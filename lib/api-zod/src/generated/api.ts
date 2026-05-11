@@ -12,6 +12,27 @@ import * as zod from "zod";
  */
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
+  requestId: zod.string().nullish(),
+  checks: zod.object({
+    db: zod.object({
+      ok: zod.boolean(),
+      detail: zod.string().nullish(),
+    }),
+    stripe: zod.object({
+      ok: zod.boolean(),
+      detail: zod.string().nullish(),
+    }),
+    resend: zod.object({
+      ok: zod.boolean(),
+      detail: zod.string().nullish(),
+    }),
+    webhook: zod
+      .object({
+        ok: zod.boolean(),
+        detail: zod.string().nullish(),
+      })
+      .optional(),
+  }),
 });
 
 /**
@@ -42,6 +63,7 @@ export const ListProductsResponseItem = zod.object({
   currency: zod.string(),
   images: zod.array(zod.string()),
   inventory: zod.number(),
+  lowStockThreshold: zod.number(),
   weightOz: zod.number().nullish(),
   tags: zod.array(zod.string()).optional(),
   seoTitle: zod.string().nullish(),
@@ -68,6 +90,7 @@ export const ListFeaturedProductsResponseItem = zod.object({
   currency: zod.string(),
   images: zod.array(zod.string()),
   inventory: zod.number(),
+  lowStockThreshold: zod.number(),
   weightOz: zod.number().nullish(),
   tags: zod.array(zod.string()).optional(),
   seoTitle: zod.string().nullish(),
@@ -100,6 +123,7 @@ export const GetProductBySlugResponse = zod.object({
   currency: zod.string(),
   images: zod.array(zod.string()),
   inventory: zod.number(),
+  lowStockThreshold: zod.number(),
   weightOz: zod.number().nullish(),
   tags: zod.array(zod.string()).optional(),
   seoTitle: zod.string().nullish(),
@@ -136,6 +160,7 @@ export const GetCartResponse = zod.object({
         currency: zod.string(),
         images: zod.array(zod.string()),
         inventory: zod.number(),
+        lowStockThreshold: zod.number(),
         weightOz: zod.number().nullish(),
         tags: zod.array(zod.string()).optional(),
         seoTitle: zod.string().nullish(),
@@ -184,6 +209,7 @@ export const AddCartItemResponse = zod.object({
         currency: zod.string(),
         images: zod.array(zod.string()),
         inventory: zod.number(),
+        lowStockThreshold: zod.number(),
         weightOz: zod.number().nullish(),
         tags: zod.array(zod.string()).optional(),
         seoTitle: zod.string().nullish(),
@@ -233,6 +259,7 @@ export const UpdateCartItemResponse = zod.object({
         currency: zod.string(),
         images: zod.array(zod.string()),
         inventory: zod.number(),
+        lowStockThreshold: zod.number(),
         weightOz: zod.number().nullish(),
         tags: zod.array(zod.string()).optional(),
         seoTitle: zod.string().nullish(),
@@ -279,6 +306,7 @@ export const RemoveCartItemResponse = zod.object({
         currency: zod.string(),
         images: zod.array(zod.string()),
         inventory: zod.number(),
+        lowStockThreshold: zod.number(),
         weightOz: zod.number().nullish(),
         tags: zod.array(zod.string()).optional(),
         seoTitle: zod.string().nullish(),
@@ -325,6 +353,7 @@ export const ApplyCartDiscountResponse = zod.object({
         currency: zod.string(),
         images: zod.array(zod.string()),
         inventory: zod.number(),
+        lowStockThreshold: zod.number(),
         weightOz: zod.number().nullish(),
         tags: zod.array(zod.string()).optional(),
         seoTitle: zod.string().nullish(),
@@ -370,6 +399,7 @@ export const RemoveCartDiscountResponse = zod.object({
         currency: zod.string(),
         images: zod.array(zod.string()),
         inventory: zod.number(),
+        lowStockThreshold: zod.number(),
         weightOz: zod.number().nullish(),
         tags: zod.array(zod.string()).optional(),
         seoTitle: zod.string().nullish(),
@@ -416,6 +446,7 @@ export const ResumeCartResponse = zod.object({
         currency: zod.string(),
         images: zod.array(zod.string()),
         inventory: zod.number(),
+        lowStockThreshold: zod.number(),
         weightOz: zod.number().nullish(),
         tags: zod.array(zod.string()).optional(),
         seoTitle: zod.string().nullish(),
@@ -624,11 +655,15 @@ export const GetBlogPostBySlugResponse = zod.object({
  */
 export const GetAdminStatsResponse = zod.object({
   totalOrders: zod.number(),
+  ordersToday: zod.number(),
+  revenueCentsToday: zod.number(),
   ordersThisMonth: zod.number(),
   revenueCentsThisMonth: zod.number(),
   pendingFulfillment: zod.number(),
   lowStock: zod.number(),
   totalProducts: zod.number(),
+  webhookLastReceivedAt: zod.coerce.date().nullish(),
+  webhookHealthy: zod.boolean(),
   recentOrders: zod
     .array(
       zod.object({
@@ -683,6 +718,7 @@ export const ListAdminProductsResponseItem = zod.object({
   currency: zod.string(),
   images: zod.array(zod.string()),
   inventory: zod.number(),
+  lowStockThreshold: zod.number(),
   weightOz: zod.number().nullish(),
   tags: zod.array(zod.string()).optional(),
   seoTitle: zod.string().nullish(),
@@ -698,6 +734,7 @@ export const ListAdminProductsResponse = zod.array(
 );
 
 export const createProductBodyCurrencyDefault = `usd`;
+export const createProductBodyLowStockThresholdDefault = 5;
 
 export const CreateProductBody = zod.object({
   slug: zod.string(),
@@ -709,6 +746,9 @@ export const CreateProductBody = zod.object({
   currency: zod.string().default(createProductBodyCurrencyDefault),
   images: zod.array(zod.string()).optional(),
   inventory: zod.number(),
+  lowStockThreshold: zod
+    .number()
+    .default(createProductBodyLowStockThresholdDefault),
   weightOz: zod.number().nullish(),
   tags: zod.array(zod.string()).optional(),
   seoTitle: zod.string().nullish(),
@@ -722,6 +762,7 @@ export const UpdateProductParams = zod.object({
 });
 
 export const updateProductBodyCurrencyDefault = `usd`;
+export const updateProductBodyLowStockThresholdDefault = 5;
 
 export const UpdateProductBody = zod.object({
   slug: zod.string(),
@@ -733,6 +774,9 @@ export const UpdateProductBody = zod.object({
   currency: zod.string().default(updateProductBodyCurrencyDefault),
   images: zod.array(zod.string()).optional(),
   inventory: zod.number(),
+  lowStockThreshold: zod
+    .number()
+    .default(updateProductBodyLowStockThresholdDefault),
   weightOz: zod.number().nullish(),
   tags: zod.array(zod.string()).optional(),
   seoTitle: zod.string().nullish(),
@@ -752,6 +796,7 @@ export const UpdateProductResponse = zod.object({
   currency: zod.string(),
   images: zod.array(zod.string()),
   inventory: zod.number(),
+  lowStockThreshold: zod.number(),
   weightOz: zod.number().nullish(),
   tags: zod.array(zod.string()).optional(),
   seoTitle: zod.string().nullish(),
@@ -769,6 +814,9 @@ export const DeleteProductParams = zod.object({
 
 export const ListAdminOrdersQueryParams = zod.object({
   status: zod.coerce.string().optional(),
+  search: zod.coerce.string().optional(),
+  from: zod.date().optional(),
+  to: zod.date().optional(),
 });
 
 export const ListAdminOrdersResponseItem = zod.object({
@@ -809,6 +857,51 @@ export const ListAdminOrdersResponseItem = zod.object({
   createdAt: zod.coerce.date(),
 });
 export const ListAdminOrdersResponse = zod.array(ListAdminOrdersResponseItem);
+
+export const bulkUpdateInventoryBodyUpdatesItemInventoryMin = 0;
+
+export const bulkUpdateInventoryBodyUpdatesItemLowStockThresholdMin = 0;
+
+export const BulkUpdateInventoryBody = zod.object({
+  updates: zod.array(
+    zod.object({
+      id: zod.number(),
+      inventory: zod
+        .number()
+        .min(bulkUpdateInventoryBodyUpdatesItemInventoryMin),
+      lowStockThreshold: zod
+        .number()
+        .min(bulkUpdateInventoryBodyUpdatesItemLowStockThresholdMin)
+        .nullish(),
+    }),
+  ),
+});
+
+export const BulkUpdateInventoryResponseItem = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  name: zod.string(),
+  description: zod.string(),
+  shortDescription: zod.string().nullish(),
+  priceCents: zod.number(),
+  compareAtCents: zod.number().nullish(),
+  currency: zod.string(),
+  images: zod.array(zod.string()),
+  inventory: zod.number(),
+  lowStockThreshold: zod.number(),
+  weightOz: zod.number().nullish(),
+  tags: zod.array(zod.string()).optional(),
+  seoTitle: zod.string().nullish(),
+  seoDescription: zod.string().nullish(),
+  featured: zod.boolean(),
+  published: zod.boolean(),
+  averageRating: zod.number().nullish(),
+  reviewCount: zod.number().optional(),
+  createdAt: zod.coerce.date(),
+});
+export const BulkUpdateInventoryResponse = zod.array(
+  BulkUpdateInventoryResponseItem,
+);
 
 export const FulfillOrderParams = zod.object({
   id: zod.coerce.number(),

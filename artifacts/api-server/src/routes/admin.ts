@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, count, desc, eq, gte, inArray, lte, sql, sum } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, lte, sql, sum } from "drizzle-orm";
 import {
   db,
   productsTable,
@@ -16,7 +16,6 @@ import {
   UpdateProductBody,
   UpdateProductResponse,
   DeleteProductParams,
-  ListAdminOrdersQueryParams,
   ListAdminOrdersResponse,
   ListAdminProductsResponse,
   GetAdminStatsResponse,
@@ -43,6 +42,7 @@ import {
   DeleteReviewParams,
   ListAdminAbandonedCartsResponse,
   GetAdminTaxSummaryResponse,
+  BulkUpdateInventoryBody,
 } from "@workspace/api-zod";
 import { requireAdmin } from "../lib/auth";
 import { buildOrderResponse } from "./orders";
@@ -52,6 +52,7 @@ import {
   FROM_ADDRESS,
 } from "../lib/easypost";
 import { sendShipmentEmail } from "../lib/email";
+import { getStripeWebhookHealth } from "../lib/metrics";
 
 const router: IRouter = Router();
 
@@ -69,6 +70,7 @@ function serializeProduct(p: typeof productsTable.$inferSelect) {
     currency: p.currency,
     images: (p.images ?? []) as string[],
     inventory: p.inventory,
+    lowStockThreshold: p.lowStockThreshold,
     weightOz: p.weightOz != null ? Number(p.weightOz) : null,
     tags: (p.tags ?? []) as string[],
     seoTitle: p.seoTitle,
@@ -103,6 +105,8 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
+  const dayStart = new Date();
+  dayStart.setHours(0, 0, 0, 0);
 
   const [{ totalOrders }] = await db
     .select({ totalOrders: count() })
@@ -122,6 +126,15 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
         eq(ordersTable.status, "paid"),
       ),
     );
+  const [{ ordersToday, revenueCentsToday }] = await db
+    .select({
+      ordersToday: count(),
+      revenueCentsToday: sum(ordersTable.totalCents),
+    })
+    .from(ordersTable)
+    .where(
+      and(gte(ordersTable.createdAt, dayStart), eq(ordersTable.status, "paid")),
+    );
   const [{ pendingFulfillment }] = await db
     .select({ pendingFulfillment: count() })
     .from(ordersTable)
@@ -129,7 +142,7 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
   const [{ lowStock }] = await db
     .select({ lowStock: count() })
     .from(productsTable)
-    .where(lte(productsTable.inventory, 5));
+    .where(lte(productsTable.inventory, productsTable.lowStockThreshold));
 
   const recentOrdersRows = await db
     .select()
@@ -140,14 +153,20 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
     recentOrdersRows.map(async (o) => (await buildOrderResponse(o.id))!),
   );
 
+  const webhook = await getStripeWebhookHealth();
+
   res.json(
     GetAdminStatsResponse.parse({
       totalOrders,
+      ordersToday,
+      revenueCentsToday: Number(revenueCentsToday ?? 0),
       ordersThisMonth,
       revenueCentsThisMonth: Number(revenueCentsThisMonth ?? 0),
       pendingFulfillment,
       lowStock,
       totalProducts,
+      webhookLastReceivedAt: webhook.lastReceivedAt,
+      webhookHealthy: webhook.healthy,
       recentOrders,
     }),
   );
@@ -160,6 +179,90 @@ router.get("/admin/products", async (_req, res): Promise<void> => {
     .orderBy(desc(productsTable.createdAt));
   res.json(ListAdminProductsResponse.parse(rows.map(serializeProduct)));
 });
+
+router.get("/admin/products/export.csv", async (_req, res): Promise<void> => {
+  const rows = await db
+    .select()
+    .from(productsTable)
+    .orderBy(desc(productsTable.createdAt));
+  const header = [
+    "id",
+    "slug",
+    "name",
+    "priceCents",
+    "currency",
+    "inventory",
+    "lowStockThreshold",
+    "published",
+    "featured",
+    "tags",
+    "createdAt",
+  ];
+  const escape = (v: unknown): string => {
+    if (v == null) return "";
+    const s = typeof v === "string" ? v : JSON.stringify(v);
+    if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+  const lines = [header.join(",")];
+  for (const p of rows) {
+    lines.push(
+      [
+        p.id,
+        p.slug,
+        p.name,
+        p.priceCents,
+        p.currency,
+        p.inventory,
+        p.lowStockThreshold,
+        p.published,
+        p.featured,
+        (p.tags ?? []).join("|"),
+        p.createdAt.toISOString(),
+      ]
+        .map(escape)
+        .join(","),
+    );
+  }
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="products-${new Date().toISOString().slice(0, 10)}.csv"`,
+  );
+  res.send(lines.join("\n") + "\n");
+});
+
+router.post(
+  "/admin/products/inventory/bulk",
+  async (req, res): Promise<void> => {
+    const parsed = BulkUpdateInventoryBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const ids: number[] = [];
+    for (const u of parsed.data.updates) {
+      await db
+        .update(productsTable)
+        .set({
+          inventory: u.inventory,
+          ...(u.lowStockThreshold != null
+            ? { lowStockThreshold: u.lowStockThreshold }
+            : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(productsTable.id, u.id));
+      ids.push(u.id);
+    }
+    const rows = ids.length
+      ? await db
+          .select()
+          .from(productsTable)
+          .where(inArray(productsTable.id, ids))
+      : [];
+    res.json(rows.map(serializeProduct));
+  },
+);
 
 router.post("/admin/products", async (req, res): Promise<void> => {
   const parsed = CreateProductBody.safeParse(req.body);
@@ -179,6 +282,7 @@ router.post("/admin/products", async (req, res): Promise<void> => {
       currency: parsed.data.currency ?? "usd",
       images: parsed.data.images ?? [],
       inventory: parsed.data.inventory,
+      lowStockThreshold: parsed.data.lowStockThreshold ?? 5,
       weightOz:
         parsed.data.weightOz != null ? String(parsed.data.weightOz) : null,
       tags: parsed.data.tags ?? [],
@@ -214,6 +318,7 @@ router.patch("/admin/products/:id", async (req, res): Promise<void> => {
       currency: body.data.currency ?? "usd",
       images: body.data.images ?? [],
       inventory: body.data.inventory,
+      lowStockThreshold: body.data.lowStockThreshold ?? 5,
       weightOz:
         body.data.weightOz != null ? String(body.data.weightOz) : null,
       tags: body.data.tags ?? [],
@@ -243,16 +348,38 @@ router.delete("/admin/products/:id", async (req, res): Promise<void> => {
 });
 
 router.get("/admin/orders", async (req, res): Promise<void> => {
-  const parsed = ListAdminOrdersQueryParams.safeParse(req.query);
-  if (!parsed.success) {
-    res.status(400).json({ error: parsed.error.message });
-    return;
+  const status =
+    typeof req.query.status === "string" && req.query.status.length > 0
+      ? req.query.status
+      : null;
+  const search =
+    typeof req.query.search === "string" && req.query.search.trim().length > 0
+      ? req.query.search.trim()
+      : null;
+  const from =
+    typeof req.query.from === "string" ? new Date(req.query.from) : null;
+  const to = typeof req.query.to === "string" ? new Date(req.query.to) : null;
+
+  const conditions = [];
+  if (status) conditions.push(eq(ordersTable.status, status));
+  if (from && !Number.isNaN(from.getTime()))
+    conditions.push(gte(ordersTable.createdAt, from));
+  if (to && !Number.isNaN(to.getTime()))
+    conditions.push(lte(ordersTable.createdAt, to));
+  if (search) {
+    const asNum = Number(search);
+    if (Number.isInteger(asNum) && asNum > 0) {
+      conditions.push(eq(ordersTable.id, asNum));
+    } else {
+      conditions.push(ilike(ordersTable.email, `%${search}%`));
+    }
   }
-  const rows = parsed.data.status
+
+  const rows = conditions.length
     ? await db
         .select()
         .from(ordersTable)
-        .where(eq(ordersTable.status, parsed.data.status))
+        .where(and(...conditions))
         .orderBy(desc(ordersTable.createdAt))
     : await db
         .select()

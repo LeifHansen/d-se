@@ -48,6 +48,29 @@ Storefront is branded as **DŌSE** — a precision THC-infused beverage dropper 
 `artifacts/storefront/src/pages/home.tsx` composes the brand-applied landing from `src/components/dose/`:
 `PromoBanner`, `Header` (with mobile drawer), `AgeGate` (21+ gate, persists in `localStorage` key `dose-age-confirmed`), `Hero`, `StorySection`, `ProductSection`, `RitualSection`, `TestimonialSection`, `JournalSection`, `NewsletterSection`, `Footer`, `MysteryOfferPill`, `CookieBanner` (`localStorage` key `dose-cookies-ack`).
 
+## Observability & ops
+
+- **Sentry** — Both apps initialize Sentry when a DSN is set. API: `SENTRY_DSN` (+ `SENTRY_RELEASE`). Storefront: `VITE_SENTRY_DSN` (+ `VITE_SENTRY_RELEASE`). Storefront mounts a `RootErrorBoundary` at the top of `main.tsx`. API has a global error handler and `unhandledRejection`/`uncaughtException` capture.
+- **Request ID** — `requestIdMiddleware` runs first, generating a UUID (or honoring an inbound `X-Request-Id`), exposing it on responses, attaching it as `req.id` for `pino-http`, and binding it as a Sentry tag plus a breadcrumb. CORS exposes the header to the browser.
+- **`/api/healthz`** — Returns structured `{ status, requestId, checks: { db, stripe, resend, webhook } }`. 200 when all OK, 503 when degraded. Webhook health = last verified Stripe event seen within 24h (tracked in `system_metrics`).
+- **Stripe webhook freshness** — Every verified event upserts the timestamp into `system_metrics` (`stripe.webhook.last_received_at`). Surfaced via `/admin/stats` (`webhookLastReceivedAt`, `webhookHealthy`).
+- **Low-stock daily digest** — `startLowStockDigestScheduler` ticks hourly, emails `ADMIN_EMAILS` once per 24h with all products at/under their per-product `lowStockThreshold` (Resend; no-op if Resend not configured).
+
+## Admin extras
+
+- `/admin/stats` adds `ordersToday`, `revenueCentsToday`, `webhookLastReceivedAt`, `webhookHealthy`. Low-stock count uses each product's own threshold.
+- `/admin/orders` accepts `status`, `search` (matches order id or email), `from`, `to`.
+- `POST /admin/products/inventory/bulk` updates `inventory` (and optional `lowStockThreshold`) for many products at once.
+- `GET /admin/products/export.csv` streams a CSV of all products.
+- `products.lowStockThreshold` (default 5) is exposed in `Product` / `ProductInput`.
+
+## E2E tests
+
+- Playwright config at repo root (`playwright.config.ts`); specs in `e2e/`.
+- Smoke tests cover home rendering, 404 route, `/healthz` with `X-Request-Id`, products list, blog list.
+- Run locally: `pnpm e2e:install` (once), then `E2E_BASE_URL=http://localhost:5000 pnpm e2e`.
+- CI: `.github/workflows/e2e.yml` runs the suite on every PR and uploads the HTML report.
+
 ## Status
 
-Backend, schema, codegen, seed data, and integration scaffolding done. Stripe + Resend + EasyPost API keys still need to be wired. Storefront branding (logo, palette, typography, marketing landing) is applied; product/cart/checkout/blog/admin UI flows still need wiring to the API.
+Backend, schema, codegen, seed data, and integration scaffolding done. Observability (Sentry, request IDs, healthz, webhook freshness, daily low-stock digest) and admin API extensions (search, bulk inventory, CSV export, today metrics, per-product threshold) are in place. Playwright e2e harness is wired in CI. Stripe + Resend + EasyPost API keys still need to be wired. Storefront branding (logo, palette, typography, marketing landing) is applied; product/cart/checkout/blog/admin UI flows still need wiring to the API — admin UI extensions (search inputs, bulk inventory editor, CSV download button, today's-orders banner, webhook stale banner) are pending the customer/admin pages task that introduces the admin SPA.

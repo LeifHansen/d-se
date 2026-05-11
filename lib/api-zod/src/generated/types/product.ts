@@ -19,6 +19,7 @@ export interface Product {
   currency: string;
   images: string[];
   inventory: number;
+  lowStockThreshold: number;
   /** @nullable */
   weightOz?: number | null;
   tags?: string[];

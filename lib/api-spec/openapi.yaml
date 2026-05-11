@@ -425,6 +425,15 @@ paths:
         - name: status
           in: query
           schema: { type: string }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
       responses:
         "200":
           description: OK
@@ -433,6 +442,34 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/Order" }
+  /admin/products/inventory/bulk:
+    post:
+      operationId: bulkUpdateInventory
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BulkInventoryInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Product" }
+  /admin/products/export.csv:
+    get:
+      operationId: exportProductsCsv
+      tags: [admin]
+      summary: CSV export of all products
+      responses:
+        "200":
+          description: OK
+          content:
+            text/csv:
+              schema: { type: string }
   /admin/orders/{id}/fulfill:
     post:
       operationId: fulfillOrder
@@ -791,9 +828,24 @@ components:
   schemas:
     HealthStatus:
       type: object
+      required: [status, checks]
       properties:
         status: { type: string }
-      required: [status]
+        requestId: { type: ["string", "null"] }
+        checks:
+          type: object
+          required: [db, stripe, resend]
+          properties:
+            db: { $ref: "#/components/schemas/DependencyCheck" }
+            stripe: { $ref: "#/components/schemas/DependencyCheck" }
+            resend: { $ref: "#/components/schemas/DependencyCheck" }
+            webhook: { $ref: "#/components/schemas/DependencyCheck" }
+    DependencyCheck:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+        detail: { type: ["string", "null"] }
     Error:
       type: object
       properties:
@@ -802,7 +854,7 @@ components:
 
     Product:
       type: object
-      required: [id, slug, name, description, priceCents, currency, images, inventory, featured, published, createdAt]
+      required: [id, slug, name, description, priceCents, currency, images, inventory, lowStockThreshold, featured, published, createdAt]
       properties:
         id: { type: integer }
         slug: { type: string }
@@ -816,6 +868,7 @@ components:
           type: array
           items: { type: string }
         inventory: { type: integer }
+        lowStockThreshold: { type: integer }
         weightOz: { type: ["number", "null"] }
         tags:
           type: array
@@ -843,6 +896,7 @@ components:
           type: array
           items: { type: string }
         inventory: { type: integer }
+        lowStockThreshold: { type: integer, default: 5 }
         weightOz: { type: ["number", "null"] }
         tags:
           type: array
@@ -1073,14 +1127,43 @@ components:
 
     AdminStats:
       type: object
-      required: [totalOrders, ordersThisMonth, revenueCentsThisMonth, pendingFulfillment, lowStock, totalProducts]
+      required:
+        [
+          totalOrders,
+          ordersToday,
+          revenueCentsToday,
+          ordersThisMonth,
+          revenueCentsThisMonth,
+          pendingFulfillment,
+          lowStock,
+          totalProducts,
+          webhookHealthy,
+        ]
       properties:
         totalOrders: { type: integer }
+        ordersToday: { type: integer }
+        revenueCentsToday: { type: integer }
         ordersThisMonth: { type: integer }
         revenueCentsThisMonth: { type: integer }
         pendingFulfillment: { type: integer }
         lowStock: { type: integer }
         totalProducts: { type: integer }
+        webhookLastReceivedAt: { type: ["string", "null"], format: date-time }
+        webhookHealthy: { type: boolean }
         recentOrders:
           type: array
           items: { $ref: "#/components/schemas/Order" }
+
+    BulkInventoryInput:
+      type: object
+      required: [updates]
+      properties:
+        updates:
+          type: array
+          items:
+            type: object
+            required: [id, inventory]
+            properties:
+              id: { type: integer }
+              inventory: { type: integer, minimum: 0 }
+              lowStockThreshold: { type: ["integer", "null"], minimum: 0 }
