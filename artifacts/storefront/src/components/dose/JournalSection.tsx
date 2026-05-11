@@ -1,6 +1,6 @@
 import { ArrowUpRight } from "lucide-react";
 import { Image } from "./Image";
-import wellnessImg from "@/assets/brand/grok-image-2662d902-bd38-4be9-8533-9f47f6199d97.png?picture";
+import wellnessImg from "@/assets/brand/bottle-clean.jpg?picture";
 import goldImg from "@/assets/brand/Untitled-9.jpg?picture";
 import bottleImg from "@/assets/brand/Untitled-11_copy.jpg?picture";
 

@@ -3,7 +3,7 @@ import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Image } from "./Image";
 import { track } from "@/lib/analytics";
-import productBoxes from "@/assets/brand/grok-image-2662d902-bd38-4be9-8533-9f47f6199d97.png?picture";
+import productBoxes from "@/assets/brand/bottle-clean.jpg?picture";
 import singleBox from "@/assets/brand/Untitled-5.jpg?picture";
 import bottleClose from "@/assets/brand/Untitled-11_copy.jpg?picture";
 
