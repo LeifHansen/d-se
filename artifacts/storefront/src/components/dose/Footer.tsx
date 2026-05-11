@@ -1,5 +1,6 @@
 import { Logo, Emblem } from "./Logo";
 import { Instagram, Twitter, Youtube } from "lucide-react";
+import { NewsletterForm } from "./NewsletterForm";
 
 const cols: { title: string; links: string[] }[] = [
   {
@@ -68,7 +69,30 @@ export function Footer() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-8 md:col-span-8 md:grid-cols-4">
+          <div className="md:col-span-8">
+            <div className="mb-10 max-w-md">
+              <h4
+                className="text-[11px] font-semibold uppercase tracking-[0.22em]"
+                style={{ color: "hsl(42 53% 64%)" }}
+              >
+                Newsletter
+              </h4>
+              <p
+                className="mt-3 text-sm"
+                style={{ color: "hsla(45,49%,90%,0.7)" }}
+              >
+                $10 off your first dropper. New drops, ritual recipes, the
+                occasional poem.
+              </p>
+              <div className="mt-4">
+                <NewsletterForm
+                  source="footer"
+                  variant="dark"
+                  testIdPrefix="newsletter-footer"
+                />
+              </div>
+            </div>
+          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
             {cols.map((c) => (
               <div key={c.title}>
                 <h4
@@ -92,6 +116,7 @@ export function Footer() {
                 </ul>
               </div>
             ))}
+            </div>
           </div>
         </div>
 

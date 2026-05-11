@@ -18,7 +18,8 @@ Monorepo (pnpm workspaces) with:
 - **Auth: Clerk** — Replit-managed. `CLERK_PROXY_PATH` mounted before body parsers in `app.ts`. Admin gated by `ADMIN_EMAILS` env var (comma-separated allowlist; if empty, any signed-in user is admin in dev).
 - **Payments: Stripe** — Stripe Checkout sessions; webhook `/api/webhooks/stripe` mounted with raw body before `express.json()`. Falls back to dev "instant paid" if no key.
 - **Shipping: EasyPost** — Live rates and label purchase. Falls back to flat-rate options if no key.
-- **Email: Resend** — Order confirmation and shipping notifications. Silently no-op if no key.
+- **Email: Resend** — Order confirmation, shipping notifications, and newsletter welcome. Silently no-op if no key. Newsletter subscribers can also be mirrored to a Resend Audience by setting `RESEND_AUDIENCE_ID`.
+- **Marketing analytics** — Consent-aware GA4 + Meta Pixel loader in `artifacts/storefront/src/lib/analytics.ts`. Browser-side: set `VITE_GA4_ID` (e.g. `G-XXXXXXX`) and/or `VITE_META_PIXEL_ID` to inject scripts after the user accepts the cookie banner; without IDs the tracker still pushes events to `window.dataLayer` but no provider script loads. Server-side conversion APIs (called from the Stripe webhook): `GA4_API_SECRET` (paired with `VITE_GA4_ID`) for the GA4 Measurement Protocol, and `META_CAPI_TOKEN` (paired with `VITE_META_PIXEL_ID`) for Meta Conversions API. All keys are optional — missing IDs silently no-op. Newsletter capture lives at `POST /api/newsletter/subscribe` and is invoked by the footer + scroll/exit-intent modal (`NewsletterForm`, `NewsletterModal`).
 - **Object storage** — Public/private buckets via standard `/api/storage/*` routes.
 
 ## Domain model

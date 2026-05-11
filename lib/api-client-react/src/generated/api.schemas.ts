@@ -346,6 +346,14 @@ export interface TaxSummary {
   warning?: string | null;
 }
 
+export interface MarketingStats {
+  newsletterSubscribers: number;
+  ordersLast7Days: number;
+  revenueCentsLast7Days: number;
+  /** @nullable */
+  ga4Url: string | null;
+}
+
 export interface AdminStats {
   totalOrders: number;
   ordersToday: number;
@@ -359,6 +367,7 @@ export interface AdminStats {
   webhookLastReceivedAt?: string | null;
   webhookHealthy: boolean;
   recentOrders?: Order[];
+  marketing: MarketingStats;
 }
 
 export type BulkInventoryInputUpdatesItem = {
@@ -374,6 +383,17 @@ export type BulkInventoryInputUpdatesItem = {
 
 export interface BulkInventoryInput {
   updates: BulkInventoryInputUpdatesItem[];
+}
+
+export interface NewsletterSubscribeBody {
+  email: string;
+  /** @nullable */
+  source?: string | null;
+}
+
+export interface NewsletterSubscribeResponse {
+  ok: boolean;
+  alreadySubscribed?: boolean;
 }
 
 /**
@@ -448,6 +468,14 @@ export type CreateCheckoutBody = {
   address: AddressInput;
   shippingRateId: string;
   discountCode?: string;
+  /** @nullable */
+  analyticsEventId?: string | null;
+  /** @nullable */
+  analyticsClientId?: string | null;
+  /** @nullable */
+  analyticsFbp?: string | null;
+  /** @nullable */
+  analyticsFbc?: string | null;
 };
 
 export type CreateCheckout200 = {

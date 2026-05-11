@@ -5,6 +5,7 @@
  * E-commerce storefront API
  * OpenAPI spec version: 0.1.0
  */
+import type { MarketingStats } from "./marketingStats";
 import type { Order } from "./order";
 
 export interface AdminStats {
@@ -20,4 +21,5 @@ export interface AdminStats {
   webhookLastReceivedAt?: Date | null;
   webhookHealthy: boolean;
   recentOrders?: Order[];
+  marketing: MarketingStats;
 }

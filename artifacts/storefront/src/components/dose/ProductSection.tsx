@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Image } from "./Image";
+import { track } from "@/lib/analytics";
 import productBoxes from "@/assets/brand/grok-image-2662d902-bd38-4be9-8533-9f47f6199d97.png?picture";
 import singleBox from "@/assets/brand/Untitled-5.jpg?picture";
 import bottleClose from "@/assets/brand/Untitled-11_copy.jpg?picture";
@@ -32,7 +34,25 @@ const products = [
   },
 ];
 
+function priceToNumber(price: string): number {
+  const n = parseFloat(price.replace(/[^0-9.]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
 export function ProductSection() {
+  useEffect(() => {
+    track("view_item_list", {
+      item_list_name: "The Drop",
+      currency: "USD",
+      items: products.map((p, i) => ({
+        item_id: p.name.toLowerCase().replace(/\s+/g, "-"),
+        item_name: p.name,
+        price: priceToNumber(p.price),
+        index: i,
+      })),
+    });
+  }, []);
+
   return (
     <section
       id="shop"
@@ -124,6 +144,33 @@ export function ProductSection() {
                       borderColor: "hsl(42 53% 46%)",
                     }}
                     data-testid={`button-add-to-cart-${p.name.toLowerCase().replace(/\s+/g, "-")}`}
+                    onClick={() => {
+                      const value = priceToNumber(p.price);
+                      const item = {
+                        item_id: p.name.toLowerCase().replace(/\s+/g, "-"),
+                        item_name: p.name,
+                        price: value,
+                        quantity: 1,
+                      };
+                      track("view_item", {
+                        currency: "USD",
+                        value,
+                        items: [item],
+                      });
+                      track("add_to_cart", {
+                        currency: "USD",
+                        value,
+                        items: [item],
+                      });
+                      // Single-product launch landing: clicking the CTA is
+                      // also the begin_checkout signal — there is no separate
+                      // cart drawer in this artifact.
+                      track("begin_checkout", {
+                        currency: "USD",
+                        value,
+                        items: [item],
+                      });
+                    }}
                   >
                     Add to Cart
                   </Button>

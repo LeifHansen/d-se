@@ -13,4 +13,12 @@ export type CreateCheckoutBody = {
   address: AddressInput;
   shippingRateId: string;
   discountCode?: string;
+  /** @nullable */
+  analyticsEventId?: string | null;
+  /** @nullable */
+  analyticsClientId?: string | null;
+  /** @nullable */
+  analyticsFbp?: string | null;
+  /** @nullable */
+  analyticsFbc?: string | null;
 };

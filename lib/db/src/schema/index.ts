@@ -6,3 +6,4 @@ export * from "./discounts";
 export * from "./reviews";
 export * from "./abandonedCarts";
 export * from "./system";
+export * from "./newsletter";

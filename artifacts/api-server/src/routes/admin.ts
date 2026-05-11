@@ -9,6 +9,7 @@ import {
   productReviewsTable,
   abandonedCartsTable,
   cartItemsTable,
+  newsletterSubscribersTable,
 } from "@workspace/db";
 import {
   CreateProductBody,
@@ -107,6 +108,7 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
   monthStart.setHours(0, 0, 0, 0);
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
   const [{ totalOrders }] = await db
     .select({ totalOrders: count() })
@@ -154,6 +156,26 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
   );
 
   const webhook = await getStripeWebhookHealth();
+  const [{ newsletterSubscribers }] = await db
+    .select({ newsletterSubscribers: count() })
+    .from(newsletterSubscribersTable);
+  const [{ ordersLast7Days, revenueCentsLast7Days }] = await db
+    .select({
+      ordersLast7Days: count(),
+      revenueCentsLast7Days: sum(ordersTable.totalCents),
+    })
+    .from(ordersTable)
+    .where(
+      and(
+        gte(ordersTable.createdAt, sevenDaysAgo),
+        eq(ordersTable.status, "paid"),
+      ),
+    );
+  // GA4 measurement IDs (G-XXXXXXX) cannot be turned into a stable property
+  // URL. When configured, link to the GA account picker so the operator can
+  // jump into the right property; otherwise return null.
+  const ga4Id = process.env.VITE_GA4_ID || process.env.GA4_ID;
+  const ga4Url = ga4Id ? "https://analytics.google.com/" : null;
 
   res.json(
     GetAdminStatsResponse.parse({
@@ -168,6 +190,12 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
       webhookLastReceivedAt: webhook.lastReceivedAt,
       webhookHealthy: webhook.healthy,
       recentOrders,
+      marketing: {
+        newsletterSubscribers,
+        ordersLast7Days,
+        revenueCentsLast7Days: Number(revenueCentsLast7Days ?? 0),
+        ga4Url,
+      },
     }),
   );
 });

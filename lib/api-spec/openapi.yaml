@@ -18,6 +18,7 @@ tags:
   - name: webhooks
   - name: discounts
   - name: reviews
+  - name: newsletter
   - name: Storage
 paths:
   /healthz:
@@ -271,6 +272,10 @@ paths:
                 address: { $ref: "#/components/schemas/AddressInput" }
                 shippingRateId: { type: string }
                 discountCode: { type: string }
+                analyticsEventId: { type: ["string", "null"] }
+                analyticsClientId: { type: ["string", "null"] }
+                analyticsFbp: { type: ["string", "null"] }
+                analyticsFbc: { type: ["string", "null"] }
       responses:
         "200":
           description: OK
@@ -572,6 +577,28 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/DiscountValidation" }
+
+  /newsletter/subscribe:
+    post:
+      tags: [newsletter]
+      operationId: subscribeNewsletter
+      summary: Subscribe an email to the newsletter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewsletterSubscribeBody" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NewsletterSubscribeResponse" }
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
 
   /products/{slug}/reviews:
     get:
@@ -1138,6 +1165,7 @@ components:
           lowStock,
           totalProducts,
           webhookHealthy,
+          marketing,
         ]
       properties:
         totalOrders: { type: integer }
@@ -1153,6 +1181,7 @@ components:
         recentOrders:
           type: array
           items: { $ref: "#/components/schemas/Order" }
+        marketing: { $ref: "#/components/schemas/MarketingStats" }
 
     BulkInventoryInput:
       type: object
@@ -1167,3 +1196,26 @@ components:
               id: { type: integer }
               inventory: { type: integer, minimum: 0 }
               lowStockThreshold: { type: ["integer", "null"], minimum: 0 }
+
+    MarketingStats:
+      type: object
+      required: [newsletterSubscribers, ordersLast7Days, revenueCentsLast7Days, ga4Url]
+      properties:
+        newsletterSubscribers: { type: integer }
+        ordersLast7Days: { type: integer }
+        revenueCentsLast7Days: { type: integer }
+        ga4Url: { type: ["string", "null"] }
+
+    NewsletterSubscribeBody:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, format: email }
+        source: { type: ["string", "null"] }
+
+    NewsletterSubscribeResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+        alreadySubscribed: { type: boolean }

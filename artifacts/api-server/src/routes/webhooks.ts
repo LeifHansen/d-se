@@ -13,6 +13,7 @@ import { getStripe, isStripeConfigured } from "../lib/stripe";
 import { sendOrderConfirmation } from "../lib/email";
 import { markCartRecovered } from "../lib/abandonedCart";
 import { recordStripeWebhookReceived } from "../lib/metrics";
+import { trackPurchaseServerSide } from "../lib/serverAnalytics";
 
 const router: IRouter = Router();
 
@@ -164,7 +165,8 @@ router.post(
           const email =
             order.email ??
             session.customer_email ??
-            session.customer_details?.email;
+            session.customer_details?.email ??
+            null;
           if (email) {
             try {
               await sendOrderConfirmation({
@@ -184,6 +186,41 @@ router.post(
               });
             } catch (err) {
               req.log.warn({ err }, "Order email send failed");
+            }
+          }
+
+          // Server-side purchase tracking (GA4 MP + Meta CAPI). Best-effort,
+          // deduped on the client by analyticsEventId via the dataLayer.
+          if (!order.purchaseTrackedAt) {
+            const eventId =
+              order.analyticsEventId ??
+              session.metadata?.analyticsEventId ??
+              `order-${order.id}`;
+            try {
+              await trackPurchaseServerSide({
+                orderId: order.id,
+                email,
+                totalCents: order.totalCents,
+                currency: order.currency,
+                items: items.map((i) => ({
+                  productId: i.productId,
+                  productName: i.productName,
+                  quantity: i.quantity,
+                  priceCents: i.priceCents,
+                })),
+                eventId,
+                clientId: order.analyticsClientId,
+                fbp: order.analyticsFbp,
+                fbc: order.analyticsFbc,
+                clientIp: order.analyticsClientIp,
+                userAgent: order.analyticsUserAgent,
+              });
+              await db
+                .update(ordersTable)
+                .set({ purchaseTrackedAt: new Date() })
+                .where(eq(ordersTable.id, orderId));
+            } catch (err) {
+              req.log.warn({ err }, "Server-side purchase tracking failed");
             }
           }
         }

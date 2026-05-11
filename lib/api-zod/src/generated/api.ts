@@ -512,6 +512,10 @@ export const CreateCheckoutBody = zod.object({
   }),
   shippingRateId: zod.string(),
   discountCode: zod.string().optional(),
+  analyticsEventId: zod.string().nullish(),
+  analyticsClientId: zod.string().nullish(),
+  analyticsFbp: zod.string().nullish(),
+  analyticsFbc: zod.string().nullish(),
 });
 
 export const CreateCheckoutResponse = zod.object({
@@ -705,6 +709,12 @@ export const GetAdminStatsResponse = zod.object({
       }),
     )
     .optional(),
+  marketing: zod.object({
+    newsletterSubscribers: zod.number(),
+    ordersLast7Days: zod.number(),
+    revenueCentsLast7Days: zod.number(),
+    ga4Url: zod.string().nullable(),
+  }),
 });
 
 export const ListAdminProductsResponseItem = zod.object({
@@ -1037,6 +1047,19 @@ export const ValidateDiscountResponse = zod.object({
   discountCents: zod.number().optional(),
   subtotalCents: zod.number().optional(),
   totalCents: zod.number().optional(),
+});
+
+/**
+ * @summary Subscribe an email to the newsletter
+ */
+export const SubscribeNewsletterBody = zod.object({
+  email: zod.string().email(),
+  source: zod.string().nullish(),
+});
+
+export const SubscribeNewsletterResponse = zod.object({
+  ok: zod.boolean(),
+  alreadySubscribed: zod.boolean().optional(),
 });
 
 export const ListProductReviewsParams = zod.object({

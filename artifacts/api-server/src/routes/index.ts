@@ -10,6 +10,7 @@ import storageRouter from "./storage";
 import seoRouter from "./seo";
 import discountsRouter from "./discounts";
 import reviewsRouter from "./reviews";
+import newsletterRouter from "./newsletter";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(reviewsRouter);
 router.use(adminRouter);
 router.use(storageRouter);
 router.use(seoRouter);
+router.use(newsletterRouter);
 
 export default router;

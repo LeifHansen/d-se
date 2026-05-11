@@ -185,6 +185,49 @@ export async function sendLowStockDigest(opts: {
   });
 }
 
+export async function sendWelcomeEmail(opts: {
+  to: string;
+}): Promise<void> {
+  const r = await getResend();
+  if (!r) return;
+  await r.client.emails.send({
+    from: `${STORE_NAME} <${r.fromEmail}>`,
+    to: opts.to,
+    subject: `Welcome to ${STORE_NAME}`,
+    html: `<h1>Welcome to ${STORE_NAME}.</h1>
+<p>Thanks for subscribing — you're on the list for new drops, ritual recipes, and the occasional poem about going slow.</p>
+<p>Use code <strong>WELCOME10</strong> for $10 off your first order.</p>`,
+  });
+}
+
+export async function addToResendAudience(opts: {
+  email: string;
+}): Promise<{ ok: boolean; contactId: string | null; alreadyExists: boolean }> {
+  const audienceId = process.env.RESEND_AUDIENCE_ID;
+  if (!audienceId) return { ok: false, contactId: null, alreadyExists: false };
+  const r = await getResend();
+  if (!r) return { ok: false, contactId: null, alreadyExists: false };
+  try {
+    const result = await r.client.contacts.create({
+      audienceId,
+      email: opts.email,
+      unsubscribed: false,
+    });
+    const data = (result as { data?: { id?: string } }).data;
+    const errMsg = (result as { error?: { message?: string } }).error?.message;
+    if (errMsg && /exist/i.test(errMsg)) {
+      return { ok: true, contactId: null, alreadyExists: true };
+    }
+    return {
+      ok: true,
+      contactId: data?.id ?? null,
+      alreadyExists: false,
+    };
+  } catch {
+    return { ok: false, contactId: null, alreadyExists: false };
+  }
+}
+
 export async function sendShipmentEmail(opts: {
   to: string;
   orderId: number;

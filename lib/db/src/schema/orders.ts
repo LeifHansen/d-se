@@ -39,6 +39,13 @@ export const ordersTable = pgTable("orders", {
   discountCode: text("discount_code"),
   discountCents: integer("discount_cents").notNull().default(0),
   cartId: text("cart_id"),
+  analyticsEventId: text("analytics_event_id"),
+  analyticsClientId: text("analytics_client_id"),
+  analyticsFbp: text("analytics_fbp"),
+  analyticsFbc: text("analytics_fbc"),
+  analyticsClientIp: text("analytics_client_ip"),
+  analyticsUserAgent: text("analytics_user_agent"),
+  purchaseTrackedAt: timestamp("purchase_tracked_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

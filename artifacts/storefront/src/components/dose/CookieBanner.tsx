@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { CONSENT_EVENT } from "@/lib/analytics";
 
 const KEY = "dose-cookies-ack";
 
@@ -18,6 +19,13 @@ export function CookieBanner() {
     try {
       window.localStorage.setItem(KEY, "yes");
       window.localStorage.setItem("dose-cookies-decision", decision);
+    } catch {
+      /* ignore */
+    }
+    try {
+      window.dispatchEvent(
+        new CustomEvent(CONSENT_EVENT, { detail: { decision } }),
+      );
     } catch {
       /* ignore */
     }

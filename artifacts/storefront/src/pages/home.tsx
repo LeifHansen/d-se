@@ -13,6 +13,7 @@ import { NewsletterSection } from "@/components/dose/NewsletterSection";
 import { Footer } from "@/components/dose/Footer";
 import { MysteryOfferPill } from "@/components/dose/MysteryOfferPill";
 import { CookieBanner } from "@/components/dose/CookieBanner";
+import { NewsletterModal } from "@/components/dose/NewsletterModal";
 
 export default function Home() {
   return (
@@ -34,6 +35,7 @@ export default function Home() {
       <Footer />
       <MysteryOfferPill />
       <CookieBanner />
+      <NewsletterModal />
       <AgeGate />
     </div>
   );

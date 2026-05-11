@@ -149,6 +149,15 @@ router.post("/checkout", async (req, res): Promise<void> => {
       shippingAddress: address,
       shippingRateId: parsed.data.shippingRateId,
       cartId: parsed.data.cartId,
+      analyticsEventId: parsed.data.analyticsEventId ?? null,
+      analyticsClientId: parsed.data.analyticsClientId ?? null,
+      analyticsFbp: parsed.data.analyticsFbp ?? null,
+      analyticsFbc: parsed.data.analyticsFbc ?? null,
+      analyticsClientIp:
+        (req.headers["x-forwarded-for"]?.toString().split(",")[0].trim() ??
+          req.ip ??
+          null),
+      analyticsUserAgent: req.headers["user-agent"]?.toString() ?? null,
     })
     .returning();
 
@@ -276,6 +285,9 @@ router.post("/checkout", async (req, res): Promise<void> => {
         orderId: String(order.id),
         cartId: parsed.data.cartId,
         ...(discountCode ? { discountCode } : {}),
+        ...(parsed.data.analyticsEventId
+          ? { analyticsEventId: parsed.data.analyticsEventId }
+          : {}),
       },
     });
     await db
