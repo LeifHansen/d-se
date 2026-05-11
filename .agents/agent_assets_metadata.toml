@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "sfEYAYP71j5P8uZIjbQhU"
+uri = "file://artifacts/storefront/public/opengraph.jpg"
+type = "image"
+title = "OG image (1200×630)"

@@ -7,6 +7,7 @@ import {
   clerkProxyMiddleware,
 } from "./middlewares/clerkProxyMiddleware";
 import router from "./routes";
+import seoRouter from "./routes/seo";
 import webhooksRouter from "./routes/webhooks";
 import { logger } from "./lib/logger";
 
@@ -43,5 +44,8 @@ app.use(express.urlencoded({ extended: true }));
 app.use(clerkMiddleware());
 
 app.use("/api", router);
+
+// SEO endpoints also exposed at site root for crawlers
+app.use(seoRouter);
 
 export default app;

@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/dose/Logo";
+import { Seo } from "@/components/seo/Seo";
 
 export default function NotFound() {
   return (
@@ -8,6 +9,7 @@ export default function NotFound() {
       style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
       data-testid="not-found"
     >
+      <Seo title="Page not found" description="The page you're looking for couldn't be found." noindex />
       <Logo variant="stacked" tone="cream" />
       <p
         className="mt-10 text-[11px] font-medium uppercase tracking-[0.22em]"
