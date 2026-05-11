@@ -8,6 +8,8 @@ import blogRouter from "./blog";
 import adminRouter from "./admin";
 import storageRouter from "./storage";
 import seoRouter from "./seo";
+import discountsRouter from "./discounts";
+import reviewsRouter from "./reviews";
 
 const router: IRouter = Router();
 
@@ -17,6 +19,8 @@ router.use(cartRouter);
 router.use(shippingRouter);
 router.use(ordersRouter);
 router.use(blogRouter);
+router.use(discountsRouter);
+router.use(reviewsRouter);
 router.use(adminRouter);
 router.use(storageRouter);
 router.use(seoRouter);

@@ -48,6 +48,8 @@ export const ListProductsResponseItem = zod.object({
   seoDescription: zod.string().nullish(),
   featured: zod.boolean(),
   published: zod.boolean(),
+  averageRating: zod.number().nullish(),
+  reviewCount: zod.number().optional(),
   createdAt: zod.coerce.date(),
 });
 export const ListProductsResponse = zod.array(ListProductsResponseItem);
@@ -72,6 +74,8 @@ export const ListFeaturedProductsResponseItem = zod.object({
   seoDescription: zod.string().nullish(),
   featured: zod.boolean(),
   published: zod.boolean(),
+  averageRating: zod.number().nullish(),
+  reviewCount: zod.number().optional(),
   createdAt: zod.coerce.date(),
 });
 export const ListFeaturedProductsResponse = zod.array(
@@ -102,6 +106,8 @@ export const GetProductBySlugResponse = zod.object({
   seoDescription: zod.string().nullish(),
   featured: zod.boolean(),
   published: zod.boolean(),
+  averageRating: zod.number().nullish(),
+  reviewCount: zod.number().optional(),
   createdAt: zod.coerce.date(),
 });
 
@@ -136,6 +142,8 @@ export const GetCartResponse = zod.object({
         seoDescription: zod.string().nullish(),
         featured: zod.boolean(),
         published: zod.boolean(),
+        averageRating: zod.number().nullish(),
+        reviewCount: zod.number().optional(),
         createdAt: zod.coerce.date(),
       }),
       lineTotalCents: zod.number(),
@@ -143,6 +151,9 @@ export const GetCartResponse = zod.object({
   ),
   subtotalCents: zod.number(),
   currency: zod.string(),
+  discountCode: zod.string().nullish(),
+  discountCents: zod.number().optional(),
+  totalCents: zod.number().optional(),
 });
 
 /**
@@ -179,6 +190,8 @@ export const AddCartItemResponse = zod.object({
         seoDescription: zod.string().nullish(),
         featured: zod.boolean(),
         published: zod.boolean(),
+        averageRating: zod.number().nullish(),
+        reviewCount: zod.number().optional(),
         createdAt: zod.coerce.date(),
       }),
       lineTotalCents: zod.number(),
@@ -186,6 +199,9 @@ export const AddCartItemResponse = zod.object({
   ),
   subtotalCents: zod.number(),
   currency: zod.string(),
+  discountCode: zod.string().nullish(),
+  discountCents: zod.number().optional(),
+  totalCents: zod.number().optional(),
 });
 
 export const UpdateCartItemParams = zod.object({
@@ -223,6 +239,8 @@ export const UpdateCartItemResponse = zod.object({
         seoDescription: zod.string().nullish(),
         featured: zod.boolean(),
         published: zod.boolean(),
+        averageRating: zod.number().nullish(),
+        reviewCount: zod.number().optional(),
         createdAt: zod.coerce.date(),
       }),
       lineTotalCents: zod.number(),
@@ -230,6 +248,9 @@ export const UpdateCartItemResponse = zod.object({
   ),
   subtotalCents: zod.number(),
   currency: zod.string(),
+  discountCode: zod.string().nullish(),
+  discountCents: zod.number().optional(),
+  totalCents: zod.number().optional(),
 });
 
 export const RemoveCartItemParams = zod.object({
@@ -264,6 +285,8 @@ export const RemoveCartItemResponse = zod.object({
         seoDescription: zod.string().nullish(),
         featured: zod.boolean(),
         published: zod.boolean(),
+        averageRating: zod.number().nullish(),
+        reviewCount: zod.number().optional(),
         createdAt: zod.coerce.date(),
       }),
       lineTotalCents: zod.number(),
@@ -271,6 +294,146 @@ export const RemoveCartItemResponse = zod.object({
   ),
   subtotalCents: zod.number(),
   currency: zod.string(),
+  discountCode: zod.string().nullish(),
+  discountCents: zod.number().optional(),
+  totalCents: zod.number().optional(),
+});
+
+/**
+ * @summary Apply a discount code to the cart
+ */
+export const ApplyCartDiscountBody = zod.object({
+  cartId: zod.string(),
+  code: zod.string(),
+});
+
+export const ApplyCartDiscountResponse = zod.object({
+  id: zod.string(),
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      productId: zod.number(),
+      quantity: zod.number(),
+      product: zod.object({
+        id: zod.number(),
+        slug: zod.string(),
+        name: zod.string(),
+        description: zod.string(),
+        shortDescription: zod.string().nullish(),
+        priceCents: zod.number(),
+        compareAtCents: zod.number().nullish(),
+        currency: zod.string(),
+        images: zod.array(zod.string()),
+        inventory: zod.number(),
+        weightOz: zod.number().nullish(),
+        tags: zod.array(zod.string()).optional(),
+        seoTitle: zod.string().nullish(),
+        seoDescription: zod.string().nullish(),
+        featured: zod.boolean(),
+        published: zod.boolean(),
+        averageRating: zod.number().nullish(),
+        reviewCount: zod.number().optional(),
+        createdAt: zod.coerce.date(),
+      }),
+      lineTotalCents: zod.number(),
+    }),
+  ),
+  subtotalCents: zod.number(),
+  currency: zod.string(),
+  discountCode: zod.string().nullish(),
+  discountCents: zod.number().optional(),
+  totalCents: zod.number().optional(),
+});
+
+/**
+ * @summary Remove the discount code from the cart
+ */
+export const RemoveCartDiscountQueryParams = zod.object({
+  cartId: zod.coerce.string(),
+});
+
+export const RemoveCartDiscountResponse = zod.object({
+  id: zod.string(),
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      productId: zod.number(),
+      quantity: zod.number(),
+      product: zod.object({
+        id: zod.number(),
+        slug: zod.string(),
+        name: zod.string(),
+        description: zod.string(),
+        shortDescription: zod.string().nullish(),
+        priceCents: zod.number(),
+        compareAtCents: zod.number().nullish(),
+        currency: zod.string(),
+        images: zod.array(zod.string()),
+        inventory: zod.number(),
+        weightOz: zod.number().nullish(),
+        tags: zod.array(zod.string()).optional(),
+        seoTitle: zod.string().nullish(),
+        seoDescription: zod.string().nullish(),
+        featured: zod.boolean(),
+        published: zod.boolean(),
+        averageRating: zod.number().nullish(),
+        reviewCount: zod.number().optional(),
+        createdAt: zod.coerce.date(),
+      }),
+      lineTotalCents: zod.number(),
+    }),
+  ),
+  subtotalCents: zod.number(),
+  currency: zod.string(),
+  discountCode: zod.string().nullish(),
+  discountCents: zod.number().optional(),
+  totalCents: zod.number().optional(),
+});
+
+/**
+ * @summary Resume a cart from a signed abandoned-cart link
+ */
+export const ResumeCartQueryParams = zod.object({
+  cartId: zod.coerce.string(),
+  token: zod.coerce.string(),
+});
+
+export const ResumeCartResponse = zod.object({
+  id: zod.string(),
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      productId: zod.number(),
+      quantity: zod.number(),
+      product: zod.object({
+        id: zod.number(),
+        slug: zod.string(),
+        name: zod.string(),
+        description: zod.string(),
+        shortDescription: zod.string().nullish(),
+        priceCents: zod.number(),
+        compareAtCents: zod.number().nullish(),
+        currency: zod.string(),
+        images: zod.array(zod.string()),
+        inventory: zod.number(),
+        weightOz: zod.number().nullish(),
+        tags: zod.array(zod.string()).optional(),
+        seoTitle: zod.string().nullish(),
+        seoDescription: zod.string().nullish(),
+        featured: zod.boolean(),
+        published: zod.boolean(),
+        averageRating: zod.number().nullish(),
+        reviewCount: zod.number().optional(),
+        createdAt: zod.coerce.date(),
+      }),
+      lineTotalCents: zod.number(),
+    }),
+  ),
+  subtotalCents: zod.number(),
+  currency: zod.string(),
+  discountCode: zod.string().nullish(),
+  discountCents: zod.number().optional(),
+  totalCents: zod.number().optional(),
 });
 
 /**
@@ -317,6 +480,7 @@ export const CreateCheckoutBody = zod.object({
     phone: zod.string().nullish(),
   }),
   shippingRateId: zod.string(),
+  discountCode: zod.string().optional(),
 });
 
 export const CreateCheckoutResponse = zod.object({
@@ -344,6 +508,8 @@ export const ListMyOrdersResponseItem = zod.object({
   subtotalCents: zod.number(),
   shippingCents: zod.number(),
   taxCents: zod.number(),
+  discountCents: zod.number().optional(),
+  discountCode: zod.string().nullish(),
   totalCents: zod.number(),
   currency: zod.string(),
   shippingAddress: zod
@@ -385,6 +551,8 @@ export const GetOrderResponse = zod.object({
   subtotalCents: zod.number(),
   shippingCents: zod.number(),
   taxCents: zod.number(),
+  discountCents: zod.number().optional(),
+  discountCode: zod.string().nullish(),
   totalCents: zod.number(),
   currency: zod.string(),
   shippingAddress: zod
@@ -480,6 +648,8 @@ export const GetAdminStatsResponse = zod.object({
         subtotalCents: zod.number(),
         shippingCents: zod.number(),
         taxCents: zod.number(),
+        discountCents: zod.number().optional(),
+        discountCode: zod.string().nullish(),
         totalCents: zod.number(),
         currency: zod.string(),
         shippingAddress: zod
@@ -519,6 +689,8 @@ export const ListAdminProductsResponseItem = zod.object({
   seoDescription: zod.string().nullish(),
   featured: zod.boolean(),
   published: zod.boolean(),
+  averageRating: zod.number().nullish(),
+  reviewCount: zod.number().optional(),
   createdAt: zod.coerce.date(),
 });
 export const ListAdminProductsResponse = zod.array(
@@ -586,6 +758,8 @@ export const UpdateProductResponse = zod.object({
   seoDescription: zod.string().nullish(),
   featured: zod.boolean(),
   published: zod.boolean(),
+  averageRating: zod.number().nullish(),
+  reviewCount: zod.number().optional(),
   createdAt: zod.coerce.date(),
 });
 
@@ -614,6 +788,8 @@ export const ListAdminOrdersResponseItem = zod.object({
   subtotalCents: zod.number(),
   shippingCents: zod.number(),
   taxCents: zod.number(),
+  discountCents: zod.number().optional(),
+  discountCode: zod.string().nullish(),
   totalCents: zod.number(),
   currency: zod.string(),
   shippingAddress: zod
@@ -659,6 +835,8 @@ export const FulfillOrderResponse = zod.object({
   subtotalCents: zod.number(),
   shippingCents: zod.number(),
   taxCents: zod.number(),
+  discountCents: zod.number().optional(),
+  discountCode: zod.string().nullish(),
   totalCents: zod.number(),
   currency: zod.string(),
   shippingAddress: zod
@@ -745,6 +923,198 @@ export const UpdateBlogPostResponse = zod.object({
 
 export const DeleteBlogPostParams = zod.object({
   id: zod.coerce.number(),
+});
+
+/**
+ * @summary Validate a discount code against a cart
+ */
+export const ValidateDiscountBody = zod.object({
+  code: zod.string(),
+  cartId: zod.string(),
+});
+
+export const ValidateDiscountResponse = zod.object({
+  valid: zod.boolean(),
+  reason: zod.string().nullish(),
+  code: zod.string().nullish(),
+  type: zod
+    .union([zod.literal("percent"), zod.literal("fixed"), zod.literal(null)])
+    .nullish(),
+  value: zod.number().nullish(),
+  discountCents: zod.number().optional(),
+  subtotalCents: zod.number().optional(),
+  totalCents: zod.number().optional(),
+});
+
+export const ListProductReviewsParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const ListProductReviewsResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      productId: zod.number(),
+      productSlug: zod.string().nullish(),
+      productName: zod.string().nullish(),
+      rating: zod.number(),
+      title: zod.string(),
+      body: zod.string(),
+      status: zod.enum(["pending", "approved", "rejected"]),
+      verifiedPurchase: zod.boolean(),
+      authorName: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+  averageRating: zod.number().nullable(),
+  count: zod.number(),
+});
+
+export const SubmitProductReviewParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const submitProductReviewBodyRatingMax = 5;
+
+export const submitProductReviewBodyTitleMax = 120;
+
+export const submitProductReviewBodyBodyMax = 4000;
+
+export const SubmitProductReviewBody = zod.object({
+  rating: zod.number().min(1).max(submitProductReviewBodyRatingMax),
+  title: zod.string().max(submitProductReviewBodyTitleMax),
+  body: zod.string().max(submitProductReviewBodyBodyMax),
+});
+
+export const ListAdminDiscountCodesResponseItem = zod.object({
+  id: zod.number(),
+  code: zod.string(),
+  type: zod.enum(["percent", "fixed"]),
+  value: zod.number(),
+  minSubtotalCents: zod.number().nullish(),
+  maxRedemptions: zod.number().nullish(),
+  redemptionsCount: zod.number(),
+  expiresAt: zod.coerce.date().nullish(),
+  active: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAdminDiscountCodesResponse = zod.array(
+  ListAdminDiscountCodesResponseItem,
+);
+
+export const createDiscountCodeBodyCodeMax = 64;
+
+export const CreateDiscountCodeBody = zod.object({
+  code: zod.string().min(1).max(createDiscountCodeBodyCodeMax),
+  type: zod.enum(["percent", "fixed"]),
+  value: zod.number().min(1),
+  minSubtotalCents: zod.number().nullish(),
+  maxRedemptions: zod.number().nullish(),
+  expiresAt: zod.coerce.date().nullish(),
+  active: zod.boolean().optional(),
+});
+
+export const UpdateDiscountCodeParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const updateDiscountCodeBodyCodeMax = 64;
+
+export const UpdateDiscountCodeBody = zod.object({
+  code: zod.string().min(1).max(updateDiscountCodeBodyCodeMax),
+  type: zod.enum(["percent", "fixed"]),
+  value: zod.number().min(1),
+  minSubtotalCents: zod.number().nullish(),
+  maxRedemptions: zod.number().nullish(),
+  expiresAt: zod.coerce.date().nullish(),
+  active: zod.boolean().optional(),
+});
+
+export const UpdateDiscountCodeResponse = zod.object({
+  id: zod.number(),
+  code: zod.string(),
+  type: zod.enum(["percent", "fixed"]),
+  value: zod.number(),
+  minSubtotalCents: zod.number().nullish(),
+  maxRedemptions: zod.number().nullish(),
+  redemptionsCount: zod.number(),
+  expiresAt: zod.coerce.date().nullish(),
+  active: zod.boolean(),
+  createdAt: zod.coerce.date(),
+});
+
+export const DeleteDiscountCodeParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListAdminReviewsQueryParams = zod.object({
+  status: zod.coerce.string().optional(),
+});
+
+export const ListAdminReviewsResponseItem = zod.object({
+  id: zod.number(),
+  productId: zod.number(),
+  productSlug: zod.string().nullish(),
+  productName: zod.string().nullish(),
+  rating: zod.number(),
+  title: zod.string(),
+  body: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  verifiedPurchase: zod.boolean(),
+  authorName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAdminReviewsResponse = zod.array(ListAdminReviewsResponseItem);
+
+export const ModerateReviewParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ModerateReviewBody = zod.object({
+  status: zod.enum(["pending", "approved", "rejected"]),
+});
+
+export const ModerateReviewResponse = zod.object({
+  id: zod.number(),
+  productId: zod.number(),
+  productSlug: zod.string().nullish(),
+  productName: zod.string().nullish(),
+  rating: zod.number(),
+  title: zod.string(),
+  body: zod.string(),
+  status: zod.enum(["pending", "approved", "rejected"]),
+  verifiedPurchase: zod.boolean(),
+  authorName: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+export const DeleteReviewParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListAdminAbandonedCartsResponseItem = zod.object({
+  id: zod.number(),
+  cartId: zod.string(),
+  email: zod.string(),
+  userId: zod.string().nullish(),
+  subtotalCents: zod.number().optional(),
+  itemCount: zod.number().optional(),
+  firstReminderSentAt: zod.coerce.date().nullish(),
+  secondReminderSentAt: zod.coerce.date().nullish(),
+  recoveredAt: zod.coerce.date().nullish(),
+  recoveredOrderId: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAdminAbandonedCartsResponse = zod.array(
+  ListAdminAbandonedCartsResponseItem,
+);
+
+export const GetAdminTaxSummaryResponse = zod.object({
+  taxCollectedCents: zod.number(),
+  taxableOrders: zod.number(),
+  currency: zod.string(),
+  stripeTaxEnabled: zod.boolean(),
+  warning: zod.string().nullish(),
 });
 
 /**

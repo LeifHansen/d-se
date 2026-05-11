@@ -63,3 +63,15 @@ export async function requireAdmin(
 export function getUserId(req: Request): string | null {
   return getAuth(req).userId ?? null;
 }
+
+export async function getUserEmail(req: Request): Promise<string | null> {
+  const auth = getAuth(req);
+  if (!auth.userId) return null;
+  try {
+    const { clerkClient } = await import("@clerk/express");
+    const user = await clerkClient.users.getUser(auth.userId);
+    return user.emailAddresses[0]?.emailAddress?.toLowerCase() ?? null;
+  } catch {
+    return null;
+  }
+}

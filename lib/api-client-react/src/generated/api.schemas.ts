@@ -35,6 +35,9 @@ export interface Product {
   seoDescription?: string | null;
   featured: boolean;
   published: boolean;
+  /** @nullable */
+  averageRating?: number | null;
+  reviewCount?: number;
   createdAt: string;
 }
 
@@ -74,6 +77,10 @@ export interface Cart {
   items: CartItem[];
   subtotalCents: number;
   currency: string;
+  /** @nullable */
+  discountCode?: string | null;
+  discountCents?: number;
+  totalCents?: number;
 }
 
 export interface AddressInput {
@@ -118,6 +125,9 @@ export interface Order {
   subtotalCents: number;
   shippingCents: number;
   taxCents: number;
+  discountCents?: number;
+  /** @nullable */
+  discountCode?: string | null;
   totalCents: number;
   currency: string;
   shippingAddress?: AddressInput;
@@ -181,6 +191,143 @@ export interface UploadUrlResponse {
   metadata?: UploadUrlRequest;
 }
 
+export type DiscountCodeType =
+  (typeof DiscountCodeType)[keyof typeof DiscountCodeType];
+
+export const DiscountCodeType = {
+  percent: "percent",
+  fixed: "fixed",
+} as const;
+
+export interface DiscountCode {
+  id: number;
+  code: string;
+  type: DiscountCodeType;
+  value: number;
+  /** @nullable */
+  minSubtotalCents?: number | null;
+  /** @nullable */
+  maxRedemptions?: number | null;
+  redemptionsCount: number;
+  /** @nullable */
+  expiresAt?: string | null;
+  active: boolean;
+  createdAt: string;
+}
+
+export type DiscountCodeInputType =
+  (typeof DiscountCodeInputType)[keyof typeof DiscountCodeInputType];
+
+export const DiscountCodeInputType = {
+  percent: "percent",
+  fixed: "fixed",
+} as const;
+
+export interface DiscountCodeInput {
+  /**
+   * @minLength 1
+   * @maxLength 64
+   */
+  code: string;
+  type: DiscountCodeInputType;
+  /** @minimum 1 */
+  value: number;
+  /** @nullable */
+  minSubtotalCents?: number | null;
+  /** @nullable */
+  maxRedemptions?: number | null;
+  /** @nullable */
+  expiresAt?: string | null;
+  active?: boolean;
+}
+
+/**
+ * @nullable
+ */
+export type DiscountValidationType =
+  | (typeof DiscountValidationType)[keyof typeof DiscountValidationType]
+  | null;
+
+export const DiscountValidationType = {
+  percent: "percent",
+  fixed: "fixed",
+} as const;
+
+export interface DiscountValidation {
+  valid: boolean;
+  /** @nullable */
+  reason?: string | null;
+  /** @nullable */
+  code?: string | null;
+  /** @nullable */
+  type?: DiscountValidationType;
+  /** @nullable */
+  value?: number | null;
+  discountCents?: number;
+  subtotalCents?: number;
+  totalCents?: number;
+}
+
+export type ReviewStatus = (typeof ReviewStatus)[keyof typeof ReviewStatus];
+
+export const ReviewStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export interface Review {
+  id: number;
+  productId: number;
+  /** @nullable */
+  productSlug?: string | null;
+  /** @nullable */
+  productName?: string | null;
+  rating: number;
+  title: string;
+  body: string;
+  status: ReviewStatus;
+  verifiedPurchase: boolean;
+  /** @nullable */
+  authorName?: string | null;
+  createdAt: string;
+}
+
+export interface ReviewList {
+  items: Review[];
+  /** @nullable */
+  averageRating: number | null;
+  count: number;
+}
+
+export interface AbandonedCart {
+  id: number;
+  cartId: string;
+  email: string;
+  /** @nullable */
+  userId?: string | null;
+  subtotalCents?: number;
+  itemCount?: number;
+  /** @nullable */
+  firstReminderSentAt?: string | null;
+  /** @nullable */
+  secondReminderSentAt?: string | null;
+  /** @nullable */
+  recoveredAt?: string | null;
+  /** @nullable */
+  recoveredOrderId?: string | null;
+  createdAt: string;
+}
+
+export interface TaxSummary {
+  taxCollectedCents: number;
+  taxableOrders: number;
+  currency: string;
+  stripeTaxEnabled: boolean;
+  /** @nullable */
+  warning?: string | null;
+}
+
 export interface AdminStats {
   totalOrders: number;
   ordersThisMonth: number;
@@ -195,6 +342,16 @@ export interface AdminStats {
  * Not found
  */
 export type NotFoundResponse = Error;
+
+/**
+ * Bad request
+ */
+export type BadRequestResponse = Error;
+
+/**
+ * Forbidden
+ */
+export type ForbiddenResponse = Error;
 
 export type ListProductsParams = {
   search?: string;
@@ -228,6 +385,20 @@ export type RemoveCartItemParams = {
   cartId: string;
 };
 
+export type ApplyCartDiscountBody = {
+  cartId: string;
+  code: string;
+};
+
+export type RemoveCartDiscountParams = {
+  cartId: string;
+};
+
+export type ResumeCartParams = {
+  cartId: string;
+  token: string;
+};
+
 export type GetShippingRatesBody = {
   cartId: string;
   address: AddressInput;
@@ -238,6 +409,7 @@ export type CreateCheckoutBody = {
   email?: string;
   address: AddressInput;
   shippingRateId: string;
+  discountCode?: string;
 };
 
 export type CreateCheckout200 = {
@@ -256,4 +428,38 @@ export type ListAdminOrdersParams = {
 
 export type FulfillOrderBody = {
   shippingRateId: string;
+};
+
+export type ValidateDiscountBody = {
+  code: string;
+  cartId: string;
+};
+
+export type SubmitProductReviewBody = {
+  /**
+   * @minimum 1
+   * @maximum 5
+   */
+  rating: number;
+  /** @maxLength 120 */
+  title: string;
+  /** @maxLength 4000 */
+  body: string;
+};
+
+export type ListAdminReviewsParams = {
+  status?: string;
+};
+
+export type ModerateReviewBodyStatus =
+  (typeof ModerateReviewBodyStatus)[keyof typeof ModerateReviewBodyStatus];
+
+export const ModerateReviewBodyStatus = {
+  pending: "pending",
+  approved: "approved",
+  rejected: "rejected",
+} as const;
+
+export type ModerateReviewBody = {
+  status: ModerateReviewBodyStatus;
 };

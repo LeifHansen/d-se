@@ -58,6 +58,77 @@ export async function sendOrderConfirmation(opts: {
   orderId: number;
   totalCents: number;
   items: Array<{ name: string; quantity: number; priceCents: number }>;
+  subtotalCents?: number;
+  shippingCents?: number;
+  taxCents?: number;
+  discountCents?: number;
+  discountCode?: string | null;
+}): Promise<void> {
+  const r = await getResend();
+  if (!r) return;
+  const fmt = (c: number) => `$${(c / 100).toFixed(2)}`;
+  const lines = opts.items
+    .map(
+      (i) =>
+        `<tr><td>${i.name}</td><td>${i.quantity}</td><td>${fmt(
+          i.priceCents,
+        )}</td></tr>`,
+    )
+    .join("");
+  const summaryRows: string[] = [];
+  if (opts.subtotalCents != null) {
+    summaryRows.push(
+      `<tr><td>Subtotal</td><td style="text-align:right">${fmt(
+        opts.subtotalCents,
+      )}</td></tr>`,
+    );
+  }
+  if (opts.discountCents != null && opts.discountCents > 0) {
+    const label = opts.discountCode
+      ? `Discount (${opts.discountCode})`
+      : "Discount";
+    summaryRows.push(
+      `<tr><td>${label}</td><td style="text-align:right">-${fmt(
+        opts.discountCents,
+      )}</td></tr>`,
+    );
+  }
+  if (opts.shippingCents != null) {
+    summaryRows.push(
+      `<tr><td>Shipping</td><td style="text-align:right">${fmt(
+        opts.shippingCents,
+      )}</td></tr>`,
+    );
+  }
+  if (opts.taxCents != null && opts.taxCents > 0) {
+    summaryRows.push(
+      `<tr><td>Tax</td><td style="text-align:right">${fmt(
+        opts.taxCents,
+      )}</td></tr>`,
+    );
+  }
+  const summary = summaryRows.length
+    ? `<table style="margin-top:16px">${summaryRows.join("")}</table>`
+    : "";
+  await r.client.emails.send({
+    from: `${STORE_NAME} <${r.fromEmail}>`,
+    to: opts.to,
+    subject: `Order #${opts.orderId} confirmed`,
+    html: `<h1>Thanks for your order!</h1>
+<p>Your order #${opts.orderId} has been received.</p>
+<table>${lines}</table>
+${summary}
+<p><strong>Total: ${fmt(opts.totalCents)}</strong></p>`,
+  });
+}
+
+export async function sendAbandonedCartEmail(opts: {
+  to: string;
+  cartId: string;
+  resumeUrl: string;
+  items: Array<{ name: string; quantity: number; priceCents: number }>;
+  subtotalCents: number;
+  reminderNumber: 1 | 2;
 }): Promise<void> {
   const r = await getResend();
   if (!r) return;
@@ -69,14 +140,23 @@ export async function sendOrderConfirmation(opts: {
         ).toFixed(2)}</td></tr>`,
     )
     .join("");
+  const subject =
+    opts.reminderNumber === 1
+      ? `You left something behind at ${STORE_NAME}`
+      : `Last chance — your ${STORE_NAME} cart is waiting`;
+  const headline =
+    opts.reminderNumber === 1
+      ? "Still thinking it over?"
+      : "Your cart is about to expire";
   await r.client.emails.send({
     from: `${STORE_NAME} <${r.fromEmail}>`,
     to: opts.to,
-    subject: `Order #${opts.orderId} confirmed`,
-    html: `<h1>Thanks for your order!</h1>
-<p>Your order #${opts.orderId} has been received.</p>
+    subject,
+    html: `<h1>${headline}</h1>
+<p>We saved your cart so you can pick up right where you left off.</p>
 <table>${lines}</table>
-<p><strong>Total: $${(opts.totalCents / 100).toFixed(2)}</strong></p>`,
+<p><strong>Subtotal: $${(opts.subtotalCents / 100).toFixed(2)}</strong></p>
+<p><a href="${opts.resumeUrl}">Resume your order →</a></p>`,
   });
 }
 

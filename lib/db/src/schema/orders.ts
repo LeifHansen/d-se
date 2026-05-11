@@ -35,6 +35,10 @@ export const ordersTable = pgTable("orders", {
   labelUrl: text("label_url"),
   stripeSessionId: text("stripe_session_id"),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
+  discountCodeId: integer("discount_code_id"),
+  discountCode: text("discount_code"),
+  discountCents: integer("discount_cents").notNull().default(0),
+  cartId: text("cart_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

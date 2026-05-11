@@ -16,6 +16,8 @@ tags:
   - name: blog
   - name: admin
   - name: webhooks
+  - name: discounts
+  - name: reviews
   - name: Storage
 paths:
   /healthz:
@@ -168,6 +170,65 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Cart" }
 
+  /cart/discount:
+    post:
+      operationId: applyCartDiscount
+      tags: [cart]
+      summary: Apply a discount code to the cart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cartId, code]
+              properties:
+                cartId: { type: string }
+                code: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cart" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+    delete:
+      operationId: removeCartDiscount
+      tags: [cart]
+      summary: Remove the discount code from the cart
+      parameters:
+        - name: cartId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cart" }
+  /cart/resume:
+    get:
+      operationId: resumeCart
+      tags: [cart]
+      summary: Resume a cart from a signed abandoned-cart link
+      parameters:
+        - name: cartId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Cart" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+
   /shipping/rates:
     post:
       operationId: getShippingRates
@@ -209,6 +270,7 @@ paths:
                 email: { type: string, format: email }
                 address: { $ref: "#/components/schemas/AddressInput" }
                 shippingRateId: { type: string }
+                discountCode: { type: string }
       responses:
         "200":
           description: OK
@@ -452,6 +514,201 @@ paths:
       responses:
         "204": { description: Deleted }
 
+  /discounts/validate:
+    post:
+      operationId: validateDiscount
+      tags: [discounts]
+      summary: Validate a discount code against a cart
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, cartId]
+              properties:
+                code: { type: string }
+                cartId: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DiscountValidation" }
+
+  /products/{slug}/reviews:
+    get:
+      operationId: listProductReviews
+      tags: [reviews]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReviewList" }
+    post:
+      operationId: submitProductReview
+      tags: [reviews]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rating, title, body]
+              properties:
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                title: { type: string, maxLength: 120 }
+                body: { type: string, maxLength: 4000 }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Review" }
+
+  /admin/discount-codes:
+    get:
+      operationId: listAdminDiscountCodes
+      tags: [admin]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DiscountCode" }
+    post:
+      operationId: createDiscountCode
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DiscountCodeInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DiscountCode" }
+  /admin/discount-codes/{id}:
+    patch:
+      operationId: updateDiscountCode
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DiscountCodeInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DiscountCode" }
+    delete:
+      operationId: deleteDiscountCode
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204": { description: Deleted }
+
+  /admin/reviews:
+    get:
+      operationId: listAdminReviews
+      tags: [admin]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Review" }
+  /admin/reviews/{id}:
+    patch:
+      operationId: moderateReview
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [pending, approved, rejected] }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Review" }
+    delete:
+      operationId: deleteReview
+      tags: [admin]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204": { description: Deleted }
+
+  /admin/abandoned-carts:
+    get:
+      operationId: listAdminAbandonedCarts
+      tags: [admin]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AbandonedCart" }
+
+  /admin/tax-summary:
+    get:
+      operationId: getAdminTaxSummary
+      tags: [admin]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TaxSummary" }
+
   /storage/uploads/request-url:
     post:
       tags: [Storage]
@@ -521,6 +778,16 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Forbidden
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
   schemas:
     HealthStatus:
       type: object
@@ -557,6 +824,8 @@ components:
         seoDescription: { type: ["string", "null"] }
         featured: { type: boolean }
         published: { type: boolean }
+        averageRating: { type: ["number", "null"] }
+        reviewCount: { type: integer }
         createdAt: { type: string, format: date-time }
 
     ProductInput:
@@ -593,6 +862,9 @@ components:
           items: { $ref: "#/components/schemas/CartItem" }
         subtotalCents: { type: integer }
         currency: { type: string }
+        discountCode: { type: ["string", "null"] }
+        discountCents: { type: integer }
+        totalCents: { type: integer }
     CartItem:
       type: object
       required: [id, productId, quantity, product, lineTotalCents]
@@ -640,6 +912,8 @@ components:
         subtotalCents: { type: integer }
         shippingCents: { type: integer }
         taxCents: { type: integer }
+        discountCents: { type: integer }
+        discountCode: { type: ["string", "null"] }
         totalCents: { type: integer }
         currency: { type: string }
         shippingAddress: { $ref: "#/components/schemas/AddressInput" }
@@ -707,6 +981,95 @@ components:
         uploadURL: { type: string, format: uri }
         objectPath: { type: string }
         metadata: { $ref: "#/components/schemas/UploadUrlRequest" }
+
+    DiscountCode:
+      type: object
+      required: [id, code, type, value, redemptionsCount, active, createdAt]
+      properties:
+        id: { type: integer }
+        code: { type: string }
+        type: { type: string, enum: [percent, fixed] }
+        value: { type: integer }
+        minSubtotalCents: { type: ["integer", "null"] }
+        maxRedemptions: { type: ["integer", "null"] }
+        redemptionsCount: { type: integer }
+        expiresAt: { type: ["string", "null"], format: date-time }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    DiscountCodeInput:
+      type: object
+      required: [code, type, value]
+      properties:
+        code: { type: string, minLength: 1, maxLength: 64 }
+        type: { type: string, enum: [percent, fixed] }
+        value: { type: integer, minimum: 1 }
+        minSubtotalCents: { type: ["integer", "null"] }
+        maxRedemptions: { type: ["integer", "null"] }
+        expiresAt: { type: ["string", "null"], format: date-time }
+        active: { type: boolean }
+    DiscountValidation:
+      type: object
+      required: [valid]
+      properties:
+        valid: { type: boolean }
+        reason: { type: ["string", "null"] }
+        code: { type: ["string", "null"] }
+        type: { type: ["string", "null"], enum: [percent, fixed, null] }
+        value: { type: ["integer", "null"] }
+        discountCents: { type: integer }
+        subtotalCents: { type: integer }
+        totalCents: { type: integer }
+
+    Review:
+      type: object
+      required: [id, productId, rating, title, body, status, verifiedPurchase, createdAt]
+      properties:
+        id: { type: integer }
+        productId: { type: integer }
+        productSlug: { type: ["string", "null"] }
+        productName: { type: ["string", "null"] }
+        rating: { type: integer }
+        title: { type: string }
+        body: { type: string }
+        status: { type: string, enum: [pending, approved, rejected] }
+        verifiedPurchase: { type: boolean }
+        authorName: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    ReviewList:
+      type: object
+      required: [items, averageRating, count]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Review" }
+        averageRating: { type: ["number", "null"] }
+        count: { type: integer }
+
+    AbandonedCart:
+      type: object
+      required: [id, cartId, email, createdAt]
+      properties:
+        id: { type: integer }
+        cartId: { type: string }
+        email: { type: string }
+        userId: { type: ["string", "null"] }
+        subtotalCents: { type: integer }
+        itemCount: { type: integer }
+        firstReminderSentAt: { type: ["string", "null"], format: date-time }
+        secondReminderSentAt: { type: ["string", "null"], format: date-time }
+        recoveredAt: { type: ["string", "null"], format: date-time }
+        recoveredOrderId: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    TaxSummary:
+      type: object
+      required: [taxCollectedCents, taxableOrders, currency, stripeTaxEnabled]
+      properties:
+        taxCollectedCents: { type: integer }
+        taxableOrders: { type: integer }
+        currency: { type: string }
+        stripeTaxEnabled: { type: boolean }
+        warning: { type: ["string", "null"] }
 
     AdminStats:
       type: object

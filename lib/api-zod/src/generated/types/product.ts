@@ -28,5 +28,8 @@ export interface Product {
   seoDescription?: string | null;
   featured: boolean;
   published: boolean;
+  /** @nullable */
+  averageRating?: number | null;
+  reviewCount?: number;
   createdAt: Date;
 }

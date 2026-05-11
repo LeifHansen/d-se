@@ -17,6 +17,9 @@ export interface Order {
   subtotalCents: number;
   shippingCents: number;
   taxCents: number;
+  discountCents?: number;
+  /** @nullable */
+  discountCode?: string | null;
   totalCents: number;
   currency: string;
   shippingAddress?: AddressInput;

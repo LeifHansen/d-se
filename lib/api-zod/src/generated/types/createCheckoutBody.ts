@@ -12,4 +12,5 @@ export type CreateCheckoutBody = {
   email?: string;
   address: AddressInput;
   shippingRateId: string;
+  discountCode?: string;
 };

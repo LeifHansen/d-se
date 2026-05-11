@@ -12,4 +12,8 @@ export interface Cart {
   items: CartItem[];
   subtotalCents: number;
   currency: string;
+  /** @nullable */
+  discountCode?: string | null;
+  discountCents?: number;
+  totalCents?: number;
 }

@@ -10,6 +10,10 @@ import { productsTable } from "./products";
 export const cartsTable = pgTable("carts", {
   id: text("id").primaryKey(),
   userId: text("user_id"),
+  email: text("email"),
+  discountCodeId: integer("discount_code_id"),
+  discountCode: text("discount_code"),
+  checkedOutAt: timestamp("checked_out_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

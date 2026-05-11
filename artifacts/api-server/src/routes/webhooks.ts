@@ -1,14 +1,17 @@
 import { Router, type IRouter, raw } from "express";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import {
   db,
   ordersTable,
   orderItemsTable,
   productsTable,
   cartItemsTable,
+  cartsTable,
+  discountCodesTable,
 } from "@workspace/db";
 import { getStripe, isStripeConfigured } from "../lib/stripe";
 import { sendOrderConfirmation } from "../lib/email";
+import { markCartRecovered } from "../lib/abandonedCart";
 
 const router: IRouter = Router();
 
@@ -46,7 +49,15 @@ router.post(
         payment_intent?: string;
         customer_email?: string | null;
         customer_details?: { email?: string | null } | null;
+        amount_total?: number | null;
+        total_details?: {
+          amount_tax?: number | null;
+          amount_discount?: number | null;
+          amount_shipping?: number | null;
+        } | null;
       };
+      const taxCents = session.total_details?.amount_tax ?? 0;
+      const reportedDiscountCents = session.total_details?.amount_discount ?? 0;
       const orderId = Number(session.metadata?.orderId);
       if (orderId) {
         const [order] = await db
@@ -60,6 +71,18 @@ router.post(
           order.status === "pending" &&
           (!order.stripeSessionId || order.stripeSessionId === session.id)
         ) {
+          const finalDiscountCents = Math.max(
+            order.discountCents,
+            reportedDiscountCents,
+          );
+          const finalTotalCents =
+            session.amount_total ??
+            Math.max(
+              0,
+              order.subtotalCents - finalDiscountCents,
+            ) +
+              order.shippingCents +
+              taxCents;
           await db
             .update(ordersTable)
             .set({
@@ -73,9 +96,40 @@ router.post(
                 session.customer_email ??
                 session.customer_details?.email ??
                 null,
+              taxCents,
+              discountCents: finalDiscountCents,
+              totalCents: finalTotalCents,
               updatedAt: new Date(),
             })
             .where(eq(ordersTable.id, orderId));
+
+          // Increment discount redemption count.
+          if (order.discountCodeId) {
+            await db
+              .update(discountCodesTable)
+              .set({
+                redemptionsCount: sql`${discountCodesTable.redemptionsCount} + 1`,
+                updatedAt: new Date(),
+              })
+              .where(eq(discountCodesTable.id, order.discountCodeId));
+          }
+
+          // Clear cart and mark abandoned cart recovered.
+          const cartId = order.cartId ?? session.metadata?.cartId ?? null;
+          if (cartId) {
+            try {
+              await db
+                .delete(cartItemsTable)
+                .where(eq(cartItemsTable.cartId, cartId));
+              await db
+                .update(cartsTable)
+                .set({ checkedOutAt: new Date(), updatedAt: new Date() })
+                .where(eq(cartsTable.id, cartId));
+              await markCartRecovered(cartId, order.id);
+            } catch (err) {
+              req.log.warn({ err }, "Cart cleanup failed");
+            }
+          }
 
           // Decrement inventory
           const items = await db
@@ -108,7 +162,12 @@ router.post(
               await sendOrderConfirmation({
                 to: email,
                 orderId: order.id,
-                totalCents: order.totalCents,
+                totalCents: finalTotalCents,
+                subtotalCents: order.subtotalCents,
+                shippingCents: order.shippingCents,
+                taxCents,
+                discountCents: finalDiscountCents,
+                discountCode: order.discountCode,
                 items: items.map((i) => ({
                   name: i.productName,
                   quantity: i.quantity,

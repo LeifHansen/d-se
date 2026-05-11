@@ -1,10 +1,12 @@
 import { Router, type IRouter } from "express";
+import type Stripe from "stripe";
 import { desc, eq } from "drizzle-orm";
 import {
   db,
   ordersTable,
   orderItemsTable,
   cartItemsTable,
+  cartsTable,
   productsTable,
   type OrderAddress,
 } from "@workspace/db";
@@ -20,6 +22,13 @@ import { computeShippingRates } from "./shipping";
 import { getStripe, isStripeConfigured } from "../lib/stripe";
 import { getUserId, requireAuth } from "../lib/auth";
 import { sendOrderConfirmation } from "../lib/email";
+import {
+  validateDiscount,
+  ensureStripePromotionCode,
+} from "../lib/discounts";
+import { recordAbandonedCart } from "../lib/abandonedCart";
+
+const STRIPE_TAX_ENABLED = process.env.STRIPE_TAX_ENABLED === "1";
 
 const router: IRouter = Router();
 
@@ -41,6 +50,8 @@ async function buildOrderResponse(orderId: number) {
     subtotalCents: order.subtotalCents,
     shippingCents: order.shippingCents,
     taxCents: order.taxCents,
+    discountCents: order.discountCents,
+    discountCode: order.discountCode,
     totalCents: order.totalCents,
     currency: order.currency,
     shippingAddress: order.shippingAddress ?? undefined,
@@ -82,7 +93,44 @@ router.post("/checkout", async (req, res): Promise<void> => {
     }
   }
   const subtotalCents = cart.subtotalCents;
-  const totalCents = subtotalCents + shippingCents;
+
+  // Discount validation (server-side authoritative). Fall back to the code
+  // persisted on the cart (via POST /cart/discount) when the request body
+  // omits one, so cart and checkout stay consistent.
+  let discountCents = 0;
+  let discountCodeId: number | null = null;
+  let discountCode: string | null = null;
+  const requestedDiscountCode =
+    parsed.data.discountCode ?? cart.discountCode ?? null;
+  if (requestedDiscountCode) {
+    const v = await validateDiscount(requestedDiscountCode, subtotalCents);
+    if (!v.valid) {
+      res.status(400).json({ error: `Discount: ${v.reason}` });
+      return;
+    }
+    discountCents = v.discountCents;
+    discountCodeId = v.code.id;
+    discountCode = v.code.code;
+  }
+
+  const totalCents = Math.max(0, subtotalCents - discountCents) + shippingCents;
+
+  // Track an abandoned-cart record now that we have an email.
+  if (parsed.data.email) {
+    try {
+      await recordAbandonedCart({
+        cartId: parsed.data.cartId,
+        email: parsed.data.email,
+        userId,
+      });
+      await db
+        .update(cartsTable)
+        .set({ email: parsed.data.email, updatedAt: new Date() })
+        .where(eq(cartsTable.id, parsed.data.cartId));
+    } catch (err) {
+      req.log.warn({ err }, "Failed to record abandoned cart");
+    }
+  }
 
   const [order] = await db
     .insert(ordersTable)
@@ -93,10 +141,14 @@ router.post("/checkout", async (req, res): Promise<void> => {
       subtotalCents,
       shippingCents,
       taxCents: 0,
+      discountCents,
+      discountCodeId,
+      discountCode,
       totalCents,
       currency: cart.currency,
       shippingAddress: address,
       shippingRateId: parsed.data.shippingRateId,
+      cartId: parsed.data.cartId,
     })
     .returning();
 
@@ -120,6 +172,10 @@ router.post("/checkout", async (req, res): Promise<void> => {
     await db
       .delete(cartItemsTable)
       .where(eq(cartItemsTable.cartId, parsed.data.cartId));
+    await db
+      .update(cartsTable)
+      .set({ checkedOutAt: new Date() })
+      .where(eq(cartsTable.id, parsed.data.cartId));
     res.json(
       CreateCheckoutResponse.parse({
         url: `/checkout/success?orderId=${order.id}`,
@@ -134,10 +190,50 @@ router.post("/checkout", async (req, res): Promise<void> => {
     const baseUrl =
       process.env.PUBLIC_APP_URL ??
       `https://${process.env.REPLIT_DEV_DOMAIN ?? "localhost"}`;
+
+    // Attach a Stripe Promotion Code if a discount was validated. This is
+    // authoritative: the discount has already been applied to the order total,
+    // so the Stripe Checkout charge MUST also reflect it. If we cannot attach
+    // the promotion code, abort the checkout instead of charging the full
+    // (undiscounted) total.
+    let promotionCodeId: string | null = null;
+    if (discountCodeId) {
+      try {
+        const v = await validateDiscount(discountCode!, subtotalCents);
+        if (!v.valid) {
+          throw new Error(v.reason);
+        }
+        promotionCodeId = await ensureStripePromotionCode(stripe, v.code);
+      } catch (err) {
+        req.log.error(
+          { err, discountCode },
+          "Failed to attach Stripe promotion code; aborting checkout",
+        );
+        res.status(502).json({
+          error:
+            "Could not apply discount with payment provider. Please remove the code and try again.",
+        });
+        return;
+      }
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
       customer_email: parsed.data.email ?? undefined,
+      // Required for Stripe Tax to determine the correct ship-to jurisdiction
+      // for physical goods. We pre-fill from the validated order address by
+      // letting Stripe re-collect; the destination drives tax calculation.
+      shipping_address_collection: STRIPE_TAX_ENABLED
+        ? {
+            allowed_countries: (
+              process.env.STRIPE_SHIPPING_COUNTRIES ?? "US,CA"
+            )
+              .split(",")
+              .map((c) => c.trim().toUpperCase())
+              .filter(Boolean) as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection["allowed_countries"],
+          }
+        : undefined,
       line_items: [
         ...cart.items.map((it) => ({
           quantity: it.quantity,
@@ -147,7 +243,9 @@ router.post("/checkout", async (req, res): Promise<void> => {
             product_data: {
               name: it.product.name,
               images: it.product.images.slice(0, 1),
+              tax_code: process.env.STRIPE_TAX_CODE_PRODUCT ?? "txcd_99999999",
             },
+            tax_behavior: "exclusive" as const,
           },
         })),
         ...(shippingCents > 0
@@ -157,15 +255,28 @@ router.post("/checkout", async (req, res): Promise<void> => {
                 price_data: {
                   currency: cart.currency,
                   unit_amount: shippingCents,
-                  product_data: { name: "Shipping" },
+                  product_data: {
+                    name: "Shipping",
+                    tax_code:
+                      process.env.STRIPE_TAX_CODE_SHIPPING ?? "txcd_92010001",
+                  },
+                  tax_behavior: "exclusive" as const,
                 },
               },
             ]
           : []),
       ],
+      automatic_tax: STRIPE_TAX_ENABLED ? { enabled: true } : undefined,
+      discounts: promotionCodeId
+        ? [{ promotion_code: promotionCodeId }]
+        : undefined,
       success_url: `${baseUrl}/checkout/success?orderId=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/cart`,
-      metadata: { orderId: String(order.id) },
+      metadata: {
+        orderId: String(order.id),
+        cartId: parsed.data.cartId,
+        ...(discountCode ? { discountCode } : {}),
+      },
     });
     await db
       .update(ordersTable)

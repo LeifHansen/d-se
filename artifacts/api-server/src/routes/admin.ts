@@ -1,10 +1,14 @@
 import { Router, type IRouter } from "express";
-import { and, count, desc, eq, gte, lte, sql, sum } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, lte, sql, sum } from "drizzle-orm";
 import {
   db,
   productsTable,
   ordersTable,
   blogPostsTable,
+  discountCodesTable,
+  productReviewsTable,
+  abandonedCartsTable,
+  cartItemsTable,
 } from "@workspace/db";
 import {
   CreateProductBody,
@@ -25,6 +29,20 @@ import {
   FulfillOrderParams,
   FulfillOrderBody,
   FulfillOrderResponse,
+  ListAdminDiscountCodesResponse,
+  CreateDiscountCodeBody,
+  UpdateDiscountCodeParams,
+  UpdateDiscountCodeBody,
+  UpdateDiscountCodeResponse,
+  DeleteDiscountCodeParams,
+  ListAdminReviewsQueryParams,
+  ListAdminReviewsResponse,
+  ModerateReviewParams,
+  ModerateReviewBody,
+  ModerateReviewResponse,
+  DeleteReviewParams,
+  ListAdminAbandonedCartsResponse,
+  GetAdminTaxSummaryResponse,
 } from "@workspace/api-zod";
 import { requireAdmin } from "../lib/auth";
 import { buildOrderResponse } from "./orders";
@@ -57,6 +75,8 @@ function serializeProduct(p: typeof productsTable.$inferSelect) {
     seoDescription: p.seoDescription,
     featured: p.featured,
     published: p.published,
+    averageRating: null as number | null,
+    reviewCount: 0,
     createdAt: p.createdAt,
   };
 }
@@ -415,6 +435,294 @@ router.delete("/admin/blog/posts/:id", async (req, res): Promise<void> => {
     .delete(blogPostsTable)
     .where(eq(blogPostsTable.id, params.data.id));
   res.sendStatus(204);
+});
+
+// ---------- Discount codes ----------
+
+function serializeDiscount(d: typeof discountCodesTable.$inferSelect) {
+  return {
+    id: d.id,
+    code: d.code,
+    type: d.type as "percent" | "fixed",
+    value: d.value,
+    minSubtotalCents: d.minSubtotalCents,
+    maxRedemptions: d.maxRedemptions,
+    redemptionsCount: d.redemptionsCount,
+    expiresAt: d.expiresAt,
+    active: d.active,
+    createdAt: d.createdAt,
+  };
+}
+
+router.get("/admin/discount-codes", async (_req, res): Promise<void> => {
+  const rows = await db
+    .select()
+    .from(discountCodesTable)
+    .orderBy(desc(discountCodesTable.createdAt));
+  res.json(ListAdminDiscountCodesResponse.parse(rows.map(serializeDiscount)));
+});
+
+function validateDiscountInput(input: {
+  type: string;
+  value: number;
+}): string | null {
+  if (!Number.isInteger(input.value) || input.value <= 0) {
+    return "value must be a positive integer";
+  }
+  if (input.type === "percent" && input.value > 100) {
+    return "percent discount value must be between 1 and 100";
+  }
+  return null;
+}
+
+router.post("/admin/discount-codes", async (req, res): Promise<void> => {
+  const body = CreateDiscountCodeBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+  const invalid = validateDiscountInput(body.data);
+  if (invalid) {
+    res.status(400).json({ error: invalid });
+    return;
+  }
+  const [row] = await db
+    .insert(discountCodesTable)
+    .values({
+      code: body.data.code.trim().toUpperCase(),
+      type: body.data.type,
+      value: body.data.value,
+      minSubtotalCents: body.data.minSubtotalCents ?? null,
+      maxRedemptions: body.data.maxRedemptions ?? null,
+      expiresAt: body.data.expiresAt ?? null,
+      active: body.data.active ?? true,
+    })
+    .returning();
+  res.status(201).json(serializeDiscount(row));
+});
+
+router.patch("/admin/discount-codes/:id", async (req, res): Promise<void> => {
+  const params = UpdateDiscountCodeParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const body = UpdateDiscountCodeBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+  const invalid = validateDiscountInput(body.data);
+  if (invalid) {
+    res.status(400).json({ error: invalid });
+    return;
+  }
+  const [row] = await db
+    .update(discountCodesTable)
+    .set({
+      code: body.data.code.trim().toUpperCase(),
+      type: body.data.type,
+      value: body.data.value,
+      minSubtotalCents: body.data.minSubtotalCents ?? null,
+      maxRedemptions: body.data.maxRedemptions ?? null,
+      expiresAt: body.data.expiresAt ?? null,
+      active: body.data.active ?? true,
+      // Invalidate cached Stripe coupon/promo when fields change.
+      stripeCouponId: null,
+      stripePromotionCodeId: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(discountCodesTable.id, params.data.id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Discount code not found" });
+    return;
+  }
+  res.json(UpdateDiscountCodeResponse.parse(serializeDiscount(row)));
+});
+
+router.delete(
+  "/admin/discount-codes/:id",
+  async (req, res): Promise<void> => {
+    const params = DeleteDiscountCodeParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    await db
+      .delete(discountCodesTable)
+      .where(eq(discountCodesTable.id, params.data.id));
+    res.sendStatus(204);
+  },
+);
+
+// ---------- Reviews moderation ----------
+
+function serializeAdminReview(
+  r: typeof productReviewsTable.$inferSelect,
+  product?: { slug: string; name: string } | null,
+) {
+  return {
+    id: r.id,
+    productId: r.productId,
+    productSlug: product?.slug ?? null,
+    productName: product?.name ?? null,
+    rating: r.rating,
+    title: r.title,
+    body: r.body,
+    status: r.status as "pending" | "approved" | "rejected",
+    verifiedPurchase: r.verifiedPurchase,
+    authorName: r.authorName,
+    createdAt: r.createdAt,
+  };
+}
+
+router.get("/admin/reviews", async (req, res): Promise<void> => {
+  const parsed = ListAdminReviewsQueryParams.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const rows = parsed.data.status
+    ? await db
+        .select({
+          review: productReviewsTable,
+          product: { slug: productsTable.slug, name: productsTable.name },
+        })
+        .from(productReviewsTable)
+        .innerJoin(
+          productsTable,
+          eq(productsTable.id, productReviewsTable.productId),
+        )
+        .where(eq(productReviewsTable.status, parsed.data.status))
+        .orderBy(desc(productReviewsTable.createdAt))
+    : await db
+        .select({
+          review: productReviewsTable,
+          product: { slug: productsTable.slug, name: productsTable.name },
+        })
+        .from(productReviewsTable)
+        .innerJoin(
+          productsTable,
+          eq(productsTable.id, productReviewsTable.productId),
+        )
+        .orderBy(desc(productReviewsTable.createdAt));
+  res.json(
+    ListAdminReviewsResponse.parse(
+      rows.map((r) => serializeAdminReview(r.review, r.product)),
+    ),
+  );
+});
+
+router.patch("/admin/reviews/:id", async (req, res): Promise<void> => {
+  const params = ModerateReviewParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const body = ModerateReviewBody.safeParse(req.body);
+  if (!body.success) {
+    res.status(400).json({ error: body.error.message });
+    return;
+  }
+  const [row] = await db
+    .update(productReviewsTable)
+    .set({ status: body.data.status, updatedAt: new Date() })
+    .where(eq(productReviewsTable.id, params.data.id))
+    .returning();
+  if (!row) {
+    res.status(404).json({ error: "Review not found" });
+    return;
+  }
+  const [product] = await db
+    .select({ slug: productsTable.slug, name: productsTable.name })
+    .from(productsTable)
+    .where(eq(productsTable.id, row.productId));
+  res.json(
+    ModerateReviewResponse.parse(serializeAdminReview(row, product ?? null)),
+  );
+});
+
+router.delete("/admin/reviews/:id", async (req, res): Promise<void> => {
+  const params = DeleteReviewParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  await db
+    .delete(productReviewsTable)
+    .where(eq(productReviewsTable.id, params.data.id));
+  res.sendStatus(204);
+});
+
+// ---------- Abandoned carts ----------
+
+router.get("/admin/abandoned-carts", async (_req, res): Promise<void> => {
+  const rows = await db
+    .select({
+      id: abandonedCartsTable.id,
+      cartId: abandonedCartsTable.cartId,
+      email: abandonedCartsTable.email,
+      userId: abandonedCartsTable.userId,
+      firstReminderSentAt: abandonedCartsTable.firstReminderSentAt,
+      secondReminderSentAt: abandonedCartsTable.secondReminderSentAt,
+      recoveredAt: abandonedCartsTable.recoveredAt,
+      recoveredOrderId: abandonedCartsTable.recoveredOrderId,
+      createdAt: abandonedCartsTable.createdAt,
+    })
+    .from(abandonedCartsTable)
+    .orderBy(desc(abandonedCartsTable.createdAt))
+    .limit(200);
+
+  const enriched = await Promise.all(
+    rows.map(async (r) => {
+      const items = await db
+        .select({
+          quantity: cartItemsTable.quantity,
+          priceCents: productsTable.priceCents,
+        })
+        .from(cartItemsTable)
+        .innerJoin(
+          productsTable,
+          eq(productsTable.id, cartItemsTable.productId),
+        )
+        .where(eq(cartItemsTable.cartId, r.cartId));
+      const subtotalCents = items.reduce(
+        (s, i) => s + i.priceCents * i.quantity,
+        0,
+      );
+      const itemCount = items.reduce((s, i) => s + i.quantity, 0);
+      return { ...r, subtotalCents, itemCount };
+    }),
+  );
+  res.json(ListAdminAbandonedCartsResponse.parse(enriched));
+});
+
+// ---------- Tax summary ----------
+
+router.get("/admin/tax-summary", async (_req, res): Promise<void> => {
+  // Aggregate across all revenue-recognized states so totals don't drop out
+  // when an order transitions from `paid` to `shipped`/`fulfilled`.
+  const REVENUE_STATUSES = ["paid", "shipped", "delivered", "fulfilled"];
+  const [row] = await db
+    .select({
+      taxCollectedCents: sum(ordersTable.taxCents),
+      taxableOrders: count(),
+    })
+    .from(ordersTable)
+    .where(inArray(ordersTable.status, REVENUE_STATUSES));
+  const stripeTaxEnabled = process.env.STRIPE_TAX_ENABLED === "1";
+  res.json(
+    GetAdminTaxSummaryResponse.parse({
+      taxCollectedCents: Number(row?.taxCollectedCents ?? 0),
+      taxableOrders: Number(row?.taxableOrders ?? 0),
+      currency: "usd",
+      stripeTaxEnabled,
+      warning: stripeTaxEnabled
+        ? null
+        : "Stripe Tax is disabled. Set STRIPE_TAX_ENABLED=1 once tax is configured in your Stripe dashboard.",
+    }),
+  );
 });
 
 export default router;

@@ -8,10 +8,17 @@ import {
   GetProductBySlugParams,
   GetProductBySlugResponse,
 } from "@workspace/api-zod";
+import {
+  getProductRatingStats,
+  getProductRatingStatsBatch,
+} from "./reviews";
 
 const router: IRouter = Router();
 
-function serialize(p: typeof productsTable.$inferSelect) {
+function serialize(
+  p: typeof productsTable.$inferSelect,
+  rating?: { averageRating: number | null; count: number },
+) {
   return {
     id: p.id,
     slug: p.slug,
@@ -29,8 +36,19 @@ function serialize(p: typeof productsTable.$inferSelect) {
     seoDescription: p.seoDescription,
     featured: p.featured,
     published: p.published,
+    averageRating: rating?.averageRating ?? null,
+    reviewCount: rating?.count ?? 0,
     createdAt: p.createdAt,
   };
+}
+
+async function attachRatings(
+  rows: Array<typeof productsTable.$inferSelect>,
+) {
+  const stats = await getProductRatingStatsBatch(rows.map((r) => r.id));
+  return rows.map((r) =>
+    serialize(r, stats.get(r.id) ?? { averageRating: null, count: 0 }),
+  );
 }
 
 router.get("/products", async (req, res): Promise<void> => {
@@ -61,7 +79,7 @@ router.get("/products", async (req, res): Promise<void> => {
     .where(and(...conditions))
     .orderBy(desc(productsTable.createdAt))
     .limit(limit ?? 24);
-  res.json(ListProductsResponse.parse(rows.map(serialize)));
+  res.json(ListProductsResponse.parse(await attachRatings(rows)));
 });
 
 router.get("/products/featured", async (_req, res): Promise<void> => {
@@ -73,7 +91,7 @@ router.get("/products/featured", async (_req, res): Promise<void> => {
     )
     .orderBy(desc(productsTable.createdAt))
     .limit(8);
-  res.json(ListFeaturedProductsResponse.parse(rows.map(serialize)));
+  res.json(ListFeaturedProductsResponse.parse(await attachRatings(rows)));
 });
 
 router.get("/products/:slug", async (req, res): Promise<void> => {
@@ -90,7 +108,8 @@ router.get("/products/:slug", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Product not found" });
     return;
   }
-  res.json(GetProductBySlugResponse.parse(serialize(row)));
+  const stats = await getProductRatingStats(row.id);
+  res.json(GetProductBySlugResponse.parse(serialize(row, stats)));
 });
 
 export default router;
