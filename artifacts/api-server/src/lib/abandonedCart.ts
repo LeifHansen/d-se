@@ -24,13 +24,9 @@ function getResumeSecret(): string {
   const secret =
     process.env.ABANDONED_CART_SECRET ?? process.env.SESSION_SECRET;
   if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error(
-        "ABANDONED_CART_SECRET (or SESSION_SECRET) must be set to sign resume links",
-      );
-    }
-    // Dev-only convenience; never used in production thanks to the guard above.
-    return "dev-resume-secret-do-not-use-in-production";
+    throw new Error(
+      "ABANDONED_CART_SECRET (or SESSION_SECRET) must be set to sign resume links",
+    );
   }
   return secret;
 }

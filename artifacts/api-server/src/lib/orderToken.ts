@@ -8,12 +8,9 @@ function getSecret(): string {
   const secret =
     process.env.ORDER_TOKEN_SECRET ?? process.env.SESSION_SECRET ?? null;
   if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error(
-        "ORDER_TOKEN_SECRET (or SESSION_SECRET) must be set to sign order links",
-      );
-    }
-    return "dev-order-token-secret-do-not-use-in-production";
+    throw new Error(
+      "ORDER_TOKEN_SECRET (or SESSION_SECRET) must be set to sign order links",
+    );
   }
   return secret;
 }
