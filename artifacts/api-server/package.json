@@ -8,7 +8,7 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "seed": "node ./src/scripts/seed-dose.mjs",
-    "test": "tsx --tsconfig tsconfig.json tests/purchase-tracking.test.ts",
+    "test": "tsx --tsconfig tsconfig.json --test tests/*.test.ts",
     "test:vitest": "vitest run",
     "typecheck": "tsc -b ../../lib/db ../../lib/api-zod && tsc -p tsconfig.json --noEmit"
   },
