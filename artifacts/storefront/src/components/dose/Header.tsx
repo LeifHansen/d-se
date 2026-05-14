@@ -100,20 +100,20 @@ export function Header() {
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Cart"
+              aria-label={`Cart, ${itemCount} item${itemCount === 1 ? "" : "s"}`}
               className="relative text-current hover:bg-white/5"
               data-testid="header-cart"
             >
               <ShoppingBag className="h-4 w-4" />
               <span
-                className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full text-[9px] font-semibold"
+                className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[9px] font-semibold"
                 style={{
                   background: "hsl(42 53% 54%)",
                   color: "hsl(170 58% 14%)",
                 }}
                 data-testid="header-cart-count"
               >
-                {itemCount}
+                {itemCount > 99 ? "99+" : itemCount}
               </span>
             </Button>
           </Link>

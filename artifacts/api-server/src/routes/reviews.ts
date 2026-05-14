@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   productsTable,
@@ -78,7 +78,7 @@ export async function getProductRatingStatsBatch(
     .where(
       and(
         eq(productReviewsTable.status, "approved"),
-        sql`${productReviewsTable.productId} = ANY(${productIds})`,
+        inArray(productReviewsTable.productId, productIds),
       ),
     )
     .groupBy(productReviewsTable.productId);

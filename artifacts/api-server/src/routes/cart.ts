@@ -52,6 +52,7 @@ function serializeProduct(p: typeof productsTable.$inferSelect) {
     currency: p.currency,
     images: (p.images ?? []) as string[],
     inventory: p.inventory,
+    lowStockThreshold: p.lowStockThreshold,
     weightOz: p.weightOz != null ? Number(p.weightOz) : null,
     tags: (p.tags ?? []) as string[],
     seoTitle: p.seoTitle,

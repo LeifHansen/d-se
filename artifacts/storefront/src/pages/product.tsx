@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRoute } from "wouter";
+import { Helmet } from "react-helmet-async";
 import { PromoBanner } from "@/components/dose/PromoBanner";
 import { Header } from "@/components/dose/Header";
 import { Footer } from "@/components/dose/Footer";
@@ -13,6 +14,7 @@ import { Stars } from "@/components/dose/Stars";
 import { Image } from "@/components/dose/Image";
 import { ApiError, apiFetch, formatMoney } from "@/lib/api";
 import { useAddToCart } from "@/hooks/useCart";
+import { track } from "@/lib/analytics";
 import NotFound from "@/pages/not-found";
 
 type Product = {
@@ -28,6 +30,8 @@ type Product = {
   inventory: number;
   averageRating: number | null;
   reviewCount: number;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
 };
 
 type Review = {
@@ -245,11 +249,27 @@ export default function ProductPage() {
     return () => clearTimeout(t);
   }, [added]);
 
+  const product = productQuery.data;
+
+  useEffect(() => {
+    if (!product) return;
+    track("view_item", {
+      currency: (product.currency ?? "usd").toUpperCase(),
+      value: product.priceCents / 100,
+      items: [
+        {
+          item_id: product.slug,
+          item_name: product.name,
+          price: product.priceCents / 100,
+          quantity: 1,
+        },
+      ],
+    });
+  }, [product]);
+
   if (productQuery.isError && productQuery.error?.status === 404) {
     return <NotFound />;
   }
-
-  const product = productQuery.data;
 
   return (
     <div
@@ -257,6 +277,14 @@ export default function ProductPage() {
       style={{ background: "hsl(45 49% 90%)", color: "hsl(170 58% 14%)" }}
       data-testid="product-page"
     >
+      {product && (
+        <Helmet>
+          <title>{product.seoTitle ?? `${product.name} — DŌSE`}</title>
+          {product.seoDescription && (
+            <meta name="description" content={product.seoDescription} />
+          )}
+        </Helmet>
+      )}
       <PromoBanner />
       <Header />
       <main id="main">
@@ -337,6 +365,19 @@ export default function ProductPage() {
                   }}
                   disabled={addToCart.isPending || product.inventory <= 0}
                   onClick={async () => {
+                    const value = product.priceCents / 100;
+                    track("add_to_cart", {
+                      currency: (product.currency ?? "usd").toUpperCase(),
+                      value,
+                      items: [
+                        {
+                          item_id: product.slug,
+                          item_name: product.name,
+                          price: value,
+                          quantity: 1,
+                        },
+                      ],
+                    });
                     await addToCart.mutateAsync({ productId: product.id });
                     setAdded(true);
                   }}
