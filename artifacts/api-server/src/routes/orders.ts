@@ -52,6 +52,58 @@ function generateLookupToken(): string {
 }
 
 
+// In-memory rate limit for the guest order lookup endpoint. Counts failed
+// attempts per (ip, orderId) and short-circuits with 429 once the threshold
+// is exceeded within the window. Successful lookups clear the counter so
+// legitimate users aren't penalised by an earlier mistype.
+const LOOKUP_MAX_FAILS = 5;
+const LOOKUP_WINDOW_MS = 10 * 60 * 1000;
+type LookupAttempt = { count: number; firstAt: number };
+const lookupFailures = new Map<string, LookupAttempt>();
+
+function lookupKey(ip: string, orderId: number): string {
+  return `${ip}|${orderId}`;
+}
+
+function checkLookupRateLimit(
+  ip: string,
+  orderId: number,
+): { allowed: true } | { allowed: false; retryAfterSeconds: number } {
+  const key = lookupKey(ip, orderId);
+  const now = Date.now();
+  const entry = lookupFailures.get(key);
+  if (!entry || now - entry.firstAt > LOOKUP_WINDOW_MS) {
+    return { allowed: true };
+  }
+  if (entry.count >= LOOKUP_MAX_FAILS) {
+    const retryAfterMs = LOOKUP_WINDOW_MS - (now - entry.firstAt);
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.max(1, Math.ceil(retryAfterMs / 1000)),
+    };
+  }
+  return { allowed: true };
+}
+
+function recordLookupFailure(ip: string, orderId: number): void {
+  const key = lookupKey(ip, orderId);
+  const now = Date.now();
+  const entry = lookupFailures.get(key);
+  if (!entry || now - entry.firstAt > LOOKUP_WINDOW_MS) {
+    lookupFailures.set(key, { count: 1, firstAt: now });
+    return;
+  }
+  entry.count += 1;
+}
+
+function clearLookupFailures(ip: string, orderId: number): void {
+  lookupFailures.delete(lookupKey(ip, orderId));
+}
+
+export function __resetLookupRateLimitForTests(): void {
+  lookupFailures.clear();
+}
+
 function tokensMatch(a: string, b: string): boolean {
   const ab = Buffer.from(a);
   const bb = Buffer.from(b);
@@ -380,12 +432,30 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Email or token is required" });
     return;
   }
+
+  // Throttle brute-force attempts before doing any DB work. Bucket by client
+  // IP + orderId so an attacker can't cheaply script millions of token /
+  // email guesses against a known orderId.
+  //
+  // Use req.ip only — Express resolves it from x-forwarded-for ONLY when
+  // `trust proxy` is configured for known upstream proxies. Reading the
+  // header directly would let an attacker spoof a fresh IP per request and
+  // bypass the limit entirely.
+  const clientIp = req.ip || "unknown";
+  const limit = checkLookupRateLimit(clientIp, parsed.data.orderId);
+  if (!limit.allowed) {
+    res.setHeader("Retry-After", String(limit.retryAfterSeconds));
+    res.status(429).json({ error: "Too many attempts. Try again later." });
+    return;
+  }
+
   const [row] = await db
     .select()
     .from(ordersTable)
     .where(eq(ordersTable.id, parsed.data.orderId));
   // Don't leak whether the order exists when credentials don't match.
   if (!row) {
+    recordLookupFailure(clientIp, parsed.data.orderId);
     res.status(404).json({ error: "Order not found" });
     return;
   }
@@ -406,6 +476,7 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
     authorized = true;
   }
   if (!authorized) {
+    recordLookupFailure(clientIp, parsed.data.orderId);
     res.status(404).json({ error: "Order not found" });
     return;
   }
@@ -424,6 +495,7 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
       return;
     }
   }
+
   if (viaToken) {
     // Best-effort: record last-used so admins can audit token activity.
     try {
@@ -435,6 +507,8 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
       req.log.warn({ err }, "Failed to update lookup_token_last_used_at");
     }
   }
+
+  clearLookupFailures(clientIp, parsed.data.orderId);
   const order = await buildOrderResponse(row.id);
   res.json(GetOrderResponse.parse(order));
 });
