@@ -201,6 +201,73 @@ describe("POST /api/orders/lookup", () => {
   });
 });
 
+describe("POST /api/orders/by-token", () => {
+  beforeEach(async () => {
+    await resetDb();
+    __setAuth(null);
+  });
+
+  it("returns the order when a valid signed token is presented", async () => {
+    const { signOrderToken } = await import("../lib/orderToken");
+    const product = await seedProduct({ slug: "p-bytoken-1" });
+    const orderId = await seedOrder({ userId: null, productId: product.id });
+    const token = signOrderToken({ orderId, email: "buyer@example.com" });
+
+    const res = await request(app).post("/api/orders/by-token").send({ token });
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(orderId);
+    expect(res.body.email).toBe("buyer@example.com");
+  });
+
+  it("returns 404 for a tampered token", async () => {
+    const { signOrderToken } = await import("../lib/orderToken");
+    const product = await seedProduct({ slug: "p-bytoken-2" });
+    const orderId = await seedOrder({ userId: null, productId: product.id });
+    const token = signOrderToken({ orderId, email: "buyer@example.com" });
+    const tampered = token.slice(0, -2) + (token.endsWith("a") ? "bb" : "aa");
+
+    const res = await request(app)
+      .post("/api/orders/by-token")
+      .send({ token: tampered });
+
+    expect(res.status).toBe(404);
+    expect(res.body).not.toHaveProperty("id");
+  });
+
+  it("returns 404 when the token's email does not match the order's", async () => {
+    const { signOrderToken } = await import("../lib/orderToken");
+    const product = await seedProduct({ slug: "p-bytoken-3" });
+    const orderId = await seedOrder({ userId: null, productId: product.id });
+    const token = signOrderToken({ orderId, email: "someone-else@example.com" });
+
+    const res = await request(app).post("/api/orders/by-token").send({ token });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 for an expired token", async () => {
+    const { signOrderToken } = await import("../lib/orderToken");
+    const product = await seedProduct({ slug: "p-bytoken-4" });
+    const orderId = await seedOrder({ userId: null, productId: product.id });
+    // Issued well in the past (TTL is 30 days by default).
+    const token = signOrderToken({
+      orderId,
+      email: "buyer@example.com",
+      now: Date.now() - 365 * 24 * 60 * 60 * 1000,
+    });
+
+    const res = await request(app).post("/api/orders/by-token").send({ token });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 400 for missing or empty token", async () => {
+    const empty = await request(app).post("/api/orders/by-token").send({});
+    expect(empty.status).toBe(400);
+  });
+});
+
 describe("POST /api/checkout — dev fallback when Stripe is not configured", () => {
   beforeEach(async () => {
     await resetDb();

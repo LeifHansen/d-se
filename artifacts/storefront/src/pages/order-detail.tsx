@@ -1,6 +1,9 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useParams } from "wouter";
-import { useLookupOrder } from "@workspace/api-client-react";
+import {
+  useLookupOrder,
+  useLookupOrderByToken,
+} from "@workspace/api-client-react";
 import type { Order } from "@workspace/api-client-react";
 import { SiteShell } from "@/components/dose/SiteShell";
 import { Seo } from "@/components/seo/Seo";
@@ -27,6 +30,7 @@ export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
   const orderId = Number(params.id);
   const lookup = useLookupOrder();
+  const lookupByToken = useLookupOrderByToken();
   const [email, setEmail] = useState<string>("");
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,13 +43,20 @@ export default function OrderDetailPage() {
     const token = url.searchParams.get("token") ?? "";
     if (token) {
       setTried(true);
-      lookup
-        .mutateAsync({ data: { orderId, token } })
+      lookupByToken
+        .mutateAsync({ data: { token } })
         .then((res) => setOrder(res))
         .catch(() => {
-          setError(
-            "This link is invalid or expired. Enter the email used at checkout.",
-          );
+          // Fall back to the legacy random-token endpoint for orders whose
+          // confirmation email pre-dates the signed-token rollout.
+          lookup
+            .mutateAsync({ data: { orderId, token } })
+            .then((res) => setOrder(res))
+            .catch(() => {
+              setError(
+                "This link is invalid or expired. Enter the email used at checkout.",
+              );
+            });
         });
       return;
     }

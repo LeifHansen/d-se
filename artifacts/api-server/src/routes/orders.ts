@@ -19,12 +19,14 @@ import {
   GetOrderQueryParams,
   GetOrderResponse,
   LookupOrderBody,
+  LookupOrderByTokenBody,
 } from "@workspace/api-zod";
 import { loadCart } from "./cart";
 import { computeShippingRates } from "./shipping";
 import { getStripe, isStripeConfigured } from "../lib/stripe";
 import { getUserId, requireAuth } from "../lib/auth";
 import { sendOrderConfirmation } from "../lib/email";
+import { verifyOrderToken } from "../lib/orderToken";
 import {
   validateDiscount,
   ensureStripePromotionCode,
@@ -393,6 +395,39 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
     authorized = true;
   }
   if (!authorized) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  const order = await buildOrderResponse(row.id);
+  res.json(GetOrderResponse.parse(order));
+});
+
+router.post("/orders/by-token", async (req, res): Promise<void> => {
+  const parsed = LookupOrderByTokenBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const verified = verifyOrderToken(parsed.data.token);
+  if (!verified) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  const [row] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, verified.orderId));
+  if (!row) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  // The token is scoped to {orderId, email}; require the order's email on
+  // file to still match the token's email so a token rotated by a re-checkout
+  // (or a wiped email) cannot be replayed.
+  if (
+    !row.email ||
+    row.email.trim().toLowerCase() !== verified.email.trim().toLowerCase()
+  ) {
     res.status(404).json({ error: "Order not found" });
     return;
   }

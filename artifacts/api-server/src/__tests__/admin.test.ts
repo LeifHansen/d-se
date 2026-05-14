@@ -147,8 +147,13 @@ describe("POST /admin/orders/labels/merge-pdf", () => {
     ]);
 
     originalFetch = globalThis.fetch;
-    globalThis.fetch = (async (input: RequestInfo | URL) => {
-      const url = typeof input === "string" ? input : input.toString();
+    globalThis.fetch = (async (input: string | URL | Request) => {
+      const url =
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.toString()
+            : input.url;
       if (url.endsWith(".pdf")) {
         return new Response(pdfLabelBytes, {
           status: 200,

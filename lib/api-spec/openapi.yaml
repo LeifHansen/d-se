@@ -350,6 +350,27 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Order" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /orders/by-token:
+    post:
+      operationId: lookupOrderByToken
+      tags: [orders]
+      summary: Look up an order using only the signed magic-link token from the order confirmation email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /blog/posts:
     get:

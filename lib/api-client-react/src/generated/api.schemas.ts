@@ -551,6 +551,10 @@ export type LookupOrderBody = {
   token?: string;
 };
 
+export type LookupOrderByTokenBody = {
+  token: string;
+};
+
 export type ListBlogPostsParams = {
   tag?: string;
   limit?: number;

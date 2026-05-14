@@ -12,6 +12,7 @@ import {
 } from "@workspace/db";
 import { getStripe, isStripeConfigured } from "../lib/stripe";
 import { sendOrderConfirmation } from "../lib/email";
+import { signOrderToken } from "../lib/orderToken";
 import { SITE_URL } from "../lib/site-url";
 import { markCartRecovered } from "../lib/abandonedCart";
 import { recordStripeWebhookReceived } from "../lib/metrics";
@@ -368,9 +369,9 @@ router.post(
               quantity: i.quantity,
               priceCents: i.priceCents,
             })),
-            orderUrl: ctx.orderLookupToken
-              ? `${SITE_URL}/orders/${orderId}?token=${encodeURIComponent(ctx.orderLookupToken)}`
-              : `${SITE_URL}/orders/${orderId}?email=${encodeURIComponent(ctx.email)}`,
+            orderUrl: `${SITE_URL}/orders/${orderId}?token=${encodeURIComponent(
+              signOrderToken({ orderId, email: ctx.email }),
+            )}`,
           });
         } catch (err) {
           req.log.warn({ err }, "Order email send failed");

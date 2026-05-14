@@ -48,6 +48,7 @@ import type {
   ListBlogPostsParams,
   ListProductsParams,
   LookupOrderBody,
+  LookupOrderByTokenBody,
   MergeOrderLabelsPdfBody,
   ModerateReviewBody,
   NewsletterSubscribeBody,
@@ -1457,6 +1458,92 @@ export const useLookupOrder = <
   TContext
 > => {
   return useMutation(getLookupOrderMutationOptions(options));
+};
+
+/**
+ * @summary Look up an order using only the signed magic-link token from the order confirmation email
+ */
+export const getLookupOrderByTokenUrl = () => {
+  return `/api/orders/by-token`;
+};
+
+export const lookupOrderByToken = async (
+  lookupOrderByTokenBody: LookupOrderByTokenBody,
+  options?: RequestInit,
+): Promise<Order> => {
+  return customFetch<Order>(getLookupOrderByTokenUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(lookupOrderByTokenBody),
+  });
+};
+
+export const getLookupOrderByTokenMutationOptions = <
+  TError = ErrorType<NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof lookupOrderByToken>>,
+    TError,
+    { data: BodyType<LookupOrderByTokenBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof lookupOrderByToken>>,
+  TError,
+  { data: BodyType<LookupOrderByTokenBody> },
+  TContext
+> => {
+  const mutationKey = ["lookupOrderByToken"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof lookupOrderByToken>>,
+    { data: BodyType<LookupOrderByTokenBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return lookupOrderByToken(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LookupOrderByTokenMutationResult = NonNullable<
+  Awaited<ReturnType<typeof lookupOrderByToken>>
+>;
+export type LookupOrderByTokenMutationBody = BodyType<LookupOrderByTokenBody>;
+export type LookupOrderByTokenMutationError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Look up an order using only the signed magic-link token from the order confirmation email
+ */
+export const useLookupOrderByToken = <
+  TError = ErrorType<NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof lookupOrderByToken>>,
+    TError,
+    { data: BodyType<LookupOrderByTokenBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof lookupOrderByToken>>,
+  TError,
+  { data: BodyType<LookupOrderByTokenBody> },
+  TContext
+> => {
+  return useMutation(getLookupOrderByTokenMutationOptions(options));
 };
 
 /**
