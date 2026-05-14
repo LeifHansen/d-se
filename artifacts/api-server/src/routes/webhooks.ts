@@ -1,4 +1,5 @@
 import { Router, type IRouter, raw } from "express";
+import { createHmac, timingSafeEqual } from "crypto";
 import { and, eq, sql } from "drizzle-orm";
 import {
   db,
@@ -403,6 +404,190 @@ router.post(
     }
 
     res.json({ received: true });
+  },
+);
+
+// ---------------------------------------------------------------------------
+// EasyPost tracker webhook
+//
+// EasyPost POSTs `tracker.updated` (and other tracker.*) events to this
+// endpoint as carrier scans come in. We use them to flip the order from
+// `shipped` → `delivered` (and friends) automatically so the shopper's
+// account/order page reflects live carrier progress without admin action.
+// ---------------------------------------------------------------------------
+
+// Map an EasyPost tracker.status → the order.status we should reflect.
+// Returning null means "no transition" (event is informational only).
+function mapTrackerStatusToOrderStatus(trackerStatus: string): string | null {
+  switch (trackerStatus) {
+    case "delivered":
+      return "delivered";
+    case "pre_transit":
+    case "in_transit":
+    case "out_for_delivery":
+    case "available_for_pickup":
+      return "shipped";
+    default:
+      // unknown / error / failure / return_to_sender / cancelled — leave the
+      // existing status alone so an operator can investigate.
+      return null;
+  }
+}
+
+// Order statuses where we still want carrier events to drive transitions.
+// Anything before fulfillment (`pending`, `paid`) shouldn't be auto-bumped to
+// shipped/delivered because the admin hasn't actually attached tracking yet —
+// a stray webhook for a recycled tracking number would otherwise mutate the
+// order erroneously.
+const TRACKABLE_ORDER_STATUSES = new Set(["shipped", "delivered"]);
+
+// Status precedence for "don't go backwards" guarding (delivered is terminal).
+const STATUS_RANK: Record<string, number> = {
+  shipped: 1,
+  delivered: 2,
+};
+
+function verifyEasyPostSignature(
+  rawBody: Buffer,
+  headerSig: string | undefined,
+  secret: string,
+): boolean {
+  if (!headerSig) return false;
+  // EasyPost signs as hex HMAC-SHA256, sent in `X-Hmac-Signature`. Some
+  // accounts include a `hmac-sha256-hex=` prefix, others don't — accept both.
+  const provided = headerSig.replace(/^hmac-sha256-hex=/i, "").trim();
+  const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
+  const a = Buffer.from(provided, "utf8");
+  const b = Buffer.from(expected, "utf8");
+  if (a.length !== b.length) return false;
+  try {
+    return timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
+router.post(
+  "/webhooks/easypost",
+  raw({ type: "application/json" }),
+  async (req, res): Promise<void> => {
+    const rawBody: Buffer = Buffer.isBuffer(req.body)
+      ? req.body
+      : Buffer.from(typeof req.body === "string" ? req.body : "");
+
+    const secret = process.env.EASYPOST_WEBHOOK_SECRET;
+    if (secret) {
+      const sig = req.headers["x-hmac-signature"];
+      const sigStr = Array.isArray(sig) ? sig[0] : sig;
+      if (!verifyEasyPostSignature(rawBody, sigStr, secret)) {
+        req.log.warn("EasyPost webhook signature verification failed");
+        res.status(400).json({ error: "Invalid signature" });
+        return;
+      }
+    }
+
+    let payload: {
+      description?: string;
+      result?: {
+        object?: string;
+        id?: string;
+        tracking_code?: string;
+        shipment_id?: string | null;
+        status?: string;
+        carrier?: string | null;
+      };
+    };
+    try {
+      payload = JSON.parse(rawBody.toString("utf8")) as typeof payload;
+    } catch (err) {
+      req.log.warn({ err }, "EasyPost webhook: invalid JSON body");
+      res.status(400).json({ error: "Invalid payload" });
+      return;
+    }
+
+    const description = payload.description ?? "";
+    const tracker = payload.result;
+    // We only care about tracker events; acknowledge other event types so
+    // EasyPost doesn't keep retrying.
+    if (!description.startsWith("tracker.") || !tracker || tracker.object !== "Tracker") {
+      res.json({ received: true, ignored: true });
+      return;
+    }
+
+    const trackingCode = tracker.tracking_code?.trim() ?? "";
+    const trackerStatus = tracker.status ?? "";
+    if (!trackingCode || !trackerStatus) {
+      res.json({ received: true, ignored: true });
+      return;
+    }
+
+    const nextStatus = mapTrackerStatusToOrderStatus(trackerStatus);
+    if (!nextStatus) {
+      res.json({ received: true, ignored: true });
+      return;
+    }
+
+    // Find the order this tracker belongs to. tracking_code is the most
+    // reliable join key (we stored it at fulfillment time); shipment_id is a
+    // useful tiebreaker if multiple historical orders ever shared a code.
+    const candidates = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.trackingCode, trackingCode));
+    const order =
+      candidates.find(
+        (o) =>
+          tracker.shipment_id != null &&
+          o.shipmentId != null &&
+          o.shipmentId === tracker.shipment_id,
+      ) ?? candidates[0];
+
+    if (!order) {
+      // Unknown tracking code — could be from another store sharing the same
+      // EasyPost account, or a test event. Acknowledge without erroring.
+      req.log.info(
+        { trackingCode, trackerStatus, description },
+        "EasyPost tracker event for unknown order; ignoring",
+      );
+      res.json({ received: true, ignored: true });
+      return;
+    }
+
+    if (!TRACKABLE_ORDER_STATUSES.has(order.status)) {
+      // Order isn't in a state where carrier events should drive it (e.g.
+      // still `pending`/`paid`, or refunded). Don't mutate.
+      res.json({ received: true, ignored: true });
+      return;
+    }
+
+    const currentRank = STATUS_RANK[order.status] ?? 0;
+    const nextRank = STATUS_RANK[nextStatus] ?? 0;
+    if (nextRank <= currentRank) {
+      // Either no change or carrier rewound (e.g. delivered → in_transit
+      // bounce). Keep the more advanced status.
+      res.json({ received: true, unchanged: true });
+      return;
+    }
+
+    await db
+      .update(ordersTable)
+      .set({ status: nextStatus, updatedAt: new Date() })
+      .where(
+        and(eq(ordersTable.id, order.id), eq(ordersTable.status, order.status)),
+      );
+
+    req.log.info(
+      {
+        orderId: order.id,
+        from: order.status,
+        to: nextStatus,
+        trackerStatus,
+        trackingCode,
+      },
+      "Order status updated from EasyPost tracker event",
+    );
+
+    res.json({ received: true, orderId: order.id, status: nextStatus });
   },
 );
 

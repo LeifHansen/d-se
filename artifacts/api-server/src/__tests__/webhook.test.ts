@@ -203,6 +203,163 @@ describe("POST /api/webhooks/stripe — checkout.session.completed", () => {
     expect(emailArg.discountCode).toBe("WELCOME10");
   });
 
+  it("EasyPost tracker.updated → delivered flips a shipped order to delivered", async () => {
+    const product = await seedProduct({ priceCents: 5_000, inventory: 10 });
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "shipped",
+        subtotalCents: 10_000,
+        shippingCents: 500,
+        taxCents: 0,
+        discountCents: 0,
+        totalCents: 10_500,
+        currency: "usd",
+        trackingCode: "TRK-EP-1",
+        shipmentId: "shp_ep_1",
+        carrier: "USPS",
+      })
+      .returning();
+    await db.insert(orderItemsTable).values({
+      orderId: order.id,
+      productId: product.id,
+      productName: "Test Product",
+      productImage: null,
+      quantity: 2,
+      priceCents: 5_000,
+    });
+
+    const res = await request(app)
+      .post("/api/webhooks/easypost")
+      .set("content-type", "application/json")
+      .send({
+        description: "tracker.updated",
+        result: {
+          object: "Tracker",
+          id: "trk_1",
+          tracking_code: "TRK-EP-1",
+          shipment_id: "shp_ep_1",
+          status: "delivered",
+          carrier: "USPS",
+        },
+      });
+
+    expect(res.status).toBe(200);
+    const [updated] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, order.id));
+    expect(updated.status).toBe("delivered");
+  });
+
+  it("EasyPost tracker.updated → in_transit does not move a delivered order backward", async () => {
+    const product = await seedProduct({ priceCents: 5_000, inventory: 10 });
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "delivered",
+        subtotalCents: 5_000,
+        shippingCents: 0,
+        taxCents: 0,
+        discountCents: 0,
+        totalCents: 5_000,
+        currency: "usd",
+        trackingCode: "TRK-EP-2",
+        carrier: "USPS",
+      })
+      .returning();
+    await db.insert(orderItemsTable).values({
+      orderId: order.id,
+      productId: product.id,
+      productName: "Test Product",
+      productImage: null,
+      quantity: 1,
+      priceCents: 5_000,
+    });
+
+    const res = await request(app)
+      .post("/api/webhooks/easypost")
+      .set("content-type", "application/json")
+      .send({
+        description: "tracker.updated",
+        result: {
+          object: "Tracker",
+          tracking_code: "TRK-EP-2",
+          status: "in_transit",
+        },
+      });
+
+    expect(res.status).toBe(200);
+    const [updated] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, order.id));
+    expect(updated.status).toBe("delivered");
+  });
+
+  it("EasyPost tracker for a paid (un-shipped) order is ignored", async () => {
+    const product = await seedProduct({ priceCents: 5_000, inventory: 10 });
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "paid",
+        subtotalCents: 5_000,
+        shippingCents: 0,
+        taxCents: 0,
+        discountCents: 0,
+        totalCents: 5_000,
+        currency: "usd",
+        trackingCode: "TRK-EP-3",
+      })
+      .returning();
+    await db.insert(orderItemsTable).values({
+      orderId: order.id,
+      productId: product.id,
+      productName: "Test Product",
+      productImage: null,
+      quantity: 1,
+      priceCents: 5_000,
+    });
+
+    const res = await request(app)
+      .post("/api/webhooks/easypost")
+      .set("content-type", "application/json")
+      .send({
+        description: "tracker.updated",
+        result: {
+          object: "Tracker",
+          tracking_code: "TRK-EP-3",
+          status: "delivered",
+        },
+      });
+
+    expect(res.status).toBe(200);
+    const [updated] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, order.id));
+    expect(updated.status).toBe("paid");
+  });
+
+  it("EasyPost webhook rejects bad HMAC signatures when EASYPOST_WEBHOOK_SECRET is set", async () => {
+    const prev = process.env.EASYPOST_WEBHOOK_SECRET;
+    process.env.EASYPOST_WEBHOOK_SECRET = "shh";
+    try {
+      const res = await request(app)
+        .post("/api/webhooks/easypost")
+        .set("content-type", "application/json")
+        .set("x-hmac-signature", "deadbeef")
+        .send({ description: "tracker.updated", result: {} });
+      expect(res.status).toBe(400);
+    } finally {
+      if (prev === undefined) delete process.env.EASYPOST_WEBHOOK_SECRET;
+      else process.env.EASYPOST_WEBHOOK_SECRET = prev;
+    }
+  });
+
   it("backfills shipping address from Stripe shipping_details when order has none", async () => {
     const product = await seedProduct({ priceCents: 5_000, inventory: 10 });
     const discount = await seedDiscount({
