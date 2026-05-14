@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Image } from "./Image";
 import bottleClose from "@/assets/brand/Untitled-11_copy.jpg?picture";
 import packaging from "@/assets/brand/Untitled-10.jpg?picture";
+import bottleTransparent from "@/assets/brand/bottle-hero-transparent.png";
+import goldEmblem from "@/assets/brand/Untitled-9.jpg";
 
 export function Hero() {
   return (
@@ -98,22 +100,45 @@ export function Hero() {
 
         {/* Visual */}
         <div className="relative md:col-span-5 lg:col-span-5">
-          <div className="relative mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-3xl shadow-2xl">
-            <Image
-              picture={packaging}
-              alt="DŌSE THC Infused Beverage Dropper packaging"
-              className="h-full w-full object-cover"
-              pictureClassName="block h-full w-full"
-              sizes="(min-width: 1024px) 420px, (min-width: 768px) 38vw, 90vw"
-              priority
+          <div
+            className="relative mx-auto aspect-[4/5] w-full max-w-md overflow-hidden rounded-3xl shadow-2xl ring-1"
+            style={{
+              background:
+                "radial-gradient(120% 90% at 50% 30%, hsl(173 50% 22%) 0%, hsl(170 58% 14%) 55%, hsl(170 60% 9%) 100%)",
+              borderColor: "hsla(45,49%,90%,0.12)",
+            }}
+          >
+            {/* Gold emblem watermark backdrop */}
+            <img
+              src={goldEmblem}
+              alt=""
+              aria-hidden
+              className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25 mix-blend-screen"
+              style={{ filter: "blur(1px) saturate(1.1)" }}
+            />
+            {/* Soft vignette so the bottle pops */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(60% 50% at 50% 55%, hsla(0,0%,0%,0) 0%, hsla(170,60%,9%,0.55) 100%)",
+              }}
+            />
+            {/* Bottle */}
+            <img
+              src={bottleTransparent}
+              alt="DŌSE THC Infused Beverage Dropper bottle"
+              className="absolute inset-0 m-auto h-[88%] w-[88%] object-contain drop-shadow-2xl"
+              fetchPriority="high"
             />
             {/* subtle bottom fade */}
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-1/4"
               style={{
                 background:
-                  "linear-gradient(to top, hsla(170,58%,14%,0.55), transparent)",
+                  "linear-gradient(to top, hsla(170,60%,9%,0.7), transparent)",
               }}
             />
           </div>
@@ -122,11 +147,23 @@ export function Hero() {
             style={{ borderColor: "hsla(45,49%,90%,0.15)" }}
           >
             <Image
-              picture={bottleClose}
-              alt="DŌSE bottle detail"
+              picture={packaging}
+              alt="DŌSE packaging detail"
               className="h-44 w-full object-cover"
               pictureClassName="block h-44 w-full"
               sizes="176px"
+            />
+          </div>
+          <div
+            className="absolute -top-6 -right-4 hidden w-32 overflow-hidden rounded-2xl shadow-xl ring-1 md:block"
+            style={{ borderColor: "hsla(45,49%,90%,0.15)" }}
+          >
+            <Image
+              picture={bottleClose}
+              alt="DŌSE bottle close-up"
+              className="h-32 w-full object-cover"
+              pictureClassName="block h-32 w-full"
+              sizes="128px"
             />
           </div>
         </div>

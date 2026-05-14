@@ -65,7 +65,7 @@ const items = [
       "Hemp-derived THC dropper with lemongrass + bergamot. 10 mg per dose, 30 doses, zero added sugar.",
   },
   {
-    src: path.join(brandDir, "bottle-clean.jpg"),
+    src: path.join(brandDir, "bottle-hero.jpg"),
     publicPath: "dose/wellness-elixir.jpg",
     slug: "wellness-elixir",
     name: "Wellness Elixir",
