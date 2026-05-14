@@ -488,6 +488,30 @@ export interface AdminNewsletterSubscriberList {
   pageSize: number;
 }
 
+export interface AdminContactQuarantineEntry {
+  id: number;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  reasons: string[];
+  /** @nullable */
+  ip?: string | null;
+  createdAt: string;
+  expiresAt: string;
+  /** @nullable */
+  forwardedAt?: string | null;
+}
+
+export interface AdminContactQuarantineList {
+  items: AdminContactQuarantineEntry[];
+}
+
+export interface AdminContactQuarantineForwardResult {
+  id: number;
+  forwardedAt: string;
+}
+
 /**
  * Not found
  */

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { resetDb, db } from "./testDb";
-import { contactRateLimitsTable } from "@workspace/db";
+import { contactRateLimitsTable, contactQuarantineTable } from "@workspace/db";
 import { makeApp } from "./helpers";
 
 type ResendSendArg = {
@@ -145,6 +145,11 @@ describe("POST /api/contact", () => {
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ ok: true });
     expect(resendSendMock).not.toHaveBeenCalled();
+    const quarantined = await db.select().from(contactQuarantineTable);
+    expect(quarantined).toHaveLength(1);
+    expect(quarantined[0].email).toBe(spammy.email);
+    expect(quarantined[0].reasons.length).toBeGreaterThan(0);
+    expect(quarantined[0].expiresAt.getTime()).toBeGreaterThan(Date.now());
   });
 
   it("shadow-accepts a message containing a blocked TLD", async () => {

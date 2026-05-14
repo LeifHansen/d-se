@@ -326,3 +326,49 @@ export async function sendShipmentEmail(opts: {
 ${trackingLine}`,
   });
 }
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+export async function forwardQuarantinedContactEmail(opts: {
+  to: string;
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+  reasons: string[];
+}): Promise<void> {
+  const r = await getResend();
+  if (!r) {
+    throw new Error(
+      "Email is not configured. Connect Resend to forward quarantined messages.",
+    );
+  }
+  const reasonsList = opts.reasons.length
+    ? `<ul>${opts.reasons
+        .map((reason) => `<li>${escapeHtml(reason)}</li>`)
+        .join("")}</ul>`
+    : "<p><em>(no specific reasons recorded)</em></p>";
+  const html = `
+<h2>Forwarded from spam quarantine</h2>
+<p>This message was originally filtered as suspicious. Reasons matched:</p>
+${reasonsList}
+<hr />
+<p><strong>From:</strong> ${escapeHtml(opts.name)} &lt;${escapeHtml(opts.email)}&gt;</p>
+<p><strong>Subject:</strong> ${escapeHtml(opts.subject)}</p>
+<hr />
+<p style="white-space:pre-wrap;">${escapeHtml(opts.message)}</p>`;
+  await r.client.emails.send({
+    from: `${STORE_NAME} Contact Form <${r.fromEmail}>`,
+    to: opts.to,
+    replyTo: opts.email,
+    subject: `[Quarantine] ${opts.subject}`,
+    html,
+  });
+}

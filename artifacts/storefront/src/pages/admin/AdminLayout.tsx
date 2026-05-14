@@ -23,6 +23,7 @@ const NAV_ITEMS: { href: string; label: string }[] = [
   { href: "/admin/abandoned-carts", label: "Abandoned carts" },
   { href: "/admin/newsletter", label: "Newsletter" },
   { href: "/admin/tax", label: "Tax summary" },
+  { href: "/admin/contact-quarantine", label: "Spam quarantine" },
 ];
 
 const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as

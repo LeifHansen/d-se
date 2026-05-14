@@ -35,6 +35,9 @@ const AdminAbandonedCarts = lazy(
   () => import("@/pages/admin/AdminAbandonedCarts"),
 );
 const AdminTaxSummary = lazy(() => import("@/pages/admin/AdminTaxSummary"));
+const AdminContactQuarantine = lazy(
+  () => import("@/pages/admin/AdminContactQuarantine"),
+);
 
 const queryClient = new QueryClient();
 
@@ -81,6 +84,10 @@ function Router() {
         <Route path="/admin/reviews" component={AdminReviews} />
         <Route path="/admin/abandoned-carts" component={AdminAbandonedCarts} />
         <Route path="/admin/tax" component={AdminTaxSummary} />
+        <Route
+          path="/admin/contact-quarantine"
+          component={AdminContactQuarantine}
+        />
         <Route component={NotFound} />
       </Switch>
     </Suspense>

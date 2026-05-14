@@ -19,6 +19,8 @@ import type {
 import type {
   AbandonedCart,
   AddCartItemBody,
+  AdminContactQuarantineForwardResult,
+  AdminContactQuarantineList,
   AdminNewsletterSubscriber,
   AdminNewsletterSubscriberList,
   AdminStats,
@@ -4460,6 +4462,256 @@ export function useListAdminAbandonedCarts<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List recently quarantined (shadow-accepted) contact submissions
+ */
+export const getListAdminContactQuarantineUrl = () => {
+  return `/api/admin/contact-quarantine`;
+};
+
+export const listAdminContactQuarantine = async (
+  options?: RequestInit,
+): Promise<AdminContactQuarantineList> => {
+  return customFetch<AdminContactQuarantineList>(
+    getListAdminContactQuarantineUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAdminContactQuarantineQueryKey = () => {
+  return [`/api/admin/contact-quarantine`] as const;
+};
+
+export const getListAdminContactQuarantineQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminContactQuarantine>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminContactQuarantine>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminContactQuarantineQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminContactQuarantine>>
+  > = ({ signal }) => listAdminContactQuarantine({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminContactQuarantine>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminContactQuarantineQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminContactQuarantine>>
+>;
+export type ListAdminContactQuarantineQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List recently quarantined (shadow-accepted) contact submissions
+ */
+
+export function useListAdminContactQuarantine<
+  TData = Awaited<ReturnType<typeof listAdminContactQuarantine>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminContactQuarantine>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminContactQuarantineQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Forward a quarantined message to the owner inbox
+ */
+export const getForwardAdminContactQuarantineUrl = (id: number) => {
+  return `/api/admin/contact-quarantine/${id}/forward`;
+};
+
+export const forwardAdminContactQuarantine = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminContactQuarantineForwardResult> => {
+  return customFetch<AdminContactQuarantineForwardResult>(
+    getForwardAdminContactQuarantineUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getForwardAdminContactQuarantineMutationOptions = <
+  TError = ErrorType<Error>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof forwardAdminContactQuarantine>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof forwardAdminContactQuarantine>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["forwardAdminContactQuarantine"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof forwardAdminContactQuarantine>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return forwardAdminContactQuarantine(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ForwardAdminContactQuarantineMutationResult = NonNullable<
+  Awaited<ReturnType<typeof forwardAdminContactQuarantine>>
+>;
+
+export type ForwardAdminContactQuarantineMutationError = ErrorType<Error>;
+
+/**
+ * @summary Forward a quarantined message to the owner inbox
+ */
+export const useForwardAdminContactQuarantine = <
+  TError = ErrorType<Error>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof forwardAdminContactQuarantine>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof forwardAdminContactQuarantine>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getForwardAdminContactQuarantineMutationOptions(options));
+};
+
+/**
+ * @summary Permanently delete a quarantined message
+ */
+export const getDeleteAdminContactQuarantineUrl = (id: number) => {
+  return `/api/admin/contact-quarantine/${id}`;
+};
+
+export const deleteAdminContactQuarantine = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteAdminContactQuarantineUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAdminContactQuarantineMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAdminContactQuarantine>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAdminContactQuarantine>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAdminContactQuarantine"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAdminContactQuarantine>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteAdminContactQuarantine(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAdminContactQuarantineMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAdminContactQuarantine>>
+>;
+
+export type DeleteAdminContactQuarantineMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Permanently delete a quarantined message
+ */
+export const useDeleteAdminContactQuarantine = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAdminContactQuarantine>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAdminContactQuarantine>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDeleteAdminContactQuarantineMutationOptions(options));
+};
 
 export const getGetAdminTaxSummaryUrl = () => {
   return `/api/admin/tax-summary`;

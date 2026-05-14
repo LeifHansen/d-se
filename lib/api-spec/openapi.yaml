@@ -1000,6 +1000,53 @@ paths:
                 type: array
                 items: { $ref: "#/components/schemas/AbandonedCart" }
 
+  /admin/contact-quarantine:
+    get:
+      operationId: listAdminContactQuarantine
+      tags: [admin]
+      summary: List recently quarantined (shadow-accepted) contact submissions
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminContactQuarantineList" }
+
+  /admin/contact-quarantine/{id}/forward:
+    post:
+      operationId: forwardAdminContactQuarantine
+      tags: [admin]
+      summary: Forward a quarantined message to the owner inbox
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminContactQuarantineForwardResult" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /admin/contact-quarantine/{id}:
+    delete:
+      operationId: deleteAdminContactQuarantine
+      tags: [admin]
+      summary: Permanently delete a quarantined message
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204": { description: Deleted }
+
   /admin/tax-summary:
     get:
       operationId: getAdminTaxSummary
@@ -1550,3 +1597,35 @@ components:
         total: { type: integer }
         page: { type: integer }
         pageSize: { type: integer }
+
+    AdminContactQuarantineEntry:
+      type: object
+      required: [id, name, email, subject, message, reasons, createdAt, expiresAt]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        subject: { type: string }
+        message: { type: string }
+        reasons:
+          type: array
+          items: { type: string }
+        ip: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        forwardedAt: { type: ["string", "null"], format: date-time }
+
+    AdminContactQuarantineList:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/AdminContactQuarantineEntry" }
+
+    AdminContactQuarantineForwardResult:
+      type: object
+      required: [id, forwardedAt]
+      properties:
+        id: { type: integer }
+        forwardedAt: { type: string, format: date-time }

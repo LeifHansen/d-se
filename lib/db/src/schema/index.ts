@@ -9,3 +9,4 @@ export * from "./system";
 export * from "./newsletter";
 export * from "./contactRateLimits";
 export * from "./contactSubmissionFingerprints";
+export * from "./contactQuarantine";

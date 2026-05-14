@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { Resend } from "resend";
-import { db } from "@workspace/db";
+import { db, contactQuarantineTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import type { Logger } from "pino";
 import { createHash } from "node:crypto";
@@ -321,6 +321,25 @@ router.post("/contact", async (req, res): Promise<void> => {
       { ip, email, subject, reasons: allReasons },
       "Contact submission shadow-accepted (spam heuristics matched)",
     );
+    const retentionDays = envInt("CONTACT_QUARANTINE_RETENTION_DAYS", 14);
+    const expiresAt = new Date(
+      Date.now() + retentionDays * 24 * 60 * 60 * 1000,
+    );
+    try {
+      await db.insert(contactQuarantineTable).values({
+        name,
+        email,
+        subject,
+        message,
+        reasons: allReasons,
+        ip,
+        expiresAt,
+      });
+    } catch (err) {
+      // Quarantine persistence failures should never alter the response shape;
+      // the operator just loses one row of recoverability for this submission.
+      req.log.warn({ err }, "Failed to persist contact quarantine row");
+    }
     res.json({ ok: true });
     return;
   }

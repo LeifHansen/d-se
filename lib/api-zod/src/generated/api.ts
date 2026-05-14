@@ -1590,6 +1590,45 @@ export const ListAdminAbandonedCartsResponse = zod.array(
   ListAdminAbandonedCartsResponseItem,
 );
 
+/**
+ * @summary List recently quarantined (shadow-accepted) contact submissions
+ */
+export const ListAdminContactQuarantineResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      subject: zod.string(),
+      message: zod.string(),
+      reasons: zod.array(zod.string()),
+      ip: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      expiresAt: zod.coerce.date(),
+      forwardedAt: zod.coerce.date().nullish(),
+    }),
+  ),
+});
+
+/**
+ * @summary Forward a quarantined message to the owner inbox
+ */
+export const ForwardAdminContactQuarantineParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ForwardAdminContactQuarantineResponse = zod.object({
+  id: zod.number(),
+  forwardedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Permanently delete a quarantined message
+ */
+export const DeleteAdminContactQuarantineParams = zod.object({
+  id: zod.coerce.number(),
+});
+
 export const GetAdminTaxSummaryResponse = zod.object({
   taxCollectedCents: zod.number(),
   taxableOrders: zod.number(),

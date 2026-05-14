@@ -11,6 +11,7 @@ import {
   abandonedCartsTable,
   cartItemsTable,
   newsletterSubscribersTable,
+  contactQuarantineTable,
 } from "@workspace/db";
 import {
   CreateProductBody,
@@ -46,6 +47,10 @@ import {
   ListAdminAbandonedCartsResponse,
   GetAdminTaxSummaryResponse,
   BulkUpdateInventoryBody,
+  ListAdminContactQuarantineResponse,
+  ForwardAdminContactQuarantineParams,
+  ForwardAdminContactQuarantineResponse,
+  DeleteAdminContactQuarantineParams,
 } from "@workspace/api-zod";
 import { requireAdmin, getUserId } from "../lib/auth";
 import { buildOrderResponse } from "./orders";
@@ -97,7 +102,8 @@ import {
   isEasyPostConfigured,
   FROM_ADDRESS,
 } from "../lib/easypost";
-import { sendShipmentEmail } from "../lib/email";
+import { sendShipmentEmail, forwardQuarantinedContactEmail } from "../lib/email";
+import { cleanupContactQuarantine } from "../lib/contactQuarantineCleanup";
 import { getStripeWebhookHealth } from "../lib/metrics";
 
 const router: IRouter = Router();
@@ -1256,5 +1262,106 @@ router.get("/admin/tax-summary", async (_req, res): Promise<void> => {
     }),
   );
 });
+
+router.get("/admin/contact-quarantine", async (_req, res): Promise<void> => {
+  // Best-effort eviction of expired rows so admins never see stale messages
+  // even if the cleanup scheduler is paused or hasn't run yet on this instance.
+  try {
+    await cleanupContactQuarantine();
+  } catch {
+    // Non-fatal: the listing itself is the important part.
+  }
+  const rows = await db
+    .select()
+    .from(contactQuarantineTable)
+    .orderBy(desc(contactQuarantineTable.createdAt))
+    .limit(200);
+  res.json(
+    ListAdminContactQuarantineResponse.parse({
+      items: rows.map((r) => ({
+        id: r.id,
+        name: r.name,
+        email: r.email,
+        subject: r.subject,
+        message: r.message,
+        reasons: r.reasons ?? [],
+        ip: r.ip,
+        createdAt: r.createdAt.toISOString(),
+        expiresAt: r.expiresAt.toISOString(),
+        forwardedAt: r.forwardedAt ? r.forwardedAt.toISOString() : null,
+      })),
+    }),
+  );
+});
+
+router.post(
+  "/admin/contact-quarantine/:id/forward",
+  async (req, res): Promise<void> => {
+    const params = ForwardAdminContactQuarantineParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const [row] = await db
+      .select()
+      .from(contactQuarantineTable)
+      .where(eq(contactQuarantineTable.id, params.data.id));
+    if (!row) {
+      res.status(404).json({ error: "Quarantined message not found" });
+      return;
+    }
+    const ownerEmail =
+      process.env.CONTACT_OWNER_EMAIL ?? process.env.RESEND_FROM_EMAIL ?? null;
+    if (!ownerEmail) {
+      res.status(503).json({
+        error:
+          "Owner email is not configured. Set CONTACT_OWNER_EMAIL to forward quarantined messages.",
+      });
+      return;
+    }
+    try {
+      await forwardQuarantinedContactEmail({
+        to: ownerEmail,
+        name: row.name,
+        email: row.email,
+        subject: row.subject,
+        message: row.message,
+        reasons: row.reasons ?? [],
+      });
+    } catch (err) {
+      req.log.error({ err }, "Failed to forward quarantined contact message");
+      res.status(502).json({ error: "Failed to forward message." });
+      return;
+    }
+    const [updated] = await db
+      .update(contactQuarantineTable)
+      .set({ forwardedAt: new Date() })
+      .where(eq(contactQuarantineTable.id, row.id))
+      .returning();
+    res.json(
+      ForwardAdminContactQuarantineResponse.parse({
+        id: updated!.id,
+        forwardedAt: updated!.forwardedAt
+          ? updated!.forwardedAt.toISOString()
+          : new Date().toISOString(),
+      }),
+    );
+  },
+);
+
+router.delete(
+  "/admin/contact-quarantine/:id",
+  async (req, res): Promise<void> => {
+    const params = DeleteAdminContactQuarantineParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    await db
+      .delete(contactQuarantineTable)
+      .where(eq(contactQuarantineTable.id, params.data.id));
+    res.status(204).end();
+  },
+);
 
 export default router;
