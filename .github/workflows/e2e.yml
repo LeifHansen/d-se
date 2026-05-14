@@ -45,6 +45,8 @@ jobs:
         run: pnpm --filter @workspace/db run push
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm exec playwright test
+      - name: Storefront customer journey
+        run: pnpm --filter @workspace/storefront run test:journey
       - if: always()
         uses: actions/upload-artifact@v4
         with:

@@ -12,7 +12,6 @@ import Accessibility from "@/pages/legal/Accessibility";
 import Contact from "@/pages/legal/Contact";
 
 const Home = lazy(() => import("@/pages/home"));
-const CheckoutSuccess = lazy(() => import("@/pages/checkout-success"));
 const Shop = lazy(() => import("@/pages/shop"));
 const Product = lazy(() => import("@/pages/product"));
 const Cart = lazy(() => import("@/pages/cart"));
@@ -58,7 +57,6 @@ function Router() {
         <Route path="/shop" component={Shop} />
         <Route path="/products/:slug" component={Product} />
         <Route path="/cart" component={Cart} />
-        <Route path="/checkout/success" component={CheckoutSuccess} />
         <Route path="/checkout" component={Checkout} />
         <Route path="/checkout/success" component={CheckoutSuccess} />
         <Route path="/account" component={Account} />
