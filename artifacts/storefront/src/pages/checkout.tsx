@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "wouter";
 import {
   useGetCart,
   useGetShippingRates,
   useCreateCheckout,
+  useListMyOrders,
 } from "@workspace/api-client-react";
 import type {
   AddressInput,
@@ -16,6 +17,68 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useStoredCartId, formatMoney } from "@/lib/cart";
 
+const SAVED_ADDRESS_KEY = "dose-saved-address";
+const SAVED_EMAIL_KEY = "dose-last-order-email";
+
+const EMPTY_ADDRESS: AddressInput = {
+  name: "",
+  street1: "",
+  street2: "",
+  city: "",
+  state: "",
+  zip: "",
+  country: "US",
+  phone: "",
+};
+
+function isAddressLike(v: unknown): v is AddressInput {
+  if (!v || typeof v !== "object") return false;
+  const a = v as Record<string, unknown>;
+  return (
+    typeof a.name === "string" &&
+    typeof a.street1 === "string" &&
+    typeof a.city === "string" &&
+    typeof a.state === "string" &&
+    typeof a.zip === "string" &&
+    typeof a.country === "string"
+  );
+}
+
+function readSavedAddress(): AddressInput | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(SAVED_ADDRESS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!isAddressLike(parsed)) return null;
+    return {
+      name: parsed.name,
+      street1: parsed.street1,
+      street2: parsed.street2 ?? "",
+      city: parsed.city,
+      state: parsed.state,
+      zip: parsed.zip,
+      country: parsed.country || "US",
+      phone: parsed.phone ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function readSavedEmail(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(SAVED_EMAIL_KEY) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function addressIsBlank(a: AddressInput): boolean {
+  return !a.name && !a.street1 && !a.city && !a.zip;
+}
+
 export default function CheckoutPage() {
   const cartId = useStoredCartId();
   const { data: cart, isLoading: cartLoading } = useGetCart(
@@ -25,17 +88,41 @@ export default function CheckoutPage() {
   const shipping = useGetShippingRates();
   const checkout = useCreateCheckout();
 
-  const [email, setEmail] = useState("");
-  const [address, setAddress] = useState<AddressInput>({
-    name: "",
-    street1: "",
-    street2: "",
-    city: "",
-    state: "",
-    zip: "",
-    country: "US",
-    phone: "",
+  // Pull the signed-in user's most recent order so we can prefill from the
+  // last server-side address. Quietly tolerate 401 for guests.
+  const myOrders = useListMyOrders({
+    query: { retry: false, refetchOnWindowFocus: false } as never,
   });
+  const serverSavedAddress = useMemo<AddressInput | null>(() => {
+    const list = (myOrders.data ?? []) as Array<{
+      shippingAddress?: AddressInput | null;
+      createdAt?: string;
+    }>;
+    for (const o of list) {
+      if (o.shippingAddress && isAddressLike(o.shippingAddress)) {
+        return {
+          name: o.shippingAddress.name,
+          street1: o.shippingAddress.street1,
+          street2: o.shippingAddress.street2 ?? "",
+          city: o.shippingAddress.city,
+          state: o.shippingAddress.state,
+          zip: o.shippingAddress.zip,
+          country: o.shippingAddress.country || "US",
+          phone: o.shippingAddress.phone ?? "",
+        };
+      }
+    }
+    return null;
+  }, [myOrders.data]);
+
+  const [email, setEmail] = useState<string>(() => readSavedEmail());
+  const [address, setAddress] = useState<AddressInput>(
+    () => readSavedAddress() ?? EMPTY_ADDRESS,
+  );
+  const [prefilled, setPrefilled] = useState<boolean>(
+    () => !addressIsBlank(readSavedAddress() ?? EMPTY_ADDRESS),
+  );
+  const [editingFresh, setEditingFresh] = useState(false);
   const [rates, setRates] = useState<ShippingRate[] | null>(null);
   const [rateId, setRateId] = useState<string>("");
   const [submitErr, setSubmitErr] = useState<string | null>(null);
@@ -57,11 +144,29 @@ export default function CheckoutPage() {
   }
   const hasStockIssue = stockIssues.length > 0;
 
+  // Once the signed-in user's latest order loads, prefer it over the
+  // localStorage copy (it's the canonical server-side record). Only apply
+  // when the user hasn't already started editing fresh.
+  useEffect(() => {
+    if (!serverSavedAddress) return;
+    if (editingFresh) return;
+    setAddress((cur) => (addressIsBlank(cur) ? serverSavedAddress : cur));
+    setPrefilled(true);
+  }, [serverSavedAddress, editingFresh]);
+
   useEffect(() => {
     if (rates && rates.length > 0 && !rateId) {
       setRateId(rates[0].id);
     }
   }, [rates, rateId]);
+
+  const useDifferentAddress = () => {
+    setAddress(EMPTY_ADDRESS);
+    setRates(null);
+    setRateId("");
+    setPrefilled(false);
+    setEditingFresh(true);
+  };
 
   const updateField =
     <K extends keyof AddressInput>(key: K) =>
@@ -109,13 +214,19 @@ export default function CheckoutPage() {
       // Remember the guest's email so the order page and email-based lookup
       // both work without forcing them to type it again.
       try {
-        window.localStorage.setItem("dose-last-order-email", email);
+        window.localStorage.setItem(SAVED_EMAIL_KEY, email);
         if (result.orderId) {
           window.localStorage.setItem(
             "dose-last-order-id",
             String(result.orderId),
           );
         }
+        // Persist the address locally so the next checkout pre-fills even
+        // for guests / new browsers without an account.
+        window.localStorage.setItem(
+          SAVED_ADDRESS_KEY,
+          JSON.stringify(address),
+        );
       } catch {
         /* ignore */
       }
@@ -195,7 +306,29 @@ export default function CheckoutPage() {
             </div>
 
             <div>
-              <h2 className="font-display text-2xl">Shipping address</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-display text-2xl">Shipping address</h2>
+                {prefilled ? (
+                  <button
+                    type="button"
+                    onClick={useDifferentAddress}
+                    className="text-[11px] font-semibold uppercase tracking-[0.22em] underline underline-offset-4"
+                    style={{ color: "hsl(170 18% 32%)" }}
+                    data-testid="checkout-use-different-address"
+                  >
+                    Use a different address
+                  </button>
+                ) : null}
+              </div>
+              {prefilled ? (
+                <p
+                  className="mt-2 text-xs"
+                  style={{ color: "hsl(170 18% 32%)" }}
+                  data-testid="checkout-address-prefilled"
+                >
+                  We pre-filled your last shipping address.
+                </p>
+              ) : null}
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <div className="grid gap-2 sm:col-span-2">
                   <Label htmlFor="name">Full name</Label>
