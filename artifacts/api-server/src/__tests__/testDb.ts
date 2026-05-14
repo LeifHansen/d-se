@@ -120,6 +120,17 @@ CREATE TABLE IF NOT EXISTS abandoned_carts (
   updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+  id SERIAL PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  source TEXT,
+  resend_contact_id TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  unsubscribe_token TEXT UNIQUE,
+  unsubscribed_at TIMESTAMP,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS product_reviews (
   id SERIAL PRIMARY KEY,
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -148,6 +159,7 @@ export async function resetDb(): Promise<void> {
   await initSchema();
   await pglite.exec(`
     TRUNCATE TABLE
+      newsletter_subscribers,
       product_reviews,
       abandoned_carts,
       order_items,

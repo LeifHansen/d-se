@@ -5,6 +5,7 @@ process.env.DATABASE_URL = "postgres://test/test";
 process.env.ABANDONED_CART_SECRET = "test-secret";
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
 process.env.PUBLIC_APP_URL = "https://example.test";
+process.env.ADMIN_EMAILS = "admin@example.com";
 
 vi.mock("@workspace/db", async () => {
   const schema = await import("@workspace/db/schema");
