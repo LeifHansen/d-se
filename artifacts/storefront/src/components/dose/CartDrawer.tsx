@@ -113,12 +113,20 @@ export function CartDrawer({
               style={{ borderColor: "hsla(170,58%,14%,0.10)" }}
               data-testid="cart-drawer-items"
             >
-              {cart.items.map((it) => (
+              {cart.items.map((it) => {
+                const inv = it.product.inventory ?? 0;
+                const lowThreshold = it.product.lowStockThreshold ?? 0;
+                const oversold = it.quantity > inv;
+                const outOfStock = inv <= 0;
+                const lowStock =
+                  !outOfStock && !oversold && lowThreshold > 0 && inv <= lowThreshold;
+                return (
                 <li
                   key={it.id}
                   className="flex gap-4 py-5"
                   data-testid={`cart-drawer-item-${it.id}`}
                 >
+                  
                   {it.product.images[0] ? (
                     <img
                       src={it.product.images[0]}
@@ -144,6 +152,31 @@ export function CartDrawer({
                         >
                           {formatMoney(it.product.priceCents, cart.currency)} each
                         </p>
+                        {outOfStock ? (
+                          <p
+                            className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                            style={{ background: "hsl(0 70% 35%)", color: CREAM }}
+                            data-testid={`cart-drawer-stock-${it.id}`}
+                          >
+                            Out of stock
+                          </p>
+                        ) : oversold ? (
+                          <p
+                            className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                            style={{ background: "hsl(0 70% 35%)", color: CREAM }}
+                            data-testid={`cart-drawer-stock-${it.id}`}
+                          >
+                            Only {inv} left
+                          </p>
+                        ) : lowStock ? (
+                          <p
+                            className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                            style={{ background: GOLD, color: FOREST }}
+                            data-testid={`cart-drawer-stock-${it.id}`}
+                          >
+                            Only {inv} left
+                          </p>
+                        ) : null}
                       </div>
                       <button
                         type="button"
@@ -212,7 +245,8 @@ export function CartDrawer({
                     </div>
                   </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
 
             <div

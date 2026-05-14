@@ -40,6 +40,23 @@ export default function CheckoutPage() {
   const [rateId, setRateId] = useState<string>("");
   const [submitErr, setSubmitErr] = useState<string | null>(null);
 
+  type StockIssue = {
+    id: number;
+    name: string;
+    kind: "out" | "over";
+    inv: number;
+  };
+  const stockIssues: StockIssue[] = [];
+  for (const it of cart?.items ?? []) {
+    const inv = it.product.inventory ?? 0;
+    if (inv <= 0) {
+      stockIssues.push({ id: it.id, name: it.product.name, kind: "out", inv });
+    } else if (it.quantity > inv) {
+      stockIssues.push({ id: it.id, name: it.product.name, kind: "over", inv });
+    }
+  }
+  const hasStockIssue = stockIssues.length > 0;
+
   useEffect(() => {
     if (rates && rates.length > 0 && !rateId) {
       setRateId(rates[0].id);
@@ -72,6 +89,12 @@ export default function CheckoutPage() {
     if (!cart?.id) return;
     if (!rateId) {
       setSubmitErr("Please calculate shipping first.");
+      return;
+    }
+    if (hasStockIssue) {
+      setSubmitErr(
+        "Some items in your bag are out of stock. Please update your bag before paying.",
+      );
       return;
     }
     try {
@@ -336,20 +359,56 @@ export default function CheckoutPage() {
                 color: "hsl(170 18% 28%)",
               }}
             >
-              {cart?.items.map((it) => (
-                <li
-                  key={it.id}
-                  className="flex justify-between gap-2"
-                >
-                  <span>
-                    {it.product.name}{" "}
-                    <span className="opacity-70">× {it.quantity}</span>
-                  </span>
-                  <span>
-                    {formatMoney(it.lineTotalCents, it.product.currency)}
-                  </span>
-                </li>
-              ))}
+              {cart?.items.map((it) => {
+                const inv = it.product.inventory ?? 0;
+                const lowThreshold = it.product.lowStockThreshold ?? 0;
+                const oversold = it.quantity > inv;
+                const outOfStock = inv <= 0;
+                const lowStock =
+                  !outOfStock && !oversold && lowThreshold > 0 && inv <= lowThreshold;
+                return (
+                  <li
+                    key={it.id}
+                    className="flex flex-col gap-1"
+                    data-testid={`checkout-line-${it.id}`}
+                  >
+                    <div className="flex justify-between gap-2">
+                      <span>
+                        {it.product.name}{" "}
+                        <span className="opacity-70">× {it.quantity}</span>
+                      </span>
+                      <span>
+                        {formatMoney(it.lineTotalCents, it.product.currency)}
+                      </span>
+                    </div>
+                    {outOfStock ? (
+                      <p
+                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                        style={{ color: "hsl(0 70% 35%)" }}
+                        data-testid={`checkout-stock-${it.id}`}
+                      >
+                        Out of stock
+                      </p>
+                    ) : oversold ? (
+                      <p
+                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                        style={{ color: "hsl(0 70% 35%)" }}
+                        data-testid={`checkout-stock-${it.id}`}
+                      >
+                        Only {inv} left — please reduce quantity
+                      </p>
+                    ) : lowStock ? (
+                      <p
+                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                        style={{ color: "hsl(35 80% 30%)" }}
+                        data-testid={`checkout-stock-${it.id}`}
+                      >
+                        Only {inv} left
+                      </p>
+                    ) : null}
+                  </li>
+                );
+              })}
             </ul>
             <dl
               className="mt-4 space-y-1.5 text-sm"
@@ -381,7 +440,7 @@ export default function CheckoutPage() {
             </dl>
             <Button
               type="submit"
-              disabled={checkout.isPending || !rateId}
+              disabled={checkout.isPending || !rateId || hasStockIssue}
               className="mt-6 w-full rounded-full py-6 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
                 background: "hsl(42 53% 54%)",
@@ -389,8 +448,24 @@ export default function CheckoutPage() {
               }}
               data-testid="checkout-submit"
             >
-              {checkout.isPending ? "Starting…" : "Pay securely"}
+              {checkout.isPending
+                ? "Starting…"
+                : hasStockIssue
+                  ? "Update bag to continue"
+                  : "Pay securely"}
             </Button>
+            {hasStockIssue ? (
+              <p
+                role="alert"
+                className="mt-3 text-xs"
+                style={{ color: "hsl(0 70% 35%)" }}
+                data-testid="checkout-stock-warning"
+              >
+                {stockIssues.length === 1 && stockIssues[0]
+                  ? `${stockIssues[0].name} is ${stockIssues[0].kind === "out" ? "out of stock" : `down to ${stockIssues[0].inv} in stock`}. Update your bag before paying.`
+                  : "Some items in your bag aren't available in the quantity you selected. Update your bag before paying."}
+              </p>
+            ) : null}
             {submitErr ? (
               <p
                 role="alert"
