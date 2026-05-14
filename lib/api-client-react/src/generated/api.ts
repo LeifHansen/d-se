@@ -37,6 +37,7 @@ import type {
   ExportAdminNewsletterSubscribersParams,
   ForbiddenResponse,
   FulfillOrderBody,
+  GetAdminOrderShippingRates200,
   GetCartParams,
   GetShippingRatesBody,
   HealthStatus,
@@ -2151,6 +2152,93 @@ export function useExportProductsCsv<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get live EasyPost rates for an existing order's shipping address
+ */
+export const getGetAdminOrderShippingRatesUrl = (id: number) => {
+  return `/api/admin/orders/${id}/shipping-rates`;
+};
+
+export const getAdminOrderShippingRates = async (
+  id: number,
+  options?: RequestInit,
+): Promise<GetAdminOrderShippingRates200> => {
+  return customFetch<GetAdminOrderShippingRates200>(
+    getGetAdminOrderShippingRatesUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getGetAdminOrderShippingRatesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getAdminOrderShippingRates>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof getAdminOrderShippingRates>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["getAdminOrderShippingRates"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof getAdminOrderShippingRates>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return getAdminOrderShippingRates(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type GetAdminOrderShippingRatesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminOrderShippingRates>>
+>;
+
+export type GetAdminOrderShippingRatesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Get live EasyPost rates for an existing order's shipping address
+ */
+export const useGetAdminOrderShippingRates = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof getAdminOrderShippingRates>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof getAdminOrderShippingRates>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getGetAdminOrderShippingRatesMutationOptions(options));
+};
 
 export const getFulfillOrderUrl = (id: number) => {
   return `/api/admin/orders/${id}/fulfill`;

@@ -5,9 +5,10 @@
  * E-commerce storefront API
  * OpenAPI spec version: 0.1.0
  */
+import type { ShippingRate } from "./shippingRate";
 
-export type FulfillOrderBody = {
-  shippingRateId: string;
+export type GetAdminOrderShippingRates200 = {
   /** @nullable */
   shipmentId?: string | null;
+  rates: ShippingRate[];
 };

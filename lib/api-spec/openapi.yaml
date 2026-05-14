@@ -475,6 +475,29 @@ paths:
           content:
             text/csv:
               schema: { type: string }
+  /admin/orders/{id}/shipping-rates:
+    post:
+      operationId: getAdminOrderShippingRates
+      tags: [admin]
+      summary: Get live EasyPost rates for an existing order's shipping address
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [rates]
+                properties:
+                  shipmentId: { type: ["string", "null"] }
+                  rates:
+                    type: array
+                    items: { $ref: "#/components/schemas/ShippingRate" }
   /admin/orders/{id}/fulfill:
     post:
       operationId: fulfillOrder
@@ -493,6 +516,7 @@ paths:
               required: [shippingRateId]
               properties:
                 shippingRateId: { type: string }
+                shipmentId: { type: ["string", "null"] }
       responses:
         "200":
           description: OK

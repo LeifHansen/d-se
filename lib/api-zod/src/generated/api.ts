@@ -949,12 +949,34 @@ export const BulkUpdateInventoryResponse = zod.array(
   BulkUpdateInventoryResponseItem,
 );
 
+/**
+ * @summary Get live EasyPost rates for an existing order's shipping address
+ */
+export const GetAdminOrderShippingRatesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetAdminOrderShippingRatesResponse = zod.object({
+  shipmentId: zod.string().nullish(),
+  rates: zod.array(
+    zod.object({
+      id: zod.string(),
+      carrier: zod.string(),
+      service: zod.string(),
+      amountCents: zod.number(),
+      currency: zod.string(),
+      deliveryDays: zod.number().nullable(),
+    }),
+  ),
+});
+
 export const FulfillOrderParams = zod.object({
   id: zod.coerce.number(),
 });
 
 export const FulfillOrderBody = zod.object({
   shippingRateId: zod.string(),
+  shipmentId: zod.string().nullish(),
 });
 
 export const FulfillOrderResponse = zod.object({

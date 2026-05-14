@@ -4,6 +4,7 @@ import {
   db,
   productsTable,
   ordersTable,
+  orderItemsTable,
   blogPostsTable,
   discountCodesTable,
   productReviewsTable,
@@ -477,6 +478,112 @@ router.get("/admin/orders", async (req, res): Promise<void> => {
 });
 
 router.post(
+  "/admin/orders/:id/shipping-rates",
+  async (req, res): Promise<void> => {
+    const params = FulfillOrderParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const [order] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, params.data.id));
+    if (!order) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+    if (!order.shippingAddress) {
+      res.status(400).json({ error: "Order has no shipping address" });
+      return;
+    }
+
+    if (!isEasyPostConfigured()) {
+      res.json({
+        shipmentId: null,
+        rates: [
+          {
+            id: "flat-standard",
+            carrier: "Standard",
+            service: "Ground (5-7 days)",
+            amountCents: 695,
+            currency: "usd",
+            deliveryDays: 6,
+          },
+          {
+            id: "flat-express",
+            carrier: "Express",
+            service: "Express (2-3 days)",
+            amountCents: 1595,
+            currency: "usd",
+            deliveryDays: 3,
+          },
+        ],
+      });
+      return;
+    }
+
+    try {
+      const items = await db
+        .select({
+          quantity: orderItemsTable.quantity,
+          weightOz: productsTable.weightOz,
+        })
+        .from(orderItemsTable)
+        .leftJoin(
+          productsTable,
+          eq(productsTable.id, orderItemsTable.productId),
+        )
+        .where(eq(orderItemsTable.orderId, params.data.id));
+      const totalWeightOz = Math.max(
+        4,
+        items.reduce(
+          (s, i) => s + (i.weightOz != null ? Number(i.weightOz) : 8) * i.quantity,
+          0,
+        ),
+      );
+      const ep = getEasyPost();
+      const a = order.shippingAddress;
+      const shipment = await ep.Shipment.create({
+        to_address: {
+          name: a.name,
+          street1: a.street1,
+          street2: a.street2 ?? undefined,
+          city: a.city,
+          state: a.state,
+          zip: a.zip,
+          country: a.country,
+          phone: a.phone ?? undefined,
+        },
+        from_address: FROM_ADDRESS,
+        parcel: { length: 9, width: 6, height: 3, weight: totalWeightOz },
+      });
+      const rates = (shipment.rates ?? []).map(
+        (r: {
+          id: string;
+          carrier: string;
+          service: string;
+          rate: string;
+          currency?: string;
+          delivery_days?: number | null;
+        }) => ({
+          id: r.id,
+          carrier: r.carrier,
+          service: r.service,
+          amountCents: Math.round(parseFloat(r.rate) * 100),
+          currency: r.currency?.toLowerCase() ?? "usd",
+          deliveryDays: r.delivery_days ?? null,
+        }),
+      );
+      res.json({ shipmentId: shipment.id ?? null, rates });
+    } catch (err) {
+      req.log.error({ err }, "EasyPost rates failed");
+      res.status(500).json({ error: "Failed to fetch shipping rates" });
+    }
+  },
+);
+
+router.post(
   "/admin/orders/:id/fulfill",
   async (req, res): Promise<void> => {
     const params = FulfillOrderParams.safeParse(req.params);
@@ -505,27 +612,36 @@ router.post(
     if (isEasyPostConfigured() && order.shippingAddress) {
       try {
         const ep = getEasyPost();
-        const a = order.shippingAddress;
-        const shipment = await ep.Shipment.create({
-          to_address: {
-            name: a.name,
-            street1: a.street1,
-            street2: a.street2 ?? undefined,
-            city: a.city,
-            state: a.state,
-            zip: a.zip,
-            country: a.country,
-            phone: a.phone ?? undefined,
-          },
-          from_address: FROM_ADDRESS,
-          parcel: { length: 9, width: 6, height: 3, weight: 16 },
-        });
-        const bought = await ep.Shipment.buy(shipment.id, body.data.shippingRateId);
+        let epShipmentId = body.data.shipmentId ?? null;
+        if (!epShipmentId) {
+          const a = order.shippingAddress;
+          const created = await ep.Shipment.create({
+            to_address: {
+              name: a.name,
+              street1: a.street1,
+              street2: a.street2 ?? undefined,
+              city: a.city,
+              state: a.state,
+              zip: a.zip,
+              country: a.country,
+              phone: a.phone ?? undefined,
+            },
+            from_address: FROM_ADDRESS,
+            parcel: { length: 9, width: 6, height: 3, weight: 16 },
+          });
+          epShipmentId = created.id;
+        }
+        const bought = await ep.Shipment.buy(
+          epShipmentId,
+          body.data.shippingRateId,
+        );
         trackingCode = bought.tracking_code ?? null;
         labelUrl = bought.postage_label?.label_url ?? null;
-        shipmentId = bought.id ?? null;
+        shipmentId = bought.id ?? epShipmentId ?? null;
       } catch (err) {
         req.log.error({ err }, "EasyPost label purchase failed");
+        res.status(502).json({ error: "Failed to buy shipping label" });
+        return;
       }
     } else {
       trackingCode = `MOCK-${Date.now()}`;

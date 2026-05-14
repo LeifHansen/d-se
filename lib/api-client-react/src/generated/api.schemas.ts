@@ -546,8 +546,16 @@ export type ListAdminOrdersParams = {
   to?: string;
 };
 
+export type GetAdminOrderShippingRates200 = {
+  /** @nullable */
+  shipmentId?: string | null;
+  rates: ShippingRate[];
+};
+
 export type FulfillOrderBody = {
   shippingRateId: string;
+  /** @nullable */
+  shipmentId?: string | null;
 };
 
 export type ValidateDiscountBody = {
