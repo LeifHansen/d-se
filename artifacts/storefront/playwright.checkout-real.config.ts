@@ -1,4 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import { resolveChromiumLaunchOptions } from "./playwright.shared";
+
+const launchOptions = resolveChromiumLaunchOptions();
 
 // True end-to-end checkout flow against a real api-server (with Stripe in
 // dev-fallback mode) and the project's real Postgres database. The api-
@@ -81,14 +84,7 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
-          ? {
-              launchOptions: {
-                executablePath:
-                  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
-              },
-            }
-          : {}),
+        ...(launchOptions ? { launchOptions } : {}),
       },
     },
   ],

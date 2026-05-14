@@ -1,4 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
+import { resolveChromiumLaunchOptions } from "./playwright.shared";
+
+const launchOptions = resolveChromiumLaunchOptions();
 
 const PORT = process.env.E2E_PORT ?? "5174";
 const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
@@ -37,14 +40,7 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        ...(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
-          ? {
-              launchOptions: {
-                executablePath:
-                  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
-              },
-            }
-          : {}),
+        ...(launchOptions ? { launchOptions } : {}),
       },
     },
   ],

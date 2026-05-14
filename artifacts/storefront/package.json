@@ -9,6 +9,7 @@
     "serve": "vite preview --config vite.config.ts --host 0.0.0.0",
     "start": "node scripts/serve.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "pnpm run test:e2e && pnpm run test:journey",
     "test:a11y": "playwright test --config=playwright.config.ts",
     "test:e2e": "playwright test --config=playwright.admin.config.ts",
     "test:journey": "playwright test --config=playwright.journey.config.ts",
