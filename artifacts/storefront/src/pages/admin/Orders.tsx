@@ -109,8 +109,11 @@ export default function AdminOrders() {
     setBulkProgress({ done: 0, total: targets.length });
     const labels: { orderId: number; labelUrl: string }[] = [];
     const errors: { orderId: number; message: string }[] = [];
-    for (let i = 0; i < targets.length; i++) {
-      const order = targets[i];
+    const CONCURRENCY = 4;
+    let completed = 0;
+    let cursor = 0;
+
+    async function processOne(order: (typeof targets)[number]) {
       try {
         const ratesResp = await getAdminOrderShippingRates(order.id);
         if (!ratesResp.rates || ratesResp.rates.length === 0) {
@@ -137,8 +140,20 @@ export default function AdminOrders() {
           message: err instanceof Error ? err.message : "Failed",
         });
       }
-      setBulkProgress({ done: i + 1, total: targets.length });
+      completed += 1;
+      setBulkProgress({ done: completed, total: targets.length });
     }
+
+    async function worker() {
+      while (true) {
+        const index = cursor++;
+        if (index >= targets.length) return;
+        await processOne(targets[index]);
+      }
+    }
+
+    const workerCount = Math.min(CONCURRENCY, targets.length);
+    await Promise.all(Array.from({ length: workerCount }, () => worker()));
     setBulkErrors(errors);
     setBulkRunning(false);
     setCheckedIds(new Set());
