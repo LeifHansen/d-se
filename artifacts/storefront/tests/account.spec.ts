@@ -230,6 +230,37 @@ test.describe("/account and /account/orders/:id", () => {
     await expect(page.getByTestId("order-tracking")).toHaveCount(0);
   });
 
+  test("signed-in shopper sees tracking number and label link when shipment is set", async ({
+    page,
+  }) => {
+    const SHIPPED_ORDER: Order = {
+      ...ORDER_ONE,
+      id: 5103,
+      status: "shipped",
+      trackingCode: "1Z999AA10123456784",
+      labelUrl: "https://labels.example.com/orders/5103/label.pdf",
+    };
+
+    await mockSignedIn(page, [SHIPPED_ORDER]);
+
+    await page.goto(`/account/orders/${SHIPPED_ORDER.id}`);
+    await dismissOverlays(page);
+    await page.reload();
+
+    await expect(page.getByTestId("page-account-order")).toBeVisible();
+    await expect(page.getByTestId("order-summary")).toBeVisible();
+
+    const tracking = page.getByTestId("order-tracking");
+    await expect(tracking).toBeVisible();
+    await expect(tracking).toContainText(SHIPPED_ORDER.trackingCode!);
+
+    const labelLink = page.getByTestId("order-label-link");
+    await expect(labelLink).toBeVisible();
+    await expect(labelLink).toHaveAttribute("href", SHIPPED_ORDER.labelUrl!);
+
+    await expect(page.getByTestId("order-tracking-pending")).toHaveCount(0);
+  });
+
   test("signed-in shopper requesting another user's order id sees a not-found state", async ({
     page,
   }) => {
