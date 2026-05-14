@@ -371,6 +371,18 @@ export interface TaxSummary {
   warning?: string | null;
 }
 
+/**
+ * The time window (in days) the totals and daily series cover.
+ */
+export type MarketingStatsRangeDays =
+  (typeof MarketingStatsRangeDays)[keyof typeof MarketingStatsRangeDays];
+
+export const MarketingStatsRangeDays = {
+  NUMBER_7: 7,
+  NUMBER_30: 30,
+  NUMBER_90: 90,
+} as const;
+
 export interface MarketingDailyPoint {
   /**
    * Day in YYYY-MM-DD format (UTC-naive calendar date).
@@ -382,8 +394,12 @@ export interface MarketingDailyPoint {
 
 export interface MarketingStats {
   newsletterSubscribers: number;
-  ordersLast7Days: number;
-  revenueCentsLast7Days: number;
+  /** The time window (in days) the totals and daily series cover. */
+  rangeDays: MarketingStatsRangeDays;
+  /** Paid orders count within the selected time window. */
+  ordersInRange: number;
+  /** Paid revenue in cents within the selected time window. */
+  revenueCentsInRange: number;
   /** @nullable */
   ga4Url: string | null;
   subscribersDaily: MarketingDailyPoint[];
@@ -589,6 +605,22 @@ export type ListBlogPostsParams = {
   tag?: string;
   limit?: number;
 };
+
+export type GetAdminStatsParams = {
+  /**
+   * Time window in days for the Marketing panel sparklines and totals.
+   */
+  marketingRange?: GetAdminStatsMarketingRange;
+};
+
+export type GetAdminStatsMarketingRange =
+  (typeof GetAdminStatsMarketingRange)[keyof typeof GetAdminStatsMarketingRange];
+
+export const GetAdminStatsMarketingRange = {
+  NUMBER_7: 7,
+  NUMBER_30: 30,
+  NUMBER_90: 90,
+} as const;
 
 export type ListAdminOrdersParams = {
   status?: string;

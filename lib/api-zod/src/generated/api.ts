@@ -832,6 +832,17 @@ export const GetBlogPostBySlugResponse = zod.object({
 /**
  * @summary Dashboard summary
  */
+export const getAdminStatsQueryMarketingRangeDefault = 7;
+
+export const GetAdminStatsQueryParams = zod.object({
+  marketingRange: zod
+    .union([zod.literal(7), zod.literal(30), zod.literal(90)])
+    .default(getAdminStatsQueryMarketingRangeDefault)
+    .describe(
+      "Time window in days for the Marketing panel sparklines and totals.",
+    ),
+});
+
 export const getAdminStatsResponseMarketingSubscribersDailyItemDateRegExp =
   new RegExp("^[0-9]{4}-[0-9]{2}-[0-9]{2}$");
 export const getAdminStatsResponseMarketingOrdersDailyItemDateRegExp =
@@ -895,8 +906,15 @@ export const GetAdminStatsResponse = zod.object({
     .optional(),
   marketing: zod.object({
     newsletterSubscribers: zod.number(),
-    ordersLast7Days: zod.number(),
-    revenueCentsLast7Days: zod.number(),
+    rangeDays: zod
+      .union([zod.literal(7), zod.literal(30), zod.literal(90)])
+      .describe("The time window (in days) the totals and daily series cover."),
+    ordersInRange: zod
+      .number()
+      .describe("Paid orders count within the selected time window."),
+    revenueCentsInRange: zod
+      .number()
+      .describe("Paid revenue in cents within the selected time window."),
     ga4Url: zod.string().nullable(),
     subscribersDaily: zod.array(
       zod.object({

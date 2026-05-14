@@ -188,7 +188,7 @@ class AdminApi {
 }
 
 async function installAdminMocks(page: Page, api: AdminApi): Promise<void> {
-  await page.route("**/api/admin/stats", async (route) => {
+  await page.route("**/api/admin/stats**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -206,9 +206,13 @@ async function installAdminMocks(page: Page, api: AdminApi): Promise<void> {
         recentOrders: api.orders.slice(0, 2),
         marketing: {
           newsletterSubscribers: 1280,
-          ordersLast7Days: 12,
-          revenueCentsLast7Days: 64500,
+          rangeDays: 7,
+          ordersInRange: 12,
+          revenueCentsInRange: 64500,
           ga4Url: "https://analytics.google.com/example",
+          subscribersDaily: [],
+          ordersDaily: [],
+          revenueCentsDaily: [],
         },
       }),
     });
@@ -333,7 +337,7 @@ test.describe("admin dashboard", () => {
     await expect(page.getByTestId("stat-total-orders")).toContainText("142");
 
     await expect(page.getByTestId("marketing-subscribers")).toHaveText("1,280");
-    await expect(page.getByTestId("marketing-orders-7d")).toHaveText("12");
+    await expect(page.getByTestId("marketing-orders-range")).toHaveText("12");
 
     await expect(page.getByTestId("row-recent-order-9001")).toBeVisible();
     await expect(page.getByTestId("row-recent-order-9001")).toContainText(

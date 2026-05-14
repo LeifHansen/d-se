@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useGetAdminStats } from "@workspace/api-client-react";
 import type { MarketingDailyPoint } from "@workspace/api-client-react";
 import {
@@ -9,6 +10,9 @@ import {
 } from "recharts";
 import { AdminLayout } from "./AdminLayout";
 import { formatCurrency, formatDateTime } from "./utils";
+
+type MarketingRange = 7 | 30 | 90;
+const MARKETING_RANGES: MarketingRange[] = [7, 30, 90];
 
 function Sparkline({
   data,
@@ -65,7 +69,7 @@ function Sparkline({
         </ResponsiveContainer>
       ) : (
         <div className="flex h-full items-center text-xs text-muted-foreground">
-          No activity in the last 7 days
+          No activity in the selected window
         </div>
       )}
     </div>
@@ -100,7 +104,10 @@ function StatCard({
 }
 
 export default function AdminDashboard() {
-  const { data, isLoading, error } = useGetAdminStats();
+  const [marketingRange, setMarketingRange] = useState<MarketingRange>(7);
+  const { data, isLoading, error, isFetching } = useGetAdminStats({
+    marketingRange,
+  });
 
   return (
     <AdminLayout>
@@ -196,26 +203,56 @@ export default function AdminDashboard() {
               aria-labelledby="marketing-heading"
               data-testid="panel-marketing"
             >
-              <header className="flex items-center justify-between border-b border-border px-5 py-3">
+              <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
                 <div>
                   <h2 id="marketing-heading" className="text-sm font-semibold">
                     Marketing
                   </h2>
                   <p className="text-xs text-muted-foreground">
-                    Newsletter growth and the last 7 days of paid orders.
+                    Newsletter growth and paid orders over the last{" "}
+                    {data.marketing.rangeDays} days.
                   </p>
                 </div>
-                {data.marketing.ga4Url ? (
-                  <a
-                    href={data.marketing.ga4Url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-medium underline-offset-4 hover:underline"
-                    data-testid="marketing-ga4-link"
+                <div className="flex items-center gap-3">
+                  <div
+                    role="group"
+                    aria-label="Marketing time window"
+                    className="inline-flex items-center rounded-md border border-border bg-background p-0.5 text-xs"
+                    data-testid="marketing-range-switcher"
                   >
-                    Open Google Analytics →
-                  </a>
-                ) : null}
+                    {MARKETING_RANGES.map((days) => {
+                      const isActive = marketingRange === days;
+                      return (
+                        <button
+                          key={days}
+                          type="button"
+                          onClick={() => setMarketingRange(days)}
+                          aria-pressed={isActive}
+                          disabled={isFetching && isActive}
+                          className={`rounded px-2.5 py-1 font-medium transition-colors ${
+                            isActive
+                              ? "bg-foreground text-background"
+                              : "text-muted-foreground hover:text-foreground"
+                          }`}
+                          data-testid={`marketing-range-${days}d`}
+                        >
+                          {days}d
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {data.marketing.ga4Url ? (
+                    <a
+                      href={data.marketing.ga4Url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-medium underline-offset-4 hover:underline"
+                      data-testid="marketing-ga4-link"
+                    >
+                      Open Google Analytics →
+                    </a>
+                  ) : null}
+                </div>
               </header>
               <div className="grid gap-6 px-5 py-4 sm:grid-cols-3">
                 <div>
@@ -238,17 +275,17 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Orders (last 7 days)
+                    Orders (last {data.marketing.rangeDays} days)
                   </p>
                   <p
                     className="mt-1 text-2xl font-semibold tabular-nums"
-                    data-testid="marketing-orders-7d"
+                    data-testid="marketing-orders-range"
                   >
-                    {data.marketing.ordersLast7Days.toLocaleString("en-US")}
+                    {data.marketing.ordersInRange.toLocaleString("en-US")}
                   </p>
                   <Sparkline
                     data={data.marketing.ordersDaily}
-                    testId="sparkline-orders-7d"
+                    testId="sparkline-orders-range"
                     format={(v) =>
                       `${v.toLocaleString("en-US")} ${v === 1 ? "order" : "orders"}`
                     }
@@ -256,17 +293,17 @@ export default function AdminDashboard() {
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                    Revenue (last 7 days)
+                    Revenue (last {data.marketing.rangeDays} days)
                   </p>
                   <p
                     className="mt-1 text-2xl font-semibold tabular-nums"
-                    data-testid="marketing-revenue-7d"
+                    data-testid="marketing-revenue-range"
                   >
-                    {formatCurrency(data.marketing.revenueCentsLast7Days)}
+                    {formatCurrency(data.marketing.revenueCentsInRange)}
                   </p>
                   <Sparkline
                     data={data.marketing.revenueCentsDaily}
-                    testId="sparkline-revenue-7d"
+                    testId="sparkline-revenue-range"
                     format={(v) => formatCurrency(v)}
                   />
                 </div>

@@ -104,16 +104,28 @@ function serializeBlog(p: typeof blogPostsTable.$inferSelect) {
   };
 }
 
-router.get("/admin/stats", async (_req, res): Promise<void> => {
+router.get("/admin/stats", async (req, res): Promise<void> => {
+  const ALLOWED_RANGES = [7, 30, 90] as const;
+  const requestedRange = Number(req.query.marketingRange);
+  const marketingRangeDays = (
+    ALLOWED_RANGES as readonly number[]
+  ).includes(requestedRange)
+    ? requestedRange
+    : 7;
+
   const monthStart = new Date();
   monthStart.setDate(1);
   monthStart.setHours(0, 0, 0, 0);
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const sevenDaysWindowStart = new Date();
-  sevenDaysWindowStart.setHours(0, 0, 0, 0);
-  sevenDaysWindowStart.setDate(sevenDaysWindowStart.getDate() - 6);
+  // Align the totals and the daily series to the same calendar-day window
+  // (last N days inclusive of today, starting at local midnight) so the
+  // numbers shown next to each sparkline always equal the sum of its points.
+  const marketingWindowStart = new Date();
+  marketingWindowStart.setHours(0, 0, 0, 0);
+  marketingWindowStart.setDate(
+    marketingWindowStart.getDate() - (marketingRangeDays - 1),
+  );
 
   const [{ totalOrders }] = await db
     .select({ totalOrders: count() })
@@ -164,15 +176,15 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
   const [{ newsletterSubscribers }] = await db
     .select({ newsletterSubscribers: count() })
     .from(newsletterSubscribersTable);
-  const [{ ordersLast7Days, revenueCentsLast7Days }] = await db
+  const [{ ordersInRange, revenueCentsInRange }] = await db
     .select({
-      ordersLast7Days: count(),
-      revenueCentsLast7Days: sum(ordersTable.totalCents),
+      ordersInRange: count(),
+      revenueCentsInRange: sum(ordersTable.totalCents),
     })
     .from(ordersTable)
     .where(
       and(
-        gte(ordersTable.createdAt, sevenDaysAgo),
+        gte(ordersTable.createdAt, marketingWindowStart),
         eq(ordersTable.status, "paid"),
       ),
     );
@@ -186,7 +198,7 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
     .from(ordersTable)
     .where(
       and(
-        gte(ordersTable.createdAt, sevenDaysWindowStart),
+        gte(ordersTable.createdAt, marketingWindowStart),
         eq(ordersTable.status, "paid"),
       ),
     )
@@ -201,7 +213,7 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
       added: count(),
     })
     .from(newsletterSubscribersTable)
-    .where(gte(newsletterSubscribersTable.createdAt, sevenDaysWindowStart))
+    .where(gte(newsletterSubscribersTable.createdAt, marketingWindowStart))
     .groupBy(sql`${newsletterSubscribersTable.createdAt}::date`)) as Array<{
     day: string;
     added: number;
@@ -214,8 +226,8 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
   const subscribersDaily: Array<{ date: string; value: number }> = [];
   const ordersDaily: Array<{ date: string; value: number }> = [];
   const revenueCentsDaily: Array<{ date: string; value: number }> = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(sevenDaysWindowStart);
+  for (let i = 0; i < marketingRangeDays; i++) {
+    const d = new Date(marketingWindowStart);
     d.setDate(d.getDate() + i);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     const o = ordersByDay.get(key);
@@ -248,8 +260,9 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
       recentOrders,
       marketing: {
         newsletterSubscribers,
-        ordersLast7Days,
-        revenueCentsLast7Days: Number(revenueCentsLast7Days ?? 0),
+        rangeDays: marketingRangeDays,
+        ordersInRange,
+        revenueCentsInRange: Number(revenueCentsInRange ?? 0),
         ga4Url,
         subscribersDaily,
         ordersDaily,

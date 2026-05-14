@@ -440,6 +440,14 @@ paths:
       operationId: getAdminStats
       tags: [admin]
       summary: Dashboard summary
+      parameters:
+        - name: marketingRange
+          in: query
+          description: Time window in days for the Marketing panel sparklines and totals.
+          schema:
+            type: integer
+            enum: [7, 30, 90]
+            default: 7
       responses:
         "200":
           description: OK
@@ -1452,8 +1460,9 @@ components:
       required:
         [
           newsletterSubscribers,
-          ordersLast7Days,
-          revenueCentsLast7Days,
+          rangeDays,
+          ordersInRange,
+          revenueCentsInRange,
           ga4Url,
           subscribersDaily,
           ordersDaily,
@@ -1461,8 +1470,16 @@ components:
         ]
       properties:
         newsletterSubscribers: { type: integer }
-        ordersLast7Days: { type: integer }
-        revenueCentsLast7Days: { type: integer }
+        rangeDays:
+          type: integer
+          description: The time window (in days) the totals and daily series cover.
+          enum: [7, 30, 90]
+        ordersInRange:
+          type: integer
+          description: Paid orders count within the selected time window.
+        revenueCentsInRange:
+          type: integer
+          description: Paid revenue in cents within the selected time window.
         ga4Url: { type: ["string", "null"] }
         subscribersDaily:
           type: array

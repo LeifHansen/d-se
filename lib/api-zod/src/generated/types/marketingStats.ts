@@ -6,11 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { MarketingDailyPoint } from "./marketingDailyPoint";
+import type { MarketingStatsRangeDays } from "./marketingStatsRangeDays";
 
 export interface MarketingStats {
   newsletterSubscribers: number;
-  ordersLast7Days: number;
-  revenueCentsLast7Days: number;
+  /** The time window (in days) the totals and daily series cover. */
+  rangeDays: MarketingStatsRangeDays;
+  /** Paid orders count within the selected time window. */
+  ordersInRange: number;
+  /** Paid revenue in cents within the selected time window. */
+  revenueCentsInRange: number;
   /** @nullable */
   ga4Url: string | null;
   subscribersDaily: MarketingDailyPoint[];

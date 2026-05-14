@@ -192,7 +192,7 @@ async function installBulkMocks(page: Page, api: BulkApi): Promise<void> {
     };
   });
 
-  await page.route("**/api/admin/stats", async (route: Route) => {
+  await page.route("**/api/admin/stats**", async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -210,9 +210,13 @@ async function installBulkMocks(page: Page, api: BulkApi): Promise<void> {
         recentOrders: [],
         marketing: {
           newsletterSubscribers: 0,
-          ordersLast7Days: 0,
-          revenueCentsLast7Days: 0,
+          rangeDays: 7,
+          ordersInRange: 0,
+          revenueCentsInRange: 0,
           ga4Url: null,
+          subscribersDaily: [],
+          ordersDaily: [],
+          revenueCentsDaily: [],
         },
       }),
     });

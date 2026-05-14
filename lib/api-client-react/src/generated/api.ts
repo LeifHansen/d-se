@@ -38,6 +38,7 @@ import type {
   ForbiddenResponse,
   FulfillOrderBody,
   GetAdminOrderShippingRates200,
+  GetAdminStatsParams,
   GetCartParams,
   GetOrderParams,
   GetShippingRatesBody,
@@ -1814,41 +1815,57 @@ export function useGetBlogPostBySlug<
 /**
  * @summary Dashboard summary
  */
-export const getGetAdminStatsUrl = () => {
-  return `/api/admin/stats`;
+export const getGetAdminStatsUrl = (params?: GetAdminStatsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/stats?${stringifiedParams}`
+    : `/api/admin/stats`;
 };
 
 export const getAdminStats = async (
+  params?: GetAdminStatsParams,
   options?: RequestInit,
 ): Promise<AdminStats> => {
-  return customFetch<AdminStats>(getGetAdminStatsUrl(), {
+  return customFetch<AdminStats>(getGetAdminStatsUrl(params), {
     ...options,
     method: "GET",
   });
 };
 
-export const getGetAdminStatsQueryKey = () => {
-  return [`/api/admin/stats`] as const;
+export const getGetAdminStatsQueryKey = (params?: GetAdminStatsParams) => {
+  return [`/api/admin/stats`, ...(params ? [params] : [])] as const;
 };
 
 export const getGetAdminStatsQueryOptions = <
   TData = Awaited<ReturnType<typeof getAdminStats>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getAdminStats>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
+>(
+  params?: GetAdminStatsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
   const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getGetAdminStatsQueryKey();
+  const queryKey = queryOptions?.queryKey ?? getGetAdminStatsQueryKey(params);
 
   const queryFn: QueryFunction<Awaited<ReturnType<typeof getAdminStats>>> = ({
     signal,
-  }) => getAdminStats({ signal, ...requestOptions });
+  }) => getAdminStats(params, { signal, ...requestOptions });
 
   return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
     Awaited<ReturnType<typeof getAdminStats>>,
@@ -1869,15 +1886,18 @@ export type GetAdminStatsQueryError = ErrorType<unknown>;
 export function useGetAdminStats<
   TData = Awaited<ReturnType<typeof getAdminStats>>,
   TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof getAdminStats>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetAdminStatsQueryOptions(options);
+>(
+  params?: GetAdminStatsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminStats>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminStatsQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
