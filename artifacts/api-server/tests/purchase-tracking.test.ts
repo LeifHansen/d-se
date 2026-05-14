@@ -11,6 +11,7 @@ process.env.GA4_ID = "G-TEST123";
 process.env.GA4_API_SECRET = "ga4-secret-test";
 process.env.META_PIXEL_ID = "1234567890";
 process.env.META_CAPI_TOKEN = "meta-capi-token-test";
+process.env.RESEND_FROM_EMAIL = "test@example.com";
 process.env.REPLIT_CONNECTORS_HOSTNAME = "connectors.test.invalid";
 if (!process.env.REPL_IDENTITY) process.env.REPL_IDENTITY = "test-identity";
 if (!process.env.PORT) process.env.PORT = "0";
@@ -21,6 +22,7 @@ delete process.env.EASYPOST_API_KEY;
 type CapturedCall = { url: string; body: unknown };
 const ga4Calls: CapturedCall[] = [];
 const metaCalls: CapturedCall[] = [];
+const resendCalls: CapturedCall[] = [];
 
 const realFetch = globalThis.fetch.bind(globalThis);
 globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -48,11 +50,40 @@ globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
         { status: 200, headers: { "Content-Type": "application/json" } },
       );
     }
-    // Resend / anything else: empty items so callers no-op gracefully.
+    if (url.includes("connector_names=resend")) {
+      return new Response(
+        JSON.stringify({
+          items: [
+            {
+              settings: {
+                api_key: "re_test_dummy",
+                from_email: "test@example.com",
+              },
+            },
+          ],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    // Anything else: empty items so callers no-op gracefully.
     return new Response(JSON.stringify({ items: [] }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
+  }
+
+  if (url.startsWith("https://api.resend.com/")) {
+    let body: unknown = null;
+    try {
+      body = init?.body ? JSON.parse(String(init.body)) : null;
+    } catch {
+      body = init?.body;
+    }
+    resendCalls.push({ url, body });
+    return new Response(
+      JSON.stringify({ id: `email_${resendCalls.length}` }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   if (url.startsWith("https://www.google-analytics.com/mp/collect")) {
@@ -177,6 +208,7 @@ const {
   productsTable,
   cartsTable,
   cartItemsTable,
+  stripeProcessedEventsTable,
   pool,
 } = await import("@workspace/db");
 const { eq } = await import("drizzle-orm");
@@ -383,6 +415,20 @@ test("POST /api/checkout → Stripe webhook: analytics persist, GA4+Meta fire, r
     .from(ordersTable)
     .where(eq(ordersTable.id, createdOrderId));
 
+  // Inventory decremented exactly once (10 - 2 = 8).
+  const [productAfter1] = await db
+    .select()
+    .from(productsTable)
+    .where(eq(productsTable.id, product.id));
+  assert.equal(
+    productAfter1.inventory,
+    8,
+    "inventory should be decremented by quantity once",
+  );
+
+  // Confirmation email fired exactly once.
+  assert.equal(resendCalls.length, 1, "order confirmation email sent once");
+
   assert.equal(updated.status, "paid", "order should be marked paid");
   assert.equal(updated.email, "buyer@example.com");
   assert.equal(updated.stripePaymentIntentId, `pi_test_${createdOrderId}`);
@@ -493,6 +539,7 @@ test("POST /api/checkout → Stripe webhook: analytics persist, GA4+Meta fire, r
   // ---- Re-delivery (idempotency) ----
   const ga4Before = ga4Calls.length;
   const metaBefore = metaCalls.length;
+  const resendBefore = resendCalls.length;
 
   const redelivery = buildSignedRequest(event);
   const res2 = await fetch(`${baseUrl}/api/webhooks/stripe`, {
@@ -527,4 +574,236 @@ test("POST /api/checkout → Stripe webhook: analytics persist, GA4+Meta fire, r
     metaBefore,
     "Meta CAPI must not fire on idempotent redelivery",
   );
+  assert.equal(
+    resendCalls.length,
+    resendBefore,
+    "Confirmation email must not re-send on idempotent redelivery",
+  );
+
+  // Inventory must not be double-decremented on redelivery.
+  const [productAfter2] = await db
+    .select()
+    .from(productsTable)
+    .where(eq(productsTable.id, product.id));
+  assert.equal(
+    productAfter2.inventory,
+    8,
+    "inventory must not be double-decremented on redelivery",
+  );
+
+  // ---- Mid-handler failure recovery (transactional rollback) ----
+  // Seed a fresh order so we can drive a second webhook delivery whose
+  // transaction we force to fail. The event-id claim must be rolled back
+  // alongside everything else, so a follow-up retry of the same event id
+  // completes the order exactly once.
+  const cartId2 = `cart-test-fail-${Date.now()}`;
+  await db.insert(cartsTable).values({ id: cartId2 });
+  await db.insert(cartItemsTable).values({
+    cartId: cartId2,
+    productId: product.id,
+    quantity: 1,
+  });
+  const checkout2Res = await fetch(`${baseUrl}/api/checkout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "User-Agent": "Mozilla/5.0 (TestRunner)",
+      "X-Forwarded-For": "203.0.113.42",
+    },
+    body: JSON.stringify({
+      cartId: cartId2,
+      email: "buyer2@example.com",
+      address: {
+        name: "Test Buyer 2",
+        street1: "456 Test St",
+        city: "Testville",
+        state: "CA",
+        zip: "94000",
+        country: "US",
+      },
+      shippingRateId: "flat-standard",
+      analyticsEventId: "evt-from-checkout-xyz",
+      analyticsClientId: "GA1.1.999.888",
+    }),
+  });
+  assert.equal(checkout2Res.status, 200);
+  const checkout2Json = (await checkout2Res.json()) as { orderId: number };
+  const orderId2 = checkout2Json.orderId;
+  const [order2Row] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId2));
+  // Cleanup is run inline at the end of the test (below) so it executes
+  // before the outer t.after closes the shared pg pool.
+
+  const failEvent = {
+    id: `evt_test_fail_${orderId2}`,
+    object: "event",
+    api_version: "2024-06-20",
+    created: Math.floor(Date.now() / 1000),
+    type: "checkout.session.completed",
+    livemode: false,
+    pending_webhooks: 1,
+    request: { id: null, idempotency_key: null },
+    data: {
+      object: {
+        id: order2Row.stripeSessionId!,
+        object: "checkout.session",
+        metadata: {
+          orderId: String(orderId2),
+          cartId: cartId2,
+          analyticsEventId: "evt-from-checkout-xyz",
+        },
+        payment_intent: `pi_test_${orderId2}`,
+        customer_email: "buyer2@example.com",
+        customer_details: { email: "buyer2@example.com" },
+        amount_total: order2Row.totalCents,
+        total_details: {
+          amount_tax: 0,
+          amount_discount: 0,
+          amount_shipping: order2Row.shippingCents,
+        },
+      },
+    },
+  };
+
+  const resendBeforeFail = resendCalls.length;
+  const ga4BeforeFail = ga4Calls.length;
+  const metaBeforeFail = metaCalls.length;
+
+  // Wrap db.transaction so the next call commits the user code, then throws
+  // to trigger a full rollback (event-id claim + order flip + inventory).
+  const originalTransaction = db.transaction.bind(db);
+  let armed = true;
+  (db as unknown as { transaction: typeof db.transaction }).transaction =
+    (async (cb: Parameters<typeof db.transaction>[0]) => {
+      if (armed) {
+        armed = false;
+        await originalTransaction(async (tx) => {
+          await cb(tx);
+          throw new Error("simulated post-mutation failure");
+        });
+        return undefined as never;
+      }
+      return originalTransaction(cb);
+    }) as typeof db.transaction;
+
+  const failSigned = buildSignedRequest(failEvent);
+  const failRes = await fetch(`${baseUrl}/api/webhooks/stripe`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "stripe-signature": failSigned.header,
+    },
+    body: failSigned.payload,
+  });
+  assert.equal(
+    failRes.status,
+    500,
+    "mid-handler failure should surface 500 so Stripe retries",
+  );
+
+  // Order must still be pending (transaction rolled back).
+  const [order2AfterFail] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId2));
+  assert.equal(
+    order2AfterFail.status,
+    "pending",
+    "order state must roll back on failed delivery",
+  );
+  // Inventory must be unchanged from before the failed delivery (8).
+  const [productAfterFail] = await db
+    .select()
+    .from(productsTable)
+    .where(eq(productsTable.id, product.id));
+  assert.equal(
+    productAfterFail.inventory,
+    8,
+    "inventory must not have been decremented by failed delivery",
+  );
+  // Event-id row must NOT be present (claim rolled back).
+  const claimRows = await db
+    .select()
+    .from(stripeProcessedEventsTable)
+    .where(eq(stripeProcessedEventsTable.eventId, failEvent.id));
+  assert.equal(
+    claimRows.length,
+    0,
+    "event id claim must roll back when transaction fails",
+  );
+
+  // Retry the same event id — should now complete fully (exactly once).
+  const retrySigned = buildSignedRequest(failEvent);
+  const retryRes = await fetch(`${baseUrl}/api/webhooks/stripe`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "stripe-signature": retrySigned.header,
+    },
+    body: retrySigned.payload,
+  });
+  assert.equal(retryRes.status, 200, "retry of the same event id succeeds");
+  const [order2AfterRetry] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId2));
+  assert.equal(order2AfterRetry.status, "paid", "retry completes the order");
+  const [productAfterRetry] = await db
+    .select()
+    .from(productsTable)
+    .where(eq(productsTable.id, product.id));
+  assert.equal(
+    productAfterRetry.inventory,
+    7,
+    "inventory decremented exactly once across the failed + retried delivery",
+  );
+  assert.equal(
+    resendCalls.length,
+    resendBeforeFail + 1,
+    "confirmation email sends exactly once across failure + retry",
+  );
+  assert.equal(
+    ga4Calls.length,
+    ga4BeforeFail + 1,
+    "GA4 fires exactly once across failure + retry",
+  );
+  assert.equal(
+    metaCalls.length,
+    metaBeforeFail + 1,
+    "Meta CAPI fires exactly once across failure + retry",
+  );
+
+  // A second redelivery of the now-claimed event id is short-circuited.
+  const dupSigned = buildSignedRequest(failEvent);
+  const dupRes = await fetch(`${baseUrl}/api/webhooks/stripe`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "stripe-signature": dupSigned.header,
+    },
+    body: dupSigned.payload,
+  });
+  assert.equal(dupRes.status, 200);
+  const [productFinal] = await db
+    .select()
+    .from(productsTable)
+    .where(eq(productsTable.id, product.id));
+  assert.equal(productFinal.inventory, 7, "no further inventory change");
+
+  // Inline cleanup for the failure-recovery scenario — runs before the outer
+  // t.after that closes the pg pool.
+  await db.delete(orderItemsTable).where(eq(orderItemsTable.orderId, orderId2));
+  await db.delete(ordersTable).where(eq(ordersTable.id, orderId2));
+  await db.delete(cartItemsTable).where(eq(cartItemsTable.cartId, cartId2));
+  await db.delete(cartsTable).where(eq(cartsTable.id, cartId2));
+  await db
+    .delete(stripeProcessedEventsTable)
+    .where(eq(stripeProcessedEventsTable.eventId, failEvent.id));
+  await db
+    .delete(stripeProcessedEventsTable)
+    .where(
+      eq(stripeProcessedEventsTable.eventId, `evt_test_${createdOrderId}`),
+    );
 });
