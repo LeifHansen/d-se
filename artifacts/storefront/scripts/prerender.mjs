@@ -116,10 +116,31 @@ const ROUTE_META = {
     description: "Complete your DŌSE order.",
     noindex: true,
   },
+  "/checkout/success": {
+    dynamic: false,
+    title: `Order Confirmed | ${SITE_NAME}`,
+    description: "Your DŌSE order is confirmed. Thanks for shopping with us.",
+    noindex: true,
+  },
   "/account": {
     dynamic: false,
     title: `Your Account | ${SITE_NAME}`,
     description: "Manage your DŌSE account, orders, and preferences.",
+    noindex: true,
+  },
+  // Per-user order pages — never indexable, content is loaded client-side
+  // after auth. We still emit a noindex shell so link previews don't leak
+  // anything and crawlers see a clean signal.
+  "/account/orders/:id": {
+    dynamic: false,
+    title: `Order Details | ${SITE_NAME}`,
+    description: "View the details of your DŌSE order.",
+    noindex: true,
+  },
+  "/orders/:id": {
+    dynamic: false,
+    title: `Order Details | ${SITE_NAME}`,
+    description: "View the details of your DŌSE order.",
     noindex: true,
   },
   "/about": {

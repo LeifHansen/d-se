@@ -14,7 +14,8 @@
     "test:e2e": "playwright test --config=playwright.admin.config.ts",
     "test:journey": "playwright test --config=playwright.journey.config.ts",
     "test:account": "playwright test --config=playwright.account.config.ts",
-    "test:checkout-real": "playwright test --config=playwright.checkout-real.config.ts"
+    "test:checkout-real": "playwright test --config=playwright.checkout-real.config.ts",
+    "test:prerender": "node --test tests/prerender.test.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.1",

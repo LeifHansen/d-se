@@ -47,6 +47,9 @@ jobs:
       - run: pnpm exec playwright test
       - name: Storefront customer journey
         run: pnpm --filter @workspace/storefront run test:journey
+      - name: Storefront prerender / link-preview SEO
+        if: ${{ env.E2E_BASE_URL == '' }}
+        run: pnpm --filter @workspace/storefront run test:prerender
       - if: always()
         uses: actions/upload-artifact@v4
         with:
