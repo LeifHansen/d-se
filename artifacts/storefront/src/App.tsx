@@ -12,6 +12,7 @@ import Accessibility from "@/pages/legal/Accessibility";
 import Contact from "@/pages/legal/Contact";
 
 const Home = lazy(() => import("@/pages/home"));
+const AdminDashboard = lazy(() => import("@/pages/admin/dashboard"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ function Router() {
         <Route path="/returns" component={Returns} />
         <Route path="/accessibility" component={Accessibility} />
         <Route path="/contact" component={Contact} />
+        <Route path="/admin" component={AdminDashboard} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>
