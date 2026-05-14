@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Stars } from "@/components/dose/Stars";
+import { Image } from "@/components/dose/Image";
 import { ApiError, apiFetch, formatMoney } from "@/lib/api";
 import { useAddToCart } from "@/hooks/useCart";
 import NotFound from "@/pages/not-found";
@@ -272,10 +273,15 @@ export default function ProductPage() {
                 style={{ background: "hsla(170,58%,14%,0.05)" }}
               >
                 {product.images[0] ? (
-                  <img
+                  <Image
                     src={product.images[0]}
+                    width={1200}
+                    height={1500}
                     alt={product.name}
+                    sizes="(min-width: 768px) 50vw, 100vw"
+                    priority
                     className="h-full w-full object-cover"
+                    pictureClassName="block h-full w-full"
                     data-testid="product-image"
                   />
                 ) : (

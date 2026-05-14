@@ -6,6 +6,7 @@ import { Footer } from "@/components/dose/Footer";
 import { CookieBanner } from "@/components/dose/CookieBanner";
 import { AgeGate } from "@/components/dose/AgeGate";
 import { Stars } from "@/components/dose/Stars";
+import { Image } from "@/components/dose/Image";
 import { apiFetch, formatMoney } from "@/lib/api";
 
 type ProductSummary = {
@@ -80,11 +81,14 @@ export default function ShopPage() {
                   <Link href={`/products/${p.slug}`}>
                     <div className="relative aspect-[4/5] w-full overflow-hidden bg-black/5">
                       {p.images[0] && (
-                        <img
+                        <Image
                           src={p.images[0]}
+                          width={800}
+                          height={1000}
                           alt={p.name}
+                          sizes="(min-width: 768px) 30vw, 90vw"
                           className="h-full w-full object-cover"
-                          loading="lazy"
+                          pictureClassName="block h-full w-full"
                         />
                       )}
                     </div>
