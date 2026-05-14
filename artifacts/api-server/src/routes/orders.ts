@@ -572,6 +572,13 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
     return;
   }
   const userId = getUserId(req);
+  // Require some proof-of-ownership claim before we even look the order up.
+  // Without a signed-in user or a guest receipt token (cartId / Stripe session
+  // id), there's nothing to authorize against, so this is just unauthenticated.
+  if (userId === null && !query.data.cartId && !query.data.sessionId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
   const [row] = await db
     .select()
     .from(ordersTable)
