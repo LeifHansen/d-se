@@ -145,6 +145,10 @@ async function seedCartId(page: Page): Promise<void> {
     ([key, value]) => {
       try {
         window.localStorage.setItem(key, value);
+        // Pre-dismiss the AgeGate / CookieBanner so they don't intercept
+        // clicks during the test.
+        window.localStorage.setItem("dose-age-confirmed", "yes");
+        window.localStorage.setItem("dose-cookies-decision", "accept");
       } catch {
         // ignore
       }
@@ -171,6 +175,79 @@ test.describe("cart → Stripe checkout handoff", () => {
     await page.getByTestId("cart-checkout").click();
     await page.waitForURL(/\/checkout(\?|$)/);
     await expect(page.getByTestId("page-checkout")).toBeVisible();
+  });
+
+  // Regression guard: the cart's "Continue to checkout" button used to call
+  // /api/checkout directly with no shipping rate, handing the shopper off to
+  // Stripe with $0 shipping. It must instead route to the in-app /checkout
+  // page where the address form + shipping-rate picker live, and "Pay
+  // securely" must stay disabled until a rate is selected.
+  test("Continue to checkout sends the shopper through the rate picker, not straight to Stripe", async ({
+    page,
+  }) => {
+    const calls: CheckoutCall[] = [];
+    await installCheckoutMocks(page, {
+      redirectUrl: "about:blank",
+      calls,
+    });
+
+    // If anything tries to hit Stripe directly from the cart click, fail
+    // loudly instead of silently navigating cross-origin.
+    let stripeHit = false;
+    await page.route(/https?:\/\/([a-z0-9-]+\.)*stripe\.com\/.*/i, async (route: Route) => {
+      stripeHit = true;
+      await route.fulfill({
+        status: 200,
+        contentType: "text/html",
+        body: "<!doctype html><title>stripe-hit</title>",
+      });
+    });
+
+    await seedCartId(page);
+
+    await page.goto("/cart");
+    await expect(page.getByTestId("cart-items")).toBeVisible();
+
+    await page.getByTestId("cart-checkout").click();
+
+    // Land on the in-app checkout page, not on Stripe.
+    await page.waitForURL(/\/checkout(\?|$)/);
+    expect(new URL(page.url()).pathname).toBe("/checkout");
+    await expect(page.getByTestId("page-checkout")).toBeVisible();
+    expect(stripeHit).toBe(false);
+    // No /api/checkout request should have been fired by the cart click.
+    expect(calls).toHaveLength(0);
+
+    // Address form fields are rendered.
+    await expect(page.getByTestId("checkout-email")).toBeVisible();
+    await expect(page.getByTestId("checkout-name")).toBeVisible();
+    await expect(page.getByTestId("checkout-street1")).toBeVisible();
+    await expect(page.getByTestId("checkout-city")).toBeVisible();
+    await expect(page.getByTestId("checkout-state")).toBeVisible();
+    await expect(page.getByTestId("checkout-zip")).toBeVisible();
+
+    // Pay securely is disabled before a shipping rate is chosen.
+    await expect(page.getByTestId("checkout-submit")).toBeDisabled();
+
+    // No shipping-rate radios rendered yet.
+    await expect(page.locator('input[name="shipping-rate"]')).toHaveCount(0);
+
+    // Fill the address and calculate shipping so the rate picker renders.
+    await page.getByTestId("checkout-email").fill("buyer@example.com");
+    await page.getByTestId("checkout-name").fill("Test Buyer");
+    await page.getByTestId("checkout-street1").fill("1 Main St");
+    await page.getByTestId("checkout-city").fill("Town");
+    await page.getByTestId("checkout-state").fill("CA");
+    await page.getByTestId("checkout-zip").fill("90210");
+
+    await page.getByTestId("checkout-calc-shipping").click();
+
+    // Shipping-rate radios are now rendered and one is auto-selected.
+    await expect(page.locator('input[name="shipping-rate"]')).toHaveCount(1);
+    await expect(page.locator(`input[value="${RATE_ID}"]`)).toBeChecked();
+
+    // Only after the rate is picked does Pay securely become enabled.
+    await expect(page.getByTestId("checkout-submit")).toBeEnabled();
   });
 
   test("submitting /checkout posts to /api/checkout and redirects to the returned URL", async ({
