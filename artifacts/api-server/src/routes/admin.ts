@@ -925,6 +925,10 @@ router.post("/admin/blog/posts", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const ownerId = getUserId(req) ?? "admin";
+  const coverImage = parsed.data.coverImage
+    ? await publishUploadedImage(parsed.data.coverImage, ownerId, req.log)
+    : null;
   const [row] = await db
     .insert(blogPostsTable)
     .values({
@@ -932,7 +936,7 @@ router.post("/admin/blog/posts", async (req, res): Promise<void> => {
       title: parsed.data.title,
       excerpt: parsed.data.excerpt,
       content: parsed.data.content,
-      coverImage: parsed.data.coverImage ?? null,
+      coverImage,
       author: parsed.data.author ?? null,
       tags: parsed.data.tags ?? [],
       seoTitle: parsed.data.seoTitle ?? null,
@@ -964,6 +968,10 @@ router.patch("/admin/blog/posts/:id", async (req, res): Promise<void> => {
     return;
   }
   const willPublish = body.data.published ?? false;
+  const ownerId = getUserId(req) ?? "admin";
+  const coverImage = body.data.coverImage
+    ? await publishUploadedImage(body.data.coverImage, ownerId, req.log)
+    : null;
   const [row] = await db
     .update(blogPostsTable)
     .set({
@@ -971,7 +979,7 @@ router.patch("/admin/blog/posts/:id", async (req, res): Promise<void> => {
       title: body.data.title,
       excerpt: body.data.excerpt,
       content: body.data.content,
-      coverImage: body.data.coverImage ?? null,
+      coverImage,
       author: body.data.author ?? null,
       tags: body.data.tags ?? [],
       seoTitle: body.data.seoTitle ?? null,
