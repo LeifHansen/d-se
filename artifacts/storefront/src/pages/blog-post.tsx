@@ -1,96 +1,55 @@
+import { useEffect, useMemo, useState } from "react";
+import type { ComponentPropsWithoutRef } from "react";
 import { Link, useRoute } from "wouter";
-import { ArrowLeft } from "lucide-react";
-import { useGetBlogPostBySlug } from "@workspace/api-client-react";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  Check,
+  Clock,
+  Facebook,
+  Link as LinkIcon,
+  Twitter,
+} from "lucide-react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
+import { toString as hastToString } from "hast-util-to-string";
+import type { Element as HastElement } from "hast";
+import {
+  useGetBlogPostBySlug,
+  useGetProductBySlug,
+  useListBlogPosts,
+} from "@workspace/api-client-react";
 import { SiteShell } from "@/components/dose/SiteShell";
 import { Seo } from "@/components/seo/Seo";
+import { useToast } from "@/hooks/use-toast";
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;");
-}
-
-// Minimal markdown -> HTML for headings, paragraphs, links, bold/italic, lists, code.
-function renderMarkdown(md: string): string {
-  const lines = md.split(/\r?\n/);
-  const out: string[] = [];
-  let inUl = false;
-  let inOl = false;
-  let buffer: string[] = [];
-
-  const flushPara = () => {
-    if (buffer.length === 0) return;
-    out.push(`<p>${inline(buffer.join(" "))}</p>`);
-    buffer = [];
-  };
-  const closeLists = () => {
-    if (inUl) {
-      out.push("</ul>");
-      inUl = false;
+declare module "react" {
+  namespace JSX {
+    interface IntrinsicElements {
+      "product-callout": ComponentPropsWithoutRef<"div"> & { slug?: string };
     }
-    if (inOl) {
-      out.push("</ol>");
-      inOl = false;
-    }
-  };
-  const inline = (s: string): string =>
-    escapeHtml(s)
-      .replace(/`([^`]+)`/g, "<code>$1</code>")
-      .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-      .replace(/\*([^*]+)\*/g, "<em>$1</em>")
-      .replace(
-        /\[([^\]]+)\]\(([^)]+)\)/g,
-        '<a href="$2" rel="noopener">$1</a>',
-      );
-
-  for (const raw of lines) {
-    const line = raw.trimEnd();
-    if (!line.trim()) {
-      flushPara();
-      closeLists();
-      continue;
-    }
-    const h = /^(#{1,6})\s+(.*)$/.exec(line);
-    if (h) {
-      flushPara();
-      closeLists();
-      const level = h[1].length;
-      out.push(`<h${level}>${inline(h[2])}</h${level}>`);
-      continue;
-    }
-    if (/^[-*]\s+/.test(line)) {
-      flushPara();
-      if (inOl) {
-        out.push("</ol>");
-        inOl = false;
-      }
-      if (!inUl) {
-        out.push("<ul>");
-        inUl = true;
-      }
-      out.push(`<li>${inline(line.replace(/^[-*]\s+/, ""))}</li>`);
-      continue;
-    }
-    if (/^\d+\.\s+/.test(line)) {
-      flushPara();
-      if (inUl) {
-        out.push("</ul>");
-        inUl = false;
-      }
-      if (!inOl) {
-        out.push("<ol>");
-        inOl = true;
-      }
-      out.push(`<li>${inline(line.replace(/^\d+\.\s+/, ""))}</li>`);
-      continue;
-    }
-    buffer.push(line);
   }
-  flushPara();
-  closeLists();
-  return out.join("\n");
 }
+
+const sanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [...(defaultSchema.tagNames ?? []), "product-callout"],
+  attributes: {
+    ...(defaultSchema.attributes ?? {}),
+    "product-callout": ["slug"],
+    a: [
+      ...((defaultSchema.attributes?.a as unknown[]) ?? []),
+      ["target", "_blank", "_self"],
+      ["rel", "noopener", "noreferrer"],
+    ],
+  },
+};
+
+const ACCENT = "hsl(42 53% 54%)";
+const MUTED = "hsl(170 18% 32%)";
+const RULE = "hsl(40 18% 80%)";
 
 function formatDate(s?: string | null): string {
   if (!s) return "";
@@ -105,12 +64,417 @@ function formatDate(s?: string | null): string {
   }
 }
 
+function formatPrice(cents: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currency || "USD",
+    }).format(cents / 100);
+  } catch {
+    return `$${(cents / 100).toFixed(2)}`;
+  }
+}
+
+function slugifyHeading(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .slice(0, 80);
+}
+
+function readingTime(content: string): number {
+  const words = content
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/[#>*_`~\-]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean).length;
+  return Math.max(1, Math.round(words / 225));
+}
+
+interface TocEntry {
+  id: string;
+  text: string;
+  level: 2 | 3;
+}
+
+function extractToc(md: string): TocEntry[] {
+  const lines = md.split(/\r?\n/);
+  const out: TocEntry[] = [];
+  let inFence = false;
+  for (const raw of lines) {
+    if (/^```/.test(raw)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    const m = /^(#{2,3})\s+(.+?)\s*#*\s*$/.exec(raw);
+    if (m) {
+      const level = m[1].length as 2 | 3;
+      const text = m[2].trim();
+      out.push({ id: slugifyHeading(text), text, level });
+    }
+  }
+  return out;
+}
+
+function ProductCallout({ slug }: { slug?: string }) {
+  const safe = (slug ?? "").trim();
+  const { data: product } = useGetProductBySlug(safe, {
+    query: { enabled: !!safe } as never,
+  });
+  if (!safe) return null;
+  if (!product) {
+    return (
+      <div
+        className="my-8 h-32 w-full animate-pulse rounded-2xl"
+        style={{ background: "hsl(40 30% 92%)" }}
+        aria-hidden="true"
+      />
+    );
+  }
+  const img = product.images?.[0];
+  return (
+    <aside
+      className="not-prose my-10 overflow-hidden rounded-3xl border"
+      style={{ borderColor: RULE, background: "hsl(40 30% 96%)" }}
+      data-testid={`blog-product-callout-${product.slug}`}
+    >
+      <div className="grid gap-0 sm:grid-cols-[160px_1fr]">
+        <div
+          className="aspect-square w-full overflow-hidden sm:aspect-auto"
+          style={{ background: "hsl(170 50% 18%)" }}
+        >
+          {img ? (
+            <img
+              src={img}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              className="h-full w-full object-cover"
+            />
+          ) : null}
+        </div>
+        <div className="flex flex-col justify-between gap-4 p-5 sm:p-6">
+          <div>
+            <p
+              className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+              style={{ color: ACCENT }}
+            >
+              From the shop
+            </p>
+            <h3 className="mt-1 font-display text-xl leading-snug">
+              {product.name}
+            </h3>
+            {product.shortDescription ? (
+              <p
+                className="mt-2 text-sm leading-relaxed"
+                style={{ color: MUTED }}
+              >
+                {product.shortDescription}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <span className="font-display text-lg">
+              {formatPrice(product.priceCents, product.currency)}
+            </span>
+            <Link
+              href={`/products/${product.slug}`}
+              className="inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.22em]"
+              style={{ color: ACCENT }}
+              data-testid={`blog-product-callout-link-${product.slug}`}
+            >
+              Shop <ArrowUpRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function ShareButtons({ title }: { title: string }) {
+  const { toast } = useToast();
+  const [copied, setCopied] = useState(false);
+  const url = typeof window !== "undefined" ? window.location.href : "";
+  const encodedUrl = encodeURIComponent(url);
+  const encodedTitle = encodeURIComponent(title);
+
+  const buttonStyle =
+    "inline-flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:bg-[hsl(40_30%_92%)]";
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      toast({ title: "Link copied", description: "Share away." });
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast({
+        title: "Couldn't copy link",
+        description: "Try again or copy from the address bar.",
+        variant: "destructive",
+      });
+    }
+  }
+
+  return (
+    <div
+      className="flex items-center gap-2"
+      data-testid="blog-share"
+      aria-label="Share this post"
+    >
+      <span
+        className="mr-1 text-[10px] font-semibold uppercase tracking-[0.22em]"
+        style={{ color: MUTED }}
+      >
+        Share
+      </span>
+      <a
+        href={`https://twitter.com/intent/tweet?text=${encodedTitle}&url=${encodedUrl}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={buttonStyle}
+        style={{ borderColor: RULE, color: MUTED }}
+        aria-label="Share on Twitter"
+        data-testid="blog-share-twitter"
+      >
+        <Twitter className="h-4 w-4" />
+      </a>
+      <a
+        href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={buttonStyle}
+        style={{ borderColor: RULE, color: MUTED }}
+        aria-label="Share on Facebook"
+        data-testid="blog-share-facebook"
+      >
+        <Facebook className="h-4 w-4" />
+      </a>
+      <button
+        type="button"
+        onClick={copy}
+        className={buttonStyle}
+        style={{ borderColor: RULE, color: MUTED }}
+        aria-label="Copy link"
+        data-testid="blog-share-copy"
+      >
+        {copied ? (
+          <Check className="h-4 w-4" />
+        ) : (
+          <LinkIcon className="h-4 w-4" />
+        )}
+      </button>
+    </div>
+  );
+}
+
+function RelatedPosts({
+  tag,
+  currentSlug,
+}: {
+  tag: string | undefined;
+  currentSlug: string;
+}) {
+  const enabled = !!tag;
+  const { data } = useListBlogPosts(
+    { tag, limit: 4 } as never,
+    { query: { enabled } as never },
+  );
+  const items = (data ?? [])
+    .filter((p) => p.slug !== currentSlug)
+    .slice(0, 3);
+  if (items.length === 0) return null;
+  return (
+    <section
+      className="mx-auto mt-16 max-w-5xl border-t px-6 py-16 md:px-10"
+      style={{ borderColor: RULE }}
+      data-testid="blog-related"
+    >
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p
+            className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+            style={{ color: ACCENT }}
+          >
+            Keep reading
+          </p>
+          <h2 className="mt-2 font-display text-3xl">Related entries</h2>
+        </div>
+        <Link
+          href="/blog"
+          className="hidden text-xs font-semibold uppercase tracking-[0.22em] sm:inline-flex sm:items-center sm:gap-1"
+          style={{ color: ACCENT }}
+        >
+          The Journal <ArrowUpRight className="h-3.5 w-3.5" />
+        </Link>
+      </div>
+      <div className="mt-8 grid gap-6 md:grid-cols-3">
+        {items.map((p) => (
+          <Link
+            key={p.id}
+            href={`/blog/${p.slug}`}
+            className="group block overflow-hidden rounded-2xl border bg-card transition-shadow hover:shadow-md"
+            style={{ borderColor: RULE }}
+            data-testid={`blog-related-${p.slug}`}
+          >
+            {p.coverImage ? (
+              <div
+                className="aspect-[5/3] w-full overflow-hidden"
+                style={{ background: "hsl(40 30% 88%)" }}
+              >
+                <img
+                  src={p.coverImage}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+                />
+              </div>
+            ) : null}
+            <div className="p-5">
+              {p.tags && p.tags[0] ? (
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+                  style={{ color: ACCENT }}
+                >
+                  {p.tags[0]}
+                </p>
+              ) : null}
+              <h3 className="mt-2 font-display text-lg leading-snug">
+                {p.title}
+              </h3>
+              <p
+                className="mt-2 text-sm leading-relaxed line-clamp-2"
+                style={{ color: MUTED }}
+              >
+                {p.excerpt}
+              </p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TableOfContents({ entries }: { entries: TocEntry[] }) {
+  if (entries.length < 2) return null;
+  return (
+    <nav
+      aria-label="Table of contents"
+      className="not-prose mb-10 rounded-2xl border p-5"
+      style={{ borderColor: RULE, background: "hsl(40 30% 96%)" }}
+      data-testid="blog-toc"
+    >
+      <p
+        className="text-[10px] font-semibold uppercase tracking-[0.22em]"
+        style={{ color: ACCENT }}
+      >
+        In this entry
+      </p>
+      <ol className="mt-3 space-y-2 text-sm">
+        {entries.map((e, i) => (
+          <li
+            key={`${e.id}-${i}`}
+            className={e.level === 3 ? "ml-4" : undefined}
+          >
+            <a
+              href={`#${e.id}`}
+              className="underline-offset-4 hover:underline"
+              style={{ color: e.level === 2 ? "inherit" : MUTED }}
+            >
+              <span
+                className="mr-2 text-[10px] tabular-nums"
+                style={{ color: ACCENT }}
+              >
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              {e.text}
+            </a>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
 export default function BlogPost() {
   const [, params] = useRoute<{ slug: string }>("/blog/:slug");
   const slug = params?.slug ?? "";
   const { data: post, isLoading, isError } = useGetBlogPostBySlug(slug, {
     query: { enabled: !!slug } as never,
   });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0 });
+    }
+  }, [slug]);
+
+  const toc = useMemo(() => (post ? extractToc(post.content) : []), [post]);
+  const minutes = useMemo(
+    () => (post ? readingTime(post.content) : 0),
+    [post],
+  );
+
+  const headingIdFromNode = (node: unknown): string => {
+    try {
+      return slugifyHeading(hastToString(node as HastElement));
+    } catch {
+      return "";
+    }
+  };
+
+  const components: Components = {
+    h2: ({ node, children, ...rest }) => (
+      <h2 id={headingIdFromNode(node)} {...rest}>
+        {children}
+      </h2>
+    ),
+    h3: ({ node, children, ...rest }) => (
+      <h3 id={headingIdFromNode(node)} {...rest}>
+        {children}
+      </h3>
+    ),
+    img: ({ src, alt, title }) =>
+      src ? (
+        <figure className="not-prose my-8">
+          <img
+            src={typeof src === "string" ? src : ""}
+            alt={alt ?? ""}
+            loading="lazy"
+            decoding="async"
+            className="w-full rounded-2xl"
+          />
+          {alt || title ? (
+            <figcaption
+              className="mt-2 text-center text-xs"
+              style={{ color: MUTED }}
+            >
+              {title || alt}
+            </figcaption>
+          ) : null}
+        </figure>
+      ) : null,
+    a: ({ href, children, ...rest }) => {
+      const isExternal = typeof href === "string" && /^https?:\/\//.test(href);
+      return (
+        <a
+          href={href}
+          target={isExternal ? "_blank" : undefined}
+          rel={isExternal ? "noopener noreferrer" : undefined}
+          {...rest}
+        >
+          {children}
+        </a>
+      );
+    },
+    "product-callout": ({ slug: pslug }) => <ProductCallout slug={pslug} />,
+  };
 
   return (
     <SiteShell testId="page-blog-post">
@@ -126,7 +490,7 @@ export default function BlogPost() {
         <Link
           href="/blog"
           className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.22em]"
-          style={{ color: "hsl(170 18% 32%)" }}
+          style={{ color: MUTED }}
           data-testid="link-back-to-blog"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> The Journal
@@ -158,48 +522,91 @@ export default function BlogPost() {
           </Link>
         </div>
       ) : (
-        <article
-          className="mx-auto max-w-3xl px-6 py-12 md:px-10 md:py-16"
-          data-testid="blog-post"
-        >
-          {post.tags && post.tags[0] ? (
-            <p
-              className="text-[11px] font-semibold uppercase tracking-[0.22em]"
-              style={{ color: "hsl(42 53% 54%)" }}
-            >
-              {post.tags[0]}
-            </p>
-          ) : null}
-          <h1 className="mt-3 font-display text-4xl leading-tight md:text-5xl">
-            {post.title}
-          </h1>
-          <p
-            className="mt-3 text-sm"
-            style={{ color: "hsl(170 18% 32%)" }}
+        <>
+          <article
+            className="mx-auto max-w-3xl px-6 py-12 md:px-10 md:py-16"
+            data-testid="blog-post"
           >
-            {[post.author, formatDate(post.publishedAt)]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-          {post.coverImage ? (
+            {post.tags && post.tags[0] ? (
+              <p
+                className="text-[11px] font-semibold uppercase tracking-[0.22em]"
+                style={{ color: ACCENT }}
+              >
+                {post.tags[0]}
+              </p>
+            ) : null}
+            <h1 className="mt-3 font-display text-4xl leading-tight md:text-5xl">
+              {post.title}
+            </h1>
             <div
-              className="mt-8 aspect-[16/9] w-full overflow-hidden rounded-3xl"
-              style={{ background: "hsl(40 30% 88%)" }}
+              className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm"
+              style={{ color: MUTED }}
             >
-              <img
-                src={post.coverImage}
-                alt=""
-                className="h-full w-full object-cover"
-              />
+              <span>
+                {[post.author, formatDate(post.publishedAt)]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
+              <span
+                className="inline-flex items-center gap-1"
+                data-testid="blog-reading-time"
+              >
+                <Clock className="h-3.5 w-3.5" />
+                {minutes} min read
+              </span>
             </div>
-          ) : null}
-          <div
-            className="prose prose-neutral mt-10 max-w-none"
-            data-testid="blog-post-content"
-            // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(post.content) }}
-          />
-        </article>
+            {post.coverImage ? (
+              <div
+                className="mt-8 aspect-[16/9] w-full overflow-hidden rounded-3xl"
+                style={{ background: "hsl(40 30% 88%)" }}
+              >
+                <img
+                  src={post.coverImage}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : null}
+
+            <div
+              className="prose prose-neutral mt-10 max-w-none prose-headings:font-display prose-headings:tracking-tight prose-h2:mt-12 prose-h2:text-3xl prose-h3:text-2xl prose-a:text-[hsl(170_58%_24%)] prose-a:underline-offset-4 hover:prose-a:underline prose-img:rounded-2xl prose-blockquote:border-l-4 prose-blockquote:border-[hsl(42_53%_54%)] prose-blockquote:bg-[hsl(40_30%_96%)] prose-blockquote:px-5 prose-blockquote:py-2 prose-blockquote:not-italic prose-blockquote:font-display prose-blockquote:text-xl prose-hr:border-[hsl(40_18%_80%)]"
+              data-testid="blog-post-content"
+            >
+              <TableOfContents entries={toc} />
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
+                components={components}
+              >
+                {post.content}
+              </ReactMarkdown>
+            </div>
+
+            <div
+              className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t pt-6"
+              style={{ borderColor: RULE }}
+            >
+              {post.tags && post.tags.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {post.tags.map((t) => (
+                    <span
+                      key={t}
+                      className="rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em]"
+                      style={{ borderColor: RULE, color: MUTED }}
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <span />
+              )}
+              <ShareButtons title={post.title} />
+            </div>
+          </article>
+
+          <RelatedPosts tag={post.tags?.[0]} currentSlug={post.slug} />
+        </>
       )}
     </SiteShell>
   );
