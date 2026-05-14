@@ -151,6 +151,7 @@ test.describe("checkout against real api-server (dev-fallback Stripe)", () => {
     // and the storefront does window.location.href = result.url, so we wait
     // for the navigation and parse the real (server-assigned) order id.
     await page.waitForURL(/\/checkout\/success\?orderId=\d+/);
+    await expect(page.getByTestId("checkout-success-page")).toBeVisible();
     const url = new URL(page.url());
     const orderIdParam = url.searchParams.get("orderId");
     expect(orderIdParam).toMatch(/^\d+$/);
