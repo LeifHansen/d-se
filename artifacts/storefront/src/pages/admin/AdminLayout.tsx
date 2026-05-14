@@ -7,15 +7,20 @@ import {
   SignedOut,
   SignIn,
   UserButton,
+  useUser,
 } from "@clerk/clerk-react";
 import { Logo } from "@/components/dose/Logo";
 import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS: { href: string; label: string }[] = [
+  { href: "/admin", label: "Dashboard" },
+  { href: "/admin/orders", label: "Orders" },
+  { href: "/admin/products", label: "Products" },
   { href: "/admin/discounts", label: "Discount codes" },
   { href: "/admin/reviews", label: "Reviews" },
   { href: "/admin/abandoned-carts", label: "Abandoned carts" },
+  { href: "/admin/newsletter", label: "Newsletter" },
   { href: "/admin/tax", label: "Tax summary" },
 ];
 
@@ -27,7 +32,7 @@ export function AdminLayout({
   title,
   children,
 }: {
-  title: string;
+  title?: string;
   children: ReactNode;
 }) {
   const [location] = useLocation();
@@ -69,8 +74,14 @@ export function AdminLayout({
               >
                 {NAV_ITEMS.map((item) => {
                   const active =
-                    location === item.href ||
-                    location.startsWith(item.href + "/");
+                    item.href === "/admin"
+                      ? location === "/admin"
+                      : location === item.href ||
+                        location.startsWith(item.href + "/");
+                  const slug =
+                    item.href === "/admin"
+                      ? "dashboard"
+                      : item.href.split("/").pop();
                   return (
                     <Link
                       key={item.href}
@@ -81,7 +92,7 @@ export function AdminLayout({
                           ? "bg-foreground text-background"
                           : "text-foreground/70 hover:bg-foreground/10 hover:text-foreground",
                       )}
-                      data-testid={`admin-nav-${item.href.split("/").pop()}`}
+                      data-testid={`admin-nav-${slug}`}
                     >
                       {item.label}
                     </Link>
@@ -91,10 +102,14 @@ export function AdminLayout({
             </aside>
             <main id="main">
               <div className="mb-6 flex items-center justify-between gap-4">
-                <h1 className="text-2xl font-semibold tracking-tight">
-                  {title}
-                </h1>
-                <UserButton afterSignOutUrl="/admin" />
+                {title ? (
+                  <h1 className="text-2xl font-semibold tracking-tight">
+                    {title}
+                  </h1>
+                ) : (
+                  <span />
+                )}
+                <AdminUserChip />
               </div>
               {children}
             </main>
@@ -105,9 +120,27 @@ export function AdminLayout({
   );
 }
 
+function AdminUserChip() {
+  const { user } = useUser();
+  return (
+    <div className="flex items-center gap-3">
+      <span
+        className="hidden text-xs text-muted-foreground sm:inline"
+        data-testid="text-admin-email"
+      >
+        {user?.primaryEmailAddress?.emailAddress ?? ""}
+      </span>
+      <UserButton afterSignOutUrl="/admin" />
+    </div>
+  );
+}
+
 function AdminShell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen w-full bg-background text-foreground">
+    <div
+      className="min-h-screen w-full bg-background text-foreground"
+      data-testid="admin-shell"
+    >
       <header className="border-b border-foreground/10">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 md:px-6">
           <Link href="/" className="flex items-center gap-3">

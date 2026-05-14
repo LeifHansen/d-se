@@ -12,13 +12,15 @@ import Accessibility from "@/pages/legal/Accessibility";
 import Contact from "@/pages/legal/Contact";
 
 const Home = lazy(() => import("@/pages/home"));
-const AdminDashboard = lazy(() => import("@/pages/admin/dashboard"));
-const Unsubscribe = lazy(() => import("@/pages/Unsubscribe"));
-const AdminNewsletter = lazy(() => import("@/pages/admin/Newsletter"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 const Cart = lazy(() => import("@/pages/cart"));
 const Product = lazy(() => import("@/pages/product"));
 const Shop = lazy(() => import("@/pages/shop"));
+const Unsubscribe = lazy(() => import("@/pages/Unsubscribe"));
+const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
+const AdminOrders = lazy(() => import("@/pages/admin/Orders"));
+const AdminProducts = lazy(() => import("@/pages/admin/Products"));
+const AdminNewsletter = lazy(() => import("@/pages/admin/Newsletter"));
 const AdminDiscounts = lazy(() => import("@/pages/admin/AdminDiscounts"));
 const AdminReviews = lazy(() => import("@/pages/admin/AdminReviews"));
 const AdminAbandonedCarts = lazy(
@@ -54,8 +56,10 @@ function Router() {
         <Route path="/returns" component={Returns} />
         <Route path="/accessibility" component={Accessibility} />
         <Route path="/contact" component={Contact} />
-        <Route path="/admin" component={AdminDashboard} />
         <Route path="/unsubscribe" component={Unsubscribe} />
+        <Route path="/admin" component={AdminDashboard} />
+        <Route path="/admin/orders" component={AdminOrders} />
+        <Route path="/admin/products" component={AdminProducts} />
         <Route path="/admin/newsletter" component={AdminNewsletter} />
         <Route path="/admin/discounts" component={AdminDiscounts} />
         <Route path="/admin/reviews" component={AdminReviews} />
