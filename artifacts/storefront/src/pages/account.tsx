@@ -97,42 +97,54 @@ export default function AccountPage() {
             {data.map((order) => (
               <li
                 key={order.id}
-                className="rounded-2xl border bg-card p-5"
+                className="rounded-2xl border bg-card p-5 transition-colors hover:bg-card/80"
                 style={{ borderColor: "hsl(40 18% 80%)" }}
                 data-testid={`order-${order.id}`}
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="font-display text-xl">
-                      Order #{order.id}
-                    </p>
-                    <p
-                      className="text-xs uppercase tracking-[0.18em]"
-                      style={{ color: "hsl(170 18% 32%)" }}
-                    >
-                      {formatDate(order.createdAt)} · {order.status}
+                <Link
+                  href={`/account/orders/${order.id}`}
+                  className="block"
+                  data-testid={`link-order-${order.id}`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="font-display text-xl">
+                        Order #{order.id}
+                      </p>
+                      <p
+                        className="text-xs uppercase tracking-[0.18em]"
+                        style={{ color: "hsl(170 18% 32%)" }}
+                      >
+                        {formatDate(String(order.createdAt))} · {order.status}
+                      </p>
+                    </div>
+                    <p className="font-display text-lg">
+                      {formatMoney(order.totalCents, order.currency)}
                     </p>
                   </div>
-                  <p className="font-display text-lg">
-                    {formatMoney(order.totalCents, order.currency)}
+                  <ul
+                    className="mt-3 space-y-1 text-sm"
+                    style={{ color: "hsl(170 18% 28%)" }}
+                  >
+                    {order.items.map((it) => (
+                      <li key={it.id}>
+                        {it.productName}{" "}
+                        <span className="opacity-70">× {it.quantity}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {order.trackingCode ? (
+                    <p className="mt-2 text-sm">
+                      Tracking: <code>{order.trackingCode}</code>
+                    </p>
+                  ) : null}
+                  <p
+                    className="mt-3 text-[11px] font-semibold uppercase tracking-[0.22em]"
+                    style={{ color: "hsl(170 58% 14%)" }}
+                  >
+                    View details →
                   </p>
-                </div>
-                <ul
-                  className="mt-3 space-y-1 text-sm"
-                  style={{ color: "hsl(170 18% 28%)" }}
-                >
-                  {order.items.map((it) => (
-                    <li key={it.id}>
-                      {it.productName}{" "}
-                      <span className="opacity-70">× {it.quantity}</span>
-                    </li>
-                  ))}
-                </ul>
-                {order.trackingCode ? (
-                  <p className="mt-2 text-sm">
-                    Tracking: <code>{order.trackingCode}</code>
-                  </p>
-                ) : null}
+                </Link>
               </li>
             ))}
           </ul>

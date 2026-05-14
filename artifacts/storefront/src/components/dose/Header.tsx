@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { ShoppingBag, User, Menu, X } from "lucide-react";
-import { Link } from "wouter";
+import { ShoppingBag, User, Menu, X, Package } from "lucide-react";
+import { Link, useLocation } from "wouter";
 import {
   ClerkLoaded,
   SignedIn,
@@ -31,6 +31,7 @@ export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
+  const [, setLocation] = useLocation();
   const cartId = useStoredCartId();
   const { data: cart } = useGetCart(
     { cartId: cartId ?? undefined },
@@ -152,7 +153,17 @@ export function Header() {
                         avatarBox: "h-7 w-7",
                       },
                     }}
-                  />
+                  >
+                    <UserButton.MenuItems>
+                      <UserButton.Action
+                        label="My orders"
+                        labelIcon={<Package className="h-3.5 w-3.5" />}
+                        onClick={() => {
+                          setLocation("/account");
+                        }}
+                      />
+                    </UserButton.MenuItems>
+                  </UserButton>
                 </div>
               </SignedIn>
             </ClerkLoaded>
