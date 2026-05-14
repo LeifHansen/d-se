@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
 import { ClerkProvider } from "@clerk/clerk-react";
 import App from "./App";
+import { doseClerkAppearance } from "./lib/clerk-appearance";
 import "./index.css";
 import {
   initSentry,
@@ -75,7 +76,10 @@ const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
 function MaybeClerkProvider({ children }: { children: ReactNode }) {
   if (!clerkPublishableKey) return <>{children}</>;
   return (
-    <ClerkProvider publishableKey={clerkPublishableKey}>
+    <ClerkProvider
+      publishableKey={clerkPublishableKey}
+      appearance={doseClerkAppearance}
+    >
       {children}
     </ClerkProvider>
   );
