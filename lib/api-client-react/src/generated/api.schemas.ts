@@ -516,8 +516,8 @@ export type GetShippingRatesBody = {
 export type CreateCheckoutBody = {
   cartId: string;
   email?: string;
-  address: AddressInput;
-  shippingRateId: string;
+  address?: AddressInput;
+  shippingRateId?: string;
   discountCode?: string;
   /** @nullable */
   analyticsEventId?: string | null;

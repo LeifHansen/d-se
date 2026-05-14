@@ -265,7 +265,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [cartId, address, shippingRateId]
+              required: [cartId]
               properties:
                 cartId: { type: string }
                 email: { type: string, format: email }

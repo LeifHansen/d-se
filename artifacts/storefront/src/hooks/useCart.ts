@@ -241,6 +241,26 @@ export function useCreateCheckout() {
   });
 }
 
+export function useCheckout() {
+  return useMutation({
+    mutationFn: async (vars?: { email?: string }) => {
+      const cartId = getCartId();
+      if (!cartId) throw new Error("No cart");
+      const data = await apiFetch<{ url: string; orderId: number }>(
+        `/checkout`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            cartId,
+            ...(vars?.email ? { email: vars.email } : {}),
+          }),
+        },
+      );
+      return data;
+    },
+  });
+}
+
 export async function resumeCartFromToken(
   cartId: string,
   token: string,

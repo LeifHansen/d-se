@@ -500,17 +500,19 @@ export const GetShippingRatesResponse = zod.array(GetShippingRatesResponseItem);
 export const CreateCheckoutBody = zod.object({
   cartId: zod.string(),
   email: zod.string().email().optional(),
-  address: zod.object({
-    name: zod.string(),
-    street1: zod.string(),
-    street2: zod.string().nullish(),
-    city: zod.string(),
-    state: zod.string(),
-    zip: zod.string(),
-    country: zod.string(),
-    phone: zod.string().nullish(),
-  }),
-  shippingRateId: zod.string(),
+  address: zod
+    .object({
+      name: zod.string(),
+      street1: zod.string(),
+      street2: zod.string().nullish(),
+      city: zod.string(),
+      state: zod.string(),
+      zip: zod.string(),
+      country: zod.string(),
+      phone: zod.string().nullish(),
+    })
+    .optional(),
+  shippingRateId: zod.string().optional(),
   discountCode: zod.string().optional(),
   analyticsEventId: zod.string().nullish(),
   analyticsClientId: zod.string().nullish(),

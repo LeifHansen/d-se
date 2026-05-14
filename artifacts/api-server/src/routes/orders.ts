@@ -73,11 +73,19 @@ router.post("/checkout", async (req, res): Promise<void> => {
     return;
   }
   const userId = getUserId(req);
-  const address = parsed.data.address as OrderAddress;
+  const address = (parsed.data.address ?? null) as OrderAddress | null;
 
   // Server-side shipping price lookup — never trust client-supplied amounts.
+  // When the cart hands off without an address (Stripe Checkout collects it),
+  // we leave shipping at $0 here and rely on Stripe's shipping_address_collection.
   let shippingCents = 0;
   if (parsed.data.shippingRateId) {
+    if (!address) {
+      res
+        .status(400)
+        .json({ error: "Shipping address is required to select a shipping rate" });
+      return;
+    }
     try {
       const rates = await computeShippingRates(cart, address);
       const chosen = rates.find((r) => r.id === parsed.data.shippingRateId);
@@ -146,7 +154,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
       discountCode,
       totalCents,
       currency: cart.currency,
-      shippingAddress: address,
+      shippingAddress: address ?? undefined,
       shippingRateId: parsed.data.shippingRateId,
       cartId: parsed.data.cartId,
       analyticsEventId: parsed.data.analyticsEventId ?? null,
@@ -231,18 +239,20 @@ router.post("/checkout", async (req, res): Promise<void> => {
       payment_method_types: ["card"],
       customer_email: parsed.data.email ?? undefined,
       // Required for Stripe Tax to determine the correct ship-to jurisdiction
-      // for physical goods. We pre-fill from the validated order address by
-      // letting Stripe re-collect; the destination drives tax calculation.
-      shipping_address_collection: STRIPE_TAX_ENABLED
-        ? {
-            allowed_countries: (
-              process.env.STRIPE_SHIPPING_COUNTRIES ?? "US,CA"
-            )
-              .split(",")
-              .map((c) => c.trim().toUpperCase())
-              .filter(Boolean) as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection["allowed_countries"],
-          }
-        : undefined,
+      // for physical goods, and also when the cart hands off without an
+      // address (Stripe Checkout collects it for us). The destination drives
+      // tax calculation when Stripe Tax is enabled.
+      shipping_address_collection:
+        STRIPE_TAX_ENABLED || !address
+          ? {
+              allowed_countries: (
+                process.env.STRIPE_SHIPPING_COUNTRIES ?? "US,CA"
+              )
+                .split(",")
+                .map((c) => c.trim().toUpperCase())
+                .filter(Boolean) as Stripe.Checkout.SessionCreateParams.ShippingAddressCollection["allowed_countries"],
+            }
+          : undefined,
       line_items: [
         ...cart.items.map((it) => ({
           quantity: it.quantity,

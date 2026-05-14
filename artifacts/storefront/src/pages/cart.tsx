@@ -16,7 +16,7 @@ import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useStoredCartId, formatMoney, setStoredCartId } from "@/lib/cart";
-import { resumeCartFromToken } from "@/hooks/useCart";
+import { resumeCartFromToken, useCheckout } from "@/hooks/useCart";
 import { ApiError } from "@/lib/api";
 
 function useResumeFromQuery() {
@@ -79,6 +79,26 @@ export default function CartPage() {
     });
 
   const empty = !cartId || !data || data.items.length === 0;
+  const checkout = useCheckout();
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
+  async function onCheckout() {
+    setCheckoutError(null);
+    if (!data || data.items.length === 0) return;
+    try {
+      const { url } = await checkout.mutateAsync();
+      if (!url) throw new Error("Checkout did not return a redirect URL");
+      window.location.assign(url);
+    } catch (err) {
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "Couldn't start checkout. Please try again.";
+      setCheckoutError(message);
+    }
+  }
 
   return (
     <SiteShell testId="page-cart">
@@ -418,7 +438,9 @@ export default function CartPage() {
               </form>
 
               <Button
-                asChild
+                type="button"
+                onClick={onCheckout}
+                disabled={checkout.isPending}
                 className="mt-6 w-full rounded-full py-6 text-[11px] font-semibold uppercase tracking-[0.22em]"
                 style={{
                   background: "hsl(42 53% 54%)",
@@ -426,8 +448,17 @@ export default function CartPage() {
                 }}
                 data-testid="cart-checkout"
               >
-                <Link href="/checkout">Continue to checkout</Link>
+                {checkout.isPending ? "Redirecting…" : "Continue to checkout"}
               </Button>
+              {checkoutError && (
+                <p
+                  className="mt-3 text-center text-xs"
+                  style={{ color: "hsl(0 60% 35%)" }}
+                  data-testid="checkout-error"
+                >
+                  {checkoutError}
+                </p>
+              )}
             </aside>
           </div>
         )}

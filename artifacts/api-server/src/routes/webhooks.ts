@@ -52,12 +52,30 @@ router.post(
       event.type === "checkout.session.completed" ||
       event.type === "checkout.session.async_payment_succeeded"
     ) {
+      type StripeAddress = {
+        line1?: string | null;
+        line2?: string | null;
+        city?: string | null;
+        state?: string | null;
+        postal_code?: string | null;
+        country?: string | null;
+      };
       const session = event.data.object as {
         id: string;
         metadata?: Record<string, string>;
         payment_intent?: string;
         customer_email?: string | null;
-        customer_details?: { email?: string | null } | null;
+        customer_details?: {
+          email?: string | null;
+          name?: string | null;
+          phone?: string | null;
+          address?: StripeAddress | null;
+        } | null;
+        shipping_details?: {
+          name?: string | null;
+          phone?: string | null;
+          address?: StripeAddress | null;
+        } | null;
         amount_total?: number | null;
         total_details?: {
           amount_tax?: number | null;
@@ -67,6 +85,40 @@ router.post(
       };
       const taxCents = session.total_details?.amount_tax ?? 0;
       const reportedDiscountCents = session.total_details?.amount_discount ?? 0;
+      const reportedShippingCents = session.total_details?.amount_shipping ?? 0;
+
+      // Stripe Checkout collects the shipping address when the cart hands off
+      // without one. Backfill the order so admin fulfillment + label printing
+      // have a real ship-to address.
+      function buildShippingAddress(): {
+        name: string;
+        street1: string;
+        street2?: string | null;
+        city: string;
+        state: string;
+        zip: string;
+        country: string;
+        phone?: string | null;
+      } | null {
+        const ship = session.shipping_details;
+        const cust = session.customer_details;
+        const name = ship?.name ?? cust?.name ?? null;
+        const addr = ship?.address ?? cust?.address ?? null;
+        if (!name || !addr || !addr.line1 || !addr.city || !addr.country) {
+          return null;
+        }
+        return {
+          name,
+          street1: addr.line1,
+          street2: addr.line2 ?? null,
+          city: addr.city,
+          state: addr.state ?? "",
+          zip: addr.postal_code ?? "",
+          country: addr.country,
+          phone: ship?.phone ?? cust?.phone ?? null,
+        };
+      }
+      const stripeShippingAddress = buildShippingAddress();
       const orderId = Number(session.metadata?.orderId);
       if (orderId) {
         const [order] = await db
@@ -84,13 +136,20 @@ router.post(
             order.discountCents,
             reportedDiscountCents,
           );
+          // Stripe is authoritative for shipping when the cart handed off
+          // without an address (we recorded $0 then). Otherwise keep the
+          // server-validated rate we already charged.
+          const finalShippingCents =
+            order.shippingCents > 0
+              ? order.shippingCents
+              : reportedShippingCents;
           const finalTotalCents =
             session.amount_total ??
             Math.max(
               0,
               order.subtotalCents - finalDiscountCents,
             ) +
-              order.shippingCents +
+              finalShippingCents +
               taxCents;
           await db
             .update(ordersTable)
@@ -106,8 +165,13 @@ router.post(
                 session.customer_details?.email ??
                 null,
               taxCents,
+              shippingCents: finalShippingCents,
               discountCents: finalDiscountCents,
               totalCents: finalTotalCents,
+              // Backfill the shipping address Stripe collected during checkout
+              // so admin fulfillment + label printing have a real ship-to.
+              shippingAddress:
+                order.shippingAddress ?? stripeShippingAddress ?? null,
               updatedAt: new Date(),
             })
             .where(eq(ordersTable.id, orderId));

@@ -7,6 +7,7 @@ import { Footer } from "@/components/dose/Footer";
 import { CookieBanner } from "@/components/dose/CookieBanner";
 import { AgeGate } from "@/components/dose/AgeGate";
 import { Button } from "@/components/ui/button";
+import { clearCartId } from "@/lib/cart-id";
 
 const CREAM = "hsl(45 49% 90%)";
 const FOREST = "hsl(170 58% 14%)";
@@ -20,7 +21,12 @@ export default function CheckoutSuccessPage() {
       : null;
 
   useEffect(() => {
-    // Cart was cleared server-side; refresh any cached cart query.
+    // Stripe redirected back after a successful payment. The webhook clears
+    // server-side cart state and marks the abandoned-cart record recovered;
+    // here we just drop the local cart id so the next visit starts fresh,
+    // and invalidate any cached cart query.
+    clearCartId();
+    qc.removeQueries({ queryKey: ["cart"] });
     qc.invalidateQueries({
       predicate: (q) => {
         const k = q.queryKey?.[0];
@@ -61,15 +67,17 @@ export default function CheckoutSuccessPage() {
               Order #{orderId}
             </p>
           )}
-          <Link href="/shop">
-            <Button
-              className="mt-8 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
-              style={{ background: FOREST, color: CREAM }}
-              data-testid="button-keep-shopping"
-            >
-              Keep shopping
-            </Button>
-          </Link>
+          <div className="mt-10 flex justify-center">
+            <Link href="/shop">
+              <Button
+                className="rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
+                style={{ background: FOREST, color: CREAM }}
+                data-testid="link-keep-shopping"
+              >
+                Keep shopping
+              </Button>
+            </Link>
+          </div>
         </section>
       </main>
       <Footer />
