@@ -535,6 +535,29 @@ paths:
               schema:
                 type: array
                 items: { $ref: "#/components/schemas/Order" }
+  /admin/orders/by-email/{email}:
+    get:
+      operationId: listAdminOrdersByEmail
+      tags: [admin]
+      summary: List every order placed under a given email (case-insensitive equality)
+      parameters:
+        - name: email
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [email, orders]
+                properties:
+                  email: { type: string }
+                  orders:
+                    type: array
+                    items: { $ref: "#/components/schemas/Order" }
   /admin/products/inventory/bulk:
     post:
       operationId: bulkUpdateInventory

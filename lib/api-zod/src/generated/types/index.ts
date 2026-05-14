@@ -48,6 +48,7 @@ export * from "./healthStatus";
 export * from "./healthStatusChecks";
 export * from "./listAdminNewsletterSubscribersParams";
 export * from "./listAdminNewsletterSubscribersStatus";
+export * from "./listAdminOrdersByEmail200";
 export * from "./listAdminOrdersParams";
 export * from "./listAdminReviewsParams";
 export * from "./listBlogPostsParams";

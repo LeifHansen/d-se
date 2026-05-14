@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListAdminOrders,
@@ -441,6 +442,7 @@ export default function AdminOrders() {
                   </th>
                   <th className="px-4 py-2">Order</th>
                   <th className="px-4 py-2">Email</th>
+                  <th className="px-4 py-2">Customer</th>
                   <th className="px-4 py-2">Status</th>
                   <th className="px-4 py-2 text-right">Items</th>
                   <th className="px-4 py-2 text-right">Total</th>
@@ -472,6 +474,22 @@ export default function AdminOrders() {
                       </td>
                       <td className="px-4 py-2 font-mono">#{o.id}</td>
                       <td className="px-4 py-2">{o.email ?? "—"}</td>
+                      <td
+                        className="px-4 py-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {o.email ? (
+                          <Link
+                            href={`/admin/orders/by-email/${encodeURIComponent(o.email.trim().toLowerCase())}`}
+                            className="text-xs underline"
+                            data-testid={`link-customer-${o.id}`}
+                          >
+                            View all orders
+                          </Link>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
                       <td className="px-4 py-2 capitalize">{o.status}</td>
                       <td className="px-4 py-2 text-right">
                         {o.items.reduce((s, i) => s + i.quantity, 0)}
@@ -488,7 +506,7 @@ export default function AdminOrders() {
                 {(data ?? []).length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-4 py-10 text-center text-sm text-muted-foreground"
                       data-testid="text-orders-empty"
                     >

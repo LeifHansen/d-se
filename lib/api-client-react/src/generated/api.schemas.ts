@@ -653,6 +653,11 @@ export type ListAdminOrdersParams = {
   to?: string;
 };
 
+export type ListAdminOrdersByEmail200 = {
+  email: string;
+  orders: Order[];
+};
+
 export type GetAdminOrderShippingRates200 = {
   /** @nullable */
   shipmentId?: string | null;

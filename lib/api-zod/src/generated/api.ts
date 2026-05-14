@@ -1101,6 +1101,58 @@ export const ListAdminOrdersResponseItem = zod.object({
 });
 export const ListAdminOrdersResponse = zod.array(ListAdminOrdersResponseItem);
 
+/**
+ * @summary List every order placed under a given email (case-insensitive equality)
+ */
+export const ListAdminOrdersByEmailParams = zod.object({
+  email: zod.coerce.string(),
+});
+
+export const ListAdminOrdersByEmailResponse = zod.object({
+  email: zod.string(),
+  orders: zod.array(
+    zod.object({
+      id: zod.number(),
+      status: zod.string(),
+      email: zod.string().nullish(),
+      items: zod.array(
+        zod.object({
+          id: zod.number(),
+          productId: zod.number(),
+          productName: zod.string(),
+          productImage: zod.string().nullish(),
+          quantity: zod.number(),
+          priceCents: zod.number(),
+        }),
+      ),
+      subtotalCents: zod.number(),
+      shippingCents: zod.number(),
+      taxCents: zod.number(),
+      discountCents: zod.number().optional(),
+      discountCode: zod.string().nullish(),
+      totalCents: zod.number(),
+      currency: zod.string(),
+      shippingAddress: zod
+        .object({
+          name: zod.string(),
+          street1: zod.string(),
+          street2: zod.string().nullish(),
+          city: zod.string(),
+          state: zod.string(),
+          zip: zod.string(),
+          country: zod.string(),
+          phone: zod.string().nullish(),
+        })
+        .optional(),
+      trackingCode: zod.string().nullish(),
+      carrier: zod.string().nullish(),
+      trackingUrl: zod.string().nullish(),
+      labelUrl: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
 export const bulkUpdateInventoryBodyUpdatesItemInventoryMin = 0;
 
 export const bulkUpdateInventoryBodyUpdatesItemLowStockThresholdMin = 0;

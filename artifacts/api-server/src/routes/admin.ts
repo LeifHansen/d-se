@@ -20,6 +20,7 @@ import {
   UpdateProductResponse,
   DeleteProductParams,
   ListAdminOrdersResponse,
+  ListAdminOrdersByEmailResponse,
   ListAdminProductsResponse,
   GetAdminStatsResponse,
   ListAdminBlogPostsResponse,
@@ -566,6 +567,30 @@ router.get("/admin/orders", async (req, res): Promise<void> => {
   );
   res.json(ListAdminOrdersResponse.parse(enriched));
 });
+
+router.get(
+  "/admin/orders/by-email/:email",
+  async (req, res): Promise<void> => {
+    const raw =
+      typeof req.params.email === "string" ? req.params.email : "";
+    const normalized = raw.trim().toLowerCase();
+    if (!normalized) {
+      res.status(400).json({ error: "email is required" });
+      return;
+    }
+    const rows = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.email, normalized))
+      .orderBy(desc(ordersTable.createdAt));
+    const orders = await Promise.all(
+      rows.map(async (o) => (await buildOrderResponse(o.id))!),
+    );
+    res.json(
+      ListAdminOrdersByEmailResponse.parse({ email: normalized, orders }),
+    );
+  },
+);
 
 router.post(
   "/admin/orders/:id/shipping-rates",

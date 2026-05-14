@@ -46,6 +46,7 @@ import type {
   GetShippingRatesBody,
   HealthStatus,
   ListAdminNewsletterSubscribersParams,
+  ListAdminOrdersByEmail200,
   ListAdminOrdersParams,
   ListAdminReviewsParams,
   ListBlogPostsParams,
@@ -2294,6 +2295,98 @@ export function useListAdminOrders<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListAdminOrdersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary List every order placed under a given email (case-insensitive equality)
+ */
+export const getListAdminOrdersByEmailUrl = (email: string) => {
+  return `/api/admin/orders/by-email/${email}`;
+};
+
+export const listAdminOrdersByEmail = async (
+  email: string,
+  options?: RequestInit,
+): Promise<ListAdminOrdersByEmail200> => {
+  return customFetch<ListAdminOrdersByEmail200>(
+    getListAdminOrdersByEmailUrl(email),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAdminOrdersByEmailQueryKey = (email: string) => {
+  return [`/api/admin/orders/by-email/${email}`] as const;
+};
+
+export const getListAdminOrdersByEmailQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminOrdersByEmail>>,
+  TError = ErrorType<unknown>,
+>(
+  email: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminOrdersByEmail>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminOrdersByEmailQueryKey(email);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminOrdersByEmail>>
+  > = ({ signal }) =>
+    listAdminOrdersByEmail(email, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!email,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminOrdersByEmail>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminOrdersByEmailQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminOrdersByEmail>>
+>;
+export type ListAdminOrdersByEmailQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List every order placed under a given email (case-insensitive equality)
+ */
+
+export function useListAdminOrdersByEmail<
+  TData = Awaited<ReturnType<typeof listAdminOrdersByEmail>>,
+  TError = ErrorType<unknown>,
+>(
+  email: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminOrdersByEmail>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminOrdersByEmailQueryOptions(email, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;
