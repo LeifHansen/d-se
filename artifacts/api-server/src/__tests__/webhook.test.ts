@@ -123,6 +123,7 @@ describe("POST /api/webhooks/stripe — checkout.session.completed", () => {
     });
 
     stripeMock.constructEvent.mockReturnValue({
+      id: "evt_1",
       type: "checkout.session.completed",
       data: {
         object: {

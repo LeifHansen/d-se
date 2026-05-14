@@ -140,6 +140,12 @@ CREATE TABLE IF NOT EXISTS contact_submission_fingerprints (
   PRIMARY KEY (hash, ip)
 );
 
+CREATE TABLE IF NOT EXISTS stripe_processed_events (
+  event_id TEXT PRIMARY KEY,
+  event_type TEXT NOT NULL,
+  processed_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS product_reviews (
   id SERIAL PRIMARY KEY,
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -176,7 +182,8 @@ export async function resetDb(): Promise<void> {
       cart_items,
       carts,
       discount_codes,
-      products
+      products,
+      stripe_processed_events
     RESTART IDENTITY CASCADE;
   `);
 }

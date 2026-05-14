@@ -56,6 +56,7 @@ Storefront is branded as **DŌSE** — a precision THC-infused beverage dropper 
 - **`/api/healthz`** — Returns structured `{ status, requestId, checks: { db, stripe, resend, webhook } }`. 200 when all OK, 503 when degraded. Webhook health = last verified Stripe event seen within 24h (tracked in `system_metrics`).
 - **Stripe webhook freshness** — Every verified event upserts the timestamp into `system_metrics` (`stripe.webhook.last_received_at`). Surfaced via `/admin/stats` (`webhookLastReceivedAt`, `webhookHealthy`).
 - **Low-stock daily digest** — `startLowStockDigestScheduler` ticks hourly, emails `ADMIN_EMAILS` once per 24h with all products at/under their per-product `lowStockThreshold` (Resend; no-op if Resend not configured).
+- **Stripe webhook de-dup cleanup** — `startStripeEventCleanupScheduler` runs once a day (and ~60s after boot) and deletes `stripe_processed_events` rows older than `STRIPE_EVENT_RETENTION_DAYS` (default 30). Stripe only retries an event for ~3 days, so 30 days is a comfortable safety margin while keeping the table bounded. Disable with `DISABLE_STRIPE_EVENT_CLEANUP=1`.
 
 ## Admin extras
 

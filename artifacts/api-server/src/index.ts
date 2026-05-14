@@ -2,6 +2,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { startAbandonedCartScheduler } from "./lib/abandonedCart";
 import { startLowStockDigestScheduler } from "./lib/digest";
+import { startStripeEventCleanupScheduler } from "./lib/stripeEventCleanup";
 
 const rawPort = process.env["PORT"];
 
@@ -26,4 +27,5 @@ app.listen(port, (err) => {
   logger.info({ port }, "Server listening");
   startAbandonedCartScheduler();
   startLowStockDigestScheduler();
+  startStripeEventCleanupScheduler();
 });
