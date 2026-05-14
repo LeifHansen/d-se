@@ -15,6 +15,14 @@
 // twitter:card, JSON-LD) so any future regression in head injection
 // fails the build loudly.
 //
+// Forward-compat: in addition to the existing in-router /products/:slug
+// pages, this script also emits /shop/<slug>/ (canonical product URL,
+// matches the sitemap and JsonLd <url> fields) and /journal/<slug>/
+// (per-article HTML for the upcoming magazine pages) so crawlers,
+// LinkedIn, Slack, iMessage, etc. get real per-item titles, descriptions,
+// canonicals, OG/Twitter tags, and Product/Article JSON-LD baked into
+// the initial HTML response — even before those SPA routes exist.
+//
 // The body remains the SPA shell; react-helmet-async takes over once
 // the bundle hydrates. Production serving is handled by
 // scripts/serve.mjs which uses try_files semantics so the per-route
@@ -102,14 +110,39 @@ const ROUTE_META = {
     description: "Review your DŌSE cart before checkout.",
     noindex: true,
   },
+  "/checkout": {
+    dynamic: false,
+    title: `Checkout | ${SITE_NAME}`,
+    description: "Complete your DŌSE order.",
+    noindex: true,
+  },
+  "/account": {
+    dynamic: false,
+    title: `Your Account | ${SITE_NAME}`,
+    description: "Manage your DŌSE account, orders, and preferences.",
+    noindex: true,
+  },
+  "/about": {
+    dynamic: false,
+    title: `About | ${SITE_NAME}`,
+    description:
+      "The story behind DŌSE Wellness Co. — how we formulate, test, and ship our THC-infused beverage droppers.",
+  },
+  "/blog": {
+    dynamic: false,
+    title: `Journal | ${SITE_NAME}`,
+    description:
+      "Recipes, rituals, and reflections from the DŌSE journal — how we think about precise, low-dose wellness.",
+  },
   "/unsubscribe": {
     dynamic: false,
     title: `Unsubscribe | ${SITE_NAME}`,
     description: "Manage your DŌSE email subscription.",
     noindex: true,
   },
-  // Dynamic — sourced from products table at build time.
+  // Dynamic — sourced from products / blog_posts tables at build time.
   "/products/:slug": { dynamic: true, kind: "product" },
+  "/blog/:slug": { dynamic: true, kind: "article" },
 };
 
 // Auto-cover every /admin/* route with a noindex shell so admin pages
@@ -218,8 +251,8 @@ function buildWebSiteJsonLd() {
   };
 }
 
-function buildProductJsonLd(p) {
-  const url = absoluteUrl(`/products/${p.slug}`);
+function buildProductJsonLd(p, urlPath) {
+  const url = absoluteUrl(urlPath || `/products/${p.slug}`);
   const price = (Number(p.priceCents) / 100).toFixed(2);
   return {
     "@context": "https://schema.org",
@@ -241,6 +274,35 @@ function buildProductJsonLd(p) {
           : "https://schema.org/OutOfStock",
       itemCondition: "https://schema.org/NewCondition",
     },
+  };
+}
+
+function buildArticleJsonLd(a, urlPath) {
+  const url = absoluteUrl(urlPath || `/journal/${a.slug}`);
+  const published = a.publishedAt
+    ? new Date(a.publishedAt).toISOString()
+    : undefined;
+  const modified = a.updatedAt
+    ? new Date(a.updatedAt).toISOString()
+    : published;
+  return {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: a.title,
+    description: a.excerpt || a.seoDescription || undefined,
+    image: a.coverImage ? [absoluteUrl(a.coverImage)] : undefined,
+    author: a.author
+      ? { "@type": "Person", name: a.author }
+      : { "@type": "Organization", name: SITE_NAME },
+    publisher: {
+      "@type": "Organization",
+      name: SITE_NAME,
+      logo: { "@type": "ImageObject", url: absoluteUrl("/favicon.svg") },
+    },
+    datePublished: published,
+    dateModified: modified,
+    mainEntityOfPage: { "@type": "WebPage", "@id": url },
+    url,
   };
 }
 
@@ -291,46 +353,32 @@ async function parseSpaRoutes() {
   return [...routes];
 }
 
-async function fetchProducts() {
+function requireDb(label) {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     if (process.env.PRERENDER_ALLOW_NO_DB === "1") {
       console.warn(
-        "[prerender] DATABASE_URL not set and PRERENDER_ALLOW_NO_DB=1 — skipping /products/:slug prerender.",
+        `[prerender] DATABASE_URL not set and PRERENDER_ALLOW_NO_DB=1 — skipping ${label} prerender.`,
       );
-      return [];
+      return null;
     }
     throw new Error(
-      "[prerender] DATABASE_URL is required to enumerate /products/:slug for SEO. " +
-        "Set DATABASE_URL or set PRERENDER_ALLOW_NO_DB=1 to opt out (will leave product pages without per-route SEO).",
+      `[prerender] DATABASE_URL is required to enumerate ${label} for SEO. ` +
+        "Set DATABASE_URL or set PRERENDER_ALLOW_NO_DB=1 to opt out (will leave those pages without per-route SEO).",
     );
   }
+  return databaseUrl;
+}
+
+async function withPool(fn) {
   const { Pool } = pg;
   const pool = new Pool({
-    connectionString: databaseUrl,
+    connectionString: process.env.DATABASE_URL,
     connectionTimeoutMillis: 5000,
     max: 2,
   });
   try {
-    const result = await pool.query(
-      `SELECT slug, name, description, short_description, price_cents,
-              currency, images, inventory, seo_title, seo_description, updated_at
-         FROM products
-        WHERE published = true`,
-    );
-    return result.rows.map((r) => ({
-      slug: r.slug,
-      name: r.name,
-      description: r.description,
-      shortDescription: r.short_description,
-      priceCents: r.price_cents,
-      currency: r.currency,
-      images: r.images || [],
-      inventory: r.inventory,
-      seoTitle: r.seo_title,
-      seoDescription: r.seo_description,
-      updatedAt: r.updated_at,
-    }));
+    return await fn(pool);
   } finally {
     try {
       await pool.end();
@@ -340,7 +388,86 @@ async function fetchProducts() {
   }
 }
 
-function productToRoute(p) {
+// Fail-soft policy for dynamic fetches: if the data source is set but
+// unreachable (timeout, refused, auth, missing table, etc.), warn and
+// return [] rather than failing the whole build. The static + admin
+// pages still ship with correct SEO; dynamic per-slug pages are simply
+// skipped for this build. Set PRERENDER_STRICT_FETCH=1 to opt back into
+// hard-fail behavior (e.g. for production deploy pipelines that should
+// never publish a build with missing per-slug SEO).
+const STRICT_FETCH = process.env.PRERENDER_STRICT_FETCH === "1";
+
+async function safeFetch(label, fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    if (STRICT_FETCH) {
+      throw new Error(
+        `[prerender] failed to fetch ${label} (PRERENDER_STRICT_FETCH=1): ${err?.message || err}`,
+      );
+    }
+    console.warn(
+      `[prerender] failed to fetch ${label} — skipping per-slug prerender for those pages. ` +
+        `Build will continue. Set PRERENDER_STRICT_FETCH=1 to fail the build instead. ` +
+        `Reason: ${err?.message || err}`,
+    );
+    return [];
+  }
+}
+
+async function fetchProducts() {
+  if (!requireDb("/products/:slug and /shop/:slug")) return [];
+  return safeFetch("/products/:slug and /shop/:slug", () =>
+    withPool(async (pool) => {
+      const result = await pool.query(
+        `SELECT slug, name, description, short_description, price_cents,
+                currency, images, inventory, seo_title, seo_description, updated_at
+           FROM products
+          WHERE published = true`,
+      );
+      return result.rows.map((r) => ({
+        slug: r.slug,
+        name: r.name,
+        description: r.description,
+        shortDescription: r.short_description,
+        priceCents: r.price_cents,
+        currency: r.currency,
+        images: r.images || [],
+        inventory: r.inventory,
+        seoTitle: r.seo_title,
+        seoDescription: r.seo_description,
+        updatedAt: r.updated_at,
+      }));
+    }),
+  );
+}
+
+async function fetchBlogPosts() {
+  if (!requireDb("/journal/:slug")) return [];
+  return safeFetch("/journal/:slug", () =>
+    withPool(async (pool) => {
+      const result = await pool.query(
+        `SELECT slug, title, excerpt, cover_image, author,
+                seo_title, seo_description, published_at, updated_at
+           FROM blog_posts
+          WHERE published = true`,
+      );
+      return result.rows.map((r) => ({
+        slug: r.slug,
+        title: r.title,
+        excerpt: r.excerpt,
+        coverImage: r.cover_image,
+        author: r.author,
+        seoTitle: r.seo_title,
+        seoDescription: r.seo_description,
+        publishedAt: r.published_at,
+        updatedAt: r.updated_at,
+      }));
+    }),
+  );
+}
+
+function productToRoute(p, basePath = "/products") {
   const baseTitle = p.seoTitle || p.name;
   const description =
     p.seoDescription ||
@@ -349,11 +476,26 @@ function productToRoute(p) {
       ? p.description.replace(/\s+/g, " ").trim().slice(0, 200)
       : SITE_DESCRIPTION);
   return {
-    path: `/products/${p.slug}`,
+    path: `${basePath}/${p.slug}`,
     title: `${baseTitle} | ${SITE_NAME}`,
     description,
     type: "product",
     image: (p.images && p.images[0]) || "/opengraph.jpg",
+  };
+}
+
+function articleToRoute(a, basePath = "/journal") {
+  const baseTitle = a.seoTitle || a.title;
+  const description =
+    a.seoDescription ||
+    a.excerpt ||
+    `Read "${a.title}" on the ${SITE_NAME} journal.`;
+  return {
+    path: `${basePath}/${a.slug}`,
+    title: `${baseTitle} | ${SITE_NAME}`,
+    description,
+    type: "article",
+    image: a.coverImage || "/opengraph.jpg",
   };
 }
 
@@ -440,25 +582,84 @@ async function main() {
     console.log(`[prerender] wrote ${path.relative(ROOT, target)}`);
   }
 
-  // Dynamic routes — currently just /products/:slug.
+  // Dynamic product routes. Emit BOTH the in-router /products/<slug>
+  // (current SPA route) and the canonical /shop/<slug> (matches the
+  // sitemap and JsonLd <url> fields, used by the upcoming shop pages)
+  // so crawlers and link unfurlers see real per-product SEO at either
+  // URL even before the /shop/:slug SPA route ships.
   const dynamicProductRoutes = spaRoutes.filter(
     (r) => metaFor(r).dynamic && metaFor(r).kind === "product",
   );
   let productCount = 0;
+  let shopCount = 0;
   if (dynamicProductRoutes.length > 0) {
     const products = await fetchProducts();
     for (const p of products) {
-      const route = productToRoute(p);
-      const target = await writeRoute(indexHtml, route, buildProductJsonLd(p));
-      await verify(target, route);
+      const productRoute = productToRoute(p, "/products");
+      const productTarget = await writeRoute(
+        indexHtml,
+        productRoute,
+        buildProductJsonLd(p, productRoute.path),
+      );
+      await verify(productTarget, productRoute);
       written += 1;
       productCount += 1;
-      console.log(`[prerender] wrote ${path.relative(ROOT, target)}`);
+      console.log(`[prerender] wrote ${path.relative(ROOT, productTarget)}`);
+
+      const shopRoute = productToRoute(p, "/shop");
+      const shopTarget = await writeRoute(
+        indexHtml,
+        shopRoute,
+        buildProductJsonLd(p, shopRoute.path),
+      );
+      await verify(shopTarget, shopRoute);
+      written += 1;
+      shopCount += 1;
+      console.log(`[prerender] wrote ${path.relative(ROOT, shopTarget)}`);
     }
   }
 
+  // Journal / blog articles. Emit BOTH the in-router /blog/<slug>
+  // (current SPA route) and /journal/<slug> (the canonical magazine
+  // URL used by the sitemap and JsonLd ArticleJsonLd <url> field).
+  // The /journal/<slug> static HTML is served directly by serve.mjs's
+  // try_files semantics so crawlers and link unfurlers get real
+  // per-article title/description/canonical/OG/Article JSON-LD even
+  // before the /journal/:slug SPA route ships.
+  const dynamicArticleRoutes = spaRoutes.filter(
+    (r) => metaFor(r).dynamic && metaFor(r).kind === "article",
+  );
+  const posts = await fetchBlogPosts();
+  let articleCount = 0;
+  let blogCount = 0;
+  for (const a of posts) {
+    if (dynamicArticleRoutes.length > 0) {
+      const blogRoute = articleToRoute(a, "/blog");
+      const blogTarget = await writeRoute(
+        indexHtml,
+        blogRoute,
+        buildArticleJsonLd(a, blogRoute.path),
+      );
+      await verify(blogTarget, blogRoute);
+      written += 1;
+      blogCount += 1;
+      console.log(`[prerender] wrote ${path.relative(ROOT, blogTarget)}`);
+    }
+
+    const journalRoute = articleToRoute(a, "/journal");
+    const journalTarget = await writeRoute(
+      indexHtml,
+      journalRoute,
+      buildArticleJsonLd(a, journalRoute.path),
+    );
+    await verify(journalTarget, journalRoute);
+    written += 1;
+    articleCount += 1;
+    console.log(`[prerender] wrote ${path.relative(ROOT, journalTarget)}`);
+  }
+
   console.log(
-    `[prerender] done — ${written} route(s) (${staticRoutes.length} static, ${productCount} product)`,
+    `[prerender] done — ${written} route(s) (${staticRoutes.length} static, ${productCount} product, ${shopCount} shop, ${blogCount} blog, ${articleCount} journal)`,
   );
 }
 
