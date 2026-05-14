@@ -13,6 +13,7 @@ import { test, expect, type Page, type Route } from "@playwright/test";
 // ---------------------------------------------------------------------------
 
 const STORED_CART_KEY = "dose-cart-id";
+const AGE_CONFIRMED_KEY = "dose-age-confirmed";
 const CART_ID = "cart_e2e_handoff";
 const STRIPE_STUB_PATH = "/__stripe-stub";
 const ORDER_ID = 4242;
@@ -142,18 +143,18 @@ async function installCheckoutMocks(
 
 async function seedCartId(page: Page): Promise<void> {
   await page.addInitScript(
-    ([key, value]) => {
+    ([cartKey, cartValue, ageKey, ageValue]) => {
       try {
-        window.localStorage.setItem(key, value);
+        window.localStorage.setItem(cartKey, cartValue);
         // Pre-dismiss the AgeGate / CookieBanner so they don't intercept
         // clicks during the test.
-        window.localStorage.setItem("dose-age-confirmed", "yes");
+        window.localStorage.setItem(ageKey, ageValue);
         window.localStorage.setItem("dose-cookies-decision", "accept");
       } catch {
         // ignore
       }
     },
-    [STORED_CART_KEY, CART_ID],
+    [STORED_CART_KEY, CART_ID, AGE_CONFIRMED_KEY, "yes"],
   );
 }
 
