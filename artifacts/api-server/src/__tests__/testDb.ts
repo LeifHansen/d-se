@@ -80,6 +80,7 @@ CREATE TABLE IF NOT EXISTS orders (
   shipment_id TEXT,
   tracking_code TEXT,
   label_url TEXT,
+  lookup_token TEXT,
   stripe_session_id TEXT,
   stripe_payment_intent_id TEXT,
   discount_code_id INTEGER,

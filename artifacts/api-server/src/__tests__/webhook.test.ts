@@ -61,8 +61,19 @@ async function seedPendingOrder(opts: {
   productId: number;
   discountId: number;
   discountCode: string;
+  sessionId?: string;
+  shippingAddress?: {
+    name: string;
+    street1: string;
+    street2?: string | null;
+    city: string;
+    state: string;
+    zip: string;
+    country: string;
+    phone?: string | null;
+  } | null;
 }): Promise<{ orderId: number; sessionId: string }> {
-  const sessionId = "cs_test_999";
+  const sessionId = opts.sessionId ?? "cs_test_999";
   const [order] = await db
     .insert(ordersTable)
     .values({
@@ -78,6 +89,7 @@ async function seedPendingOrder(opts: {
       currency: "usd",
       cartId: opts.cartId,
       stripeSessionId: sessionId,
+      shippingAddress: opts.shippingAddress ?? null,
     })
     .returning();
   await db.insert(orderItemsTable).values({
@@ -189,5 +201,236 @@ describe("POST /api/webhooks/stripe — checkout.session.completed", () => {
     expect(emailArg.discountCents).toBe(1_000);
     expect(emailArg.taxCents).toBe(830);
     expect(emailArg.discountCode).toBe("WELCOME10");
+  });
+
+  it("backfills shipping address from Stripe shipping_details when order has none", async () => {
+    const product = await seedProduct({ priceCents: 5_000, inventory: 10 });
+    const discount = await seedDiscount({
+      code: "WELCOME10",
+      type: "percent",
+      value: 10,
+    });
+    const cartId = "cart-wh-ship-1";
+    await seedCart({
+      cartId,
+      productId: product.id,
+      quantity: 2,
+      email: "buyer@example.com",
+    });
+    const { orderId, sessionId } = await seedPendingOrder({
+      cartId,
+      productId: product.id,
+      discountId: discount.id,
+      discountCode: "WELCOME10",
+      sessionId: "cs_test_ship_1",
+    });
+
+    stripeMock.constructEvent.mockReturnValue({
+      id: "evt_ship_1",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: sessionId,
+          metadata: { orderId: String(orderId), cartId },
+          payment_intent: "pi_test_ship_1",
+          customer_email: "buyer@example.com",
+          shipping_details: {
+            name: "Jane Buyer",
+            phone: "+15551112222",
+            address: {
+              line1: "123 Main St",
+              line2: "Apt 4",
+              city: "Springfield",
+              state: "IL",
+              postal_code: "62704",
+              country: "US",
+            },
+          },
+          amount_total: 10_330,
+          total_details: {
+            amount_tax: 830,
+            amount_discount: 1_000,
+            amount_shipping: 500,
+          },
+        },
+      },
+    });
+
+    const res = await request(app)
+      .post("/api/webhooks/stripe")
+      .set("stripe-signature", "t=1,v1=fake")
+      .set("content-type", "application/json")
+      .send(Buffer.from(JSON.stringify({ id: "evt_ship_1" })));
+
+    expect(res.status).toBe(200);
+
+    const [order] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+    expect(order.status).toBe("paid");
+    expect(order.shippingAddress).toEqual({
+      name: "Jane Buyer",
+      street1: "123 Main St",
+      street2: "Apt 4",
+      city: "Springfield",
+      state: "IL",
+      zip: "62704",
+      country: "US",
+      phone: "+15551112222",
+    });
+  });
+
+  it("falls back to customer_details.address when shipping_details is absent", async () => {
+    const product = await seedProduct({ priceCents: 5_000, inventory: 10 });
+    const discount = await seedDiscount({
+      code: "WELCOME10",
+      type: "percent",
+      value: 10,
+    });
+    const cartId = "cart-wh-ship-2";
+    await seedCart({
+      cartId,
+      productId: product.id,
+      quantity: 2,
+      email: "buyer@example.com",
+    });
+    const { orderId, sessionId } = await seedPendingOrder({
+      cartId,
+      productId: product.id,
+      discountId: discount.id,
+      discountCode: "WELCOME10",
+      sessionId: "cs_test_ship_2",
+    });
+
+    stripeMock.constructEvent.mockReturnValue({
+      id: "evt_ship_2",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: sessionId,
+          metadata: { orderId: String(orderId), cartId },
+          payment_intent: "pi_test_ship_2",
+          customer_details: {
+            email: "buyer@example.com",
+            name: "Cust Name",
+            phone: "+15553334444",
+            address: {
+              line1: "9 Billing Way",
+              city: "Boston",
+              state: "MA",
+              postal_code: "02118",
+              country: "US",
+            },
+          },
+          amount_total: 10_330,
+          total_details: {
+            amount_tax: 830,
+            amount_discount: 1_000,
+            amount_shipping: 500,
+          },
+        },
+      },
+    });
+
+    const res = await request(app)
+      .post("/api/webhooks/stripe")
+      .set("stripe-signature", "t=1,v1=fake")
+      .set("content-type", "application/json")
+      .send(Buffer.from(JSON.stringify({ id: "evt_ship_2" })));
+
+    expect(res.status).toBe(200);
+
+    const [order] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+    expect(order.shippingAddress).toEqual({
+      name: "Cust Name",
+      street1: "9 Billing Way",
+      street2: null,
+      city: "Boston",
+      state: "MA",
+      zip: "02118",
+      country: "US",
+      phone: "+15553334444",
+    });
+  });
+
+  it("preserves an existing order shippingAddress instead of overwriting with Stripe's", async () => {
+    const product = await seedProduct({ priceCents: 5_000, inventory: 10 });
+    const discount = await seedDiscount({
+      code: "WELCOME10",
+      type: "percent",
+      value: 10,
+    });
+    const cartId = "cart-wh-ship-3";
+    await seedCart({
+      cartId,
+      productId: product.id,
+      quantity: 2,
+      email: "buyer@example.com",
+    });
+    const existingAddress = {
+      name: "Original Buyer",
+      street1: "1 Origin Ln",
+      street2: null,
+      city: "Portland",
+      state: "OR",
+      zip: "97201",
+      country: "US",
+      phone: null,
+    };
+    const { orderId, sessionId } = await seedPendingOrder({
+      cartId,
+      productId: product.id,
+      discountId: discount.id,
+      discountCode: "WELCOME10",
+      sessionId: "cs_test_ship_3",
+      shippingAddress: existingAddress,
+    });
+
+    stripeMock.constructEvent.mockReturnValue({
+      id: "evt_ship_3",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: sessionId,
+          metadata: { orderId: String(orderId), cartId },
+          payment_intent: "pi_test_ship_3",
+          customer_email: "buyer@example.com",
+          shipping_details: {
+            name: "Stripe Override",
+            address: {
+              line1: "999 Wrong St",
+              city: "Wrongtown",
+              state: "WA",
+              postal_code: "00000",
+              country: "US",
+            },
+          },
+          amount_total: 10_330,
+          total_details: {
+            amount_tax: 830,
+            amount_discount: 1_000,
+            amount_shipping: 500,
+          },
+        },
+      },
+    });
+
+    const res = await request(app)
+      .post("/api/webhooks/stripe")
+      .set("stripe-signature", "t=1,v1=fake")
+      .set("content-type", "application/json")
+      .send(Buffer.from(JSON.stringify({ id: "evt_ship_3" })));
+
+    expect(res.status).toBe(200);
+
+    const [order] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+    expect(order.shippingAddress).toEqual(existingAddress);
   });
 });
