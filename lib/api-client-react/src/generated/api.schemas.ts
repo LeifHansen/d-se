@@ -569,6 +569,11 @@ export type GetAdminOrderShippingRates200 = {
   rates: ShippingRate[];
 };
 
+export type MergeOrderLabelsPdfBody = {
+  /** @minItems 1 */
+  orderIds: number[];
+};
+
 export type FulfillOrderBody = {
   shippingRateId: string;
   /** @nullable */

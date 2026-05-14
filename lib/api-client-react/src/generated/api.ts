@@ -48,6 +48,7 @@ import type {
   ListBlogPostsParams,
   ListProductsParams,
   LookupOrderBody,
+  MergeOrderLabelsPdfBody,
   ModerateReviewBody,
   NewsletterSubscribeBody,
   NewsletterSubscribeResponse,
@@ -2341,6 +2342,92 @@ export const useGetAdminOrderShippingRates = <
   TContext
 > => {
   return useMutation(getGetAdminOrderShippingRatesMutationOptions(options));
+};
+
+/**
+ * @summary Merge shipping labels for the given orders into a single 4x6 PDF
+ */
+export const getMergeOrderLabelsPdfUrl = () => {
+  return `/api/admin/orders/labels/merge-pdf`;
+};
+
+export const mergeOrderLabelsPdf = async (
+  mergeOrderLabelsPdfBody: MergeOrderLabelsPdfBody,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getMergeOrderLabelsPdfUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(mergeOrderLabelsPdfBody),
+  });
+};
+
+export const getMergeOrderLabelsPdfMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof mergeOrderLabelsPdf>>,
+    TError,
+    { data: BodyType<MergeOrderLabelsPdfBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof mergeOrderLabelsPdf>>,
+  TError,
+  { data: BodyType<MergeOrderLabelsPdfBody> },
+  TContext
+> => {
+  const mutationKey = ["mergeOrderLabelsPdf"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof mergeOrderLabelsPdf>>,
+    { data: BodyType<MergeOrderLabelsPdfBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return mergeOrderLabelsPdf(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MergeOrderLabelsPdfMutationResult = NonNullable<
+  Awaited<ReturnType<typeof mergeOrderLabelsPdf>>
+>;
+export type MergeOrderLabelsPdfMutationBody = BodyType<MergeOrderLabelsPdfBody>;
+export type MergeOrderLabelsPdfMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Merge shipping labels for the given orders into a single 4x6 PDF
+ */
+export const useMergeOrderLabelsPdf = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof mergeOrderLabelsPdf>>,
+    TError,
+    { data: BodyType<MergeOrderLabelsPdfBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof mergeOrderLabelsPdf>>,
+  TError,
+  { data: BodyType<MergeOrderLabelsPdfBody> },
+  TContext
+> => {
+  return useMutation(getMergeOrderLabelsPdfMutationOptions(options));
 };
 
 export const getFulfillOrderUrl = (id: number) => {

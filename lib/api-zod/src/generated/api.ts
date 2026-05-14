@@ -1032,6 +1032,14 @@ export const GetAdminOrderShippingRatesResponse = zod.object({
   ),
 });
 
+/**
+ * @summary Merge shipping labels for the given orders into a single 4x6 PDF
+ */
+
+export const MergeOrderLabelsPdfBody = zod.object({
+  orderIds: zod.array(zod.number()).min(1),
+});
+
 export const FulfillOrderParams = zod.object({
   id: zod.coerce.number(),
 });

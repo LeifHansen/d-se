@@ -6,6 +6,7 @@ import {
   useFulfillOrder,
   getAdminOrderShippingRates,
   fulfillOrder,
+  mergeOrderLabelsPdf,
   getListAdminOrdersQueryKey,
   type ListAdminOrdersParams,
   type Order,
@@ -107,7 +108,7 @@ export default function AdminOrders() {
     setBulkRunning(true);
     setBulkErrors([]);
     setBulkProgress({ done: 0, total: targets.length });
-    const labels: { orderId: number; labelUrl: string }[] = [];
+    const labelOrderIds: number[] = [];
     const errors: { orderId: number; message: string }[] = [];
     const CONCURRENCY = 4;
     let completed = 0;
@@ -127,7 +128,7 @@ export default function AdminOrders() {
           ...(ratesResp.shipmentId ? { shipmentId: ratesResp.shipmentId } : {}),
         });
         if (updated.labelUrl) {
-          labels.push({ orderId: order.id, labelUrl: updated.labelUrl });
+          labelOrderIds.push(order.id);
         } else {
           errors.push({
             orderId: order.id,
@@ -154,15 +155,31 @@ export default function AdminOrders() {
 
     const workerCount = Math.min(CONCURRENCY, targets.length);
     await Promise.all(Array.from({ length: workerCount }, () => worker()));
+
+    if (labelOrderIds.length > 0) {
+      try {
+        const pdf = await mergeOrderLabelsPdf({ orderIds: labelOrderIds });
+        downloadBlob(
+          pdf,
+          `shipping-labels-${labelOrderIds.length}-${new Date()
+            .toISOString()
+            .slice(0, 10)}.pdf`,
+        );
+      } catch (err) {
+        errors.push({
+          orderId: 0,
+          message: `Couldn't build merged labels PDF: ${
+            err instanceof Error ? err.message : "Failed"
+          }`,
+        });
+      }
+    }
     setBulkErrors(errors);
     setBulkRunning(false);
     setCheckedIds(new Set());
     await queryClient.invalidateQueries({
       queryKey: getListAdminOrdersQueryKey(params),
     });
-    if (labels.length > 0) {
-      openLabelPrintSheet(labels);
-    }
   }
 
   function onSubmit(e: React.FormEvent) {
@@ -735,103 +752,13 @@ function OrderDetailDrawer({
   );
 }
 
-function openLabelPrintSheet(
-  labels: { orderId: number; labelUrl: string }[],
-) {
-  const win = window.open("", "_blank", "noopener,noreferrer,width=900,height=1100");
-  if (!win) return;
-  const escape = (s: string) =>
-    s.replace(/[&<>"']/g, (c) =>
-      c === "&"
-        ? "&amp;"
-        : c === "<"
-          ? "&lt;"
-          : c === ">"
-            ? "&gt;"
-            : c === '"'
-              ? "&quot;"
-              : "&#39;",
-    );
-  const isPdf = (url: string) => /\.pdf(\?|$)/i.test(url);
-  const pages = labels
-    .map((l) => {
-      const url = escape(l.labelUrl);
-      const inner = isPdf(l.labelUrl)
-        ? `<iframe src="${url}" title="Label for order ${l.orderId}"></iframe>`
-        : `<img src="${url}" alt="Label for order ${l.orderId}" />`;
-      return `<section class="label-page">
-        <header>Order #${l.orderId}</header>
-        ${inner}
-      </section>`;
-    })
-    .join("\n");
-  const pendingImgs = labels.filter((l) => !isPdf(l.labelUrl)).length;
-  const html = `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Shipping labels (${labels.length})</title>
-  <style>
-    @page { size: 4in 6in; margin: 0; }
-    html, body { margin: 0; padding: 0; background: #f5f5f5; font-family: system-ui, sans-serif; }
-    .label-page {
-      page-break-after: always;
-      width: 4in;
-      height: 6in;
-      margin: 12px auto;
-      background: white;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      overflow: hidden;
-    }
-    .label-page:last-child { page-break-after: auto; }
-    .label-page header {
-      font-size: 10px;
-      padding: 4px 8px;
-      color: #555;
-      border-bottom: 1px solid #eee;
-    }
-    .label-page img, .label-page iframe {
-      flex: 1;
-      width: 100%;
-      object-fit: contain;
-      border: 0;
-    }
-    @media print {
-      body { background: white; }
-      .label-page { margin: 0; box-shadow: none; }
-      .label-page header { display: none; }
-    }
-  </style>
-</head>
-<body>
-  ${pages}
-  <script>
-    (function () {
-      var imgs = document.images;
-      var remaining = ${pendingImgs};
-      function maybePrint() {
-        if (remaining <= 0) {
-          setTimeout(function () { window.focus(); window.print(); }, 200);
-        }
-      }
-      if (remaining === 0) { maybePrint(); }
-      for (var i = 0; i < imgs.length; i++) {
-        var img = imgs[i];
-        if (img.complete) { remaining--; }
-        else {
-          img.addEventListener('load', function () { remaining--; maybePrint(); });
-          img.addEventListener('error', function () { remaining--; maybePrint(); });
-        }
-      }
-      maybePrint();
-    })();
-  </script>
-</body>
-</html>`;
-  win.document.open();
-  win.document.write(html);
-  win.document.close();
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }

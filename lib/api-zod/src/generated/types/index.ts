@@ -50,6 +50,7 @@ export * from "./listProductsParams";
 export * from "./lookupOrderBody";
 export * from "./marketingDailyPoint";
 export * from "./marketingStats";
+export * from "./mergeOrderLabelsPdfBody";
 export * from "./moderateReviewBody";
 export * from "./moderateReviewBodyStatus";
 export * from "./newsletterSubscribeBody";

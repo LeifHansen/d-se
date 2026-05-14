@@ -531,6 +531,29 @@ paths:
                   rates:
                     type: array
                     items: { $ref: "#/components/schemas/ShippingRate" }
+  /admin/orders/labels/merge-pdf:
+    post:
+      operationId: mergeOrderLabelsPdf
+      tags: [admin]
+      summary: Merge shipping labels for the given orders into a single 4x6 PDF
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderIds]
+              properties:
+                orderIds:
+                  type: array
+                  items: { type: integer }
+                  minItems: 1
+      responses:
+        "200":
+          description: A merged PDF with one label per page
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
   /admin/orders/{id}/fulfill:
     post:
       operationId: fulfillOrder

@@ -30,6 +30,7 @@ import {
   FulfillOrderParams,
   FulfillOrderBody,
   FulfillOrderResponse,
+  MergeOrderLabelsPdfBody,
   ListAdminDiscountCodesResponse,
   CreateDiscountCodeBody,
   UpdateDiscountCodeParams,
@@ -677,6 +678,103 @@ router.post(
 
     const updated = await buildOrderResponse(params.data.id);
     res.json(FulfillOrderResponse.parse(updated));
+  },
+);
+
+router.post(
+  "/admin/orders/labels/merge-pdf",
+  async (req, res): Promise<void> => {
+    const body = MergeOrderLabelsPdfBody.safeParse(req.body);
+    if (!body.success) {
+      res.status(400).json({ error: body.error.message });
+      return;
+    }
+    const ids = Array.from(new Set(body.data.orderIds));
+    if (ids.length === 0) {
+      res.status(400).json({ error: "orderIds is required" });
+      return;
+    }
+    const rows = await db
+      .select({ id: ordersTable.id, labelUrl: ordersTable.labelUrl })
+      .from(ordersTable)
+      .where(inArray(ordersTable.id, ids));
+    const byId = new Map(rows.map((r) => [r.id, r.labelUrl]));
+    const targets = ids
+      .map((id) => ({ id, labelUrl: byId.get(id) ?? null }))
+      .filter((t): t is { id: number; labelUrl: string } => Boolean(t.labelUrl));
+    if (targets.length === 0) {
+      res.status(404).json({ error: "No labels found for the given orders" });
+      return;
+    }
+
+    const { PDFDocument } = await import("pdf-lib");
+    const PAGE_W = 4 * 72;
+    const PAGE_H = 6 * 72;
+    const out = await PDFDocument.create();
+
+    try {
+      for (const { id, labelUrl } of targets) {
+        const resp = await fetch(labelUrl);
+        if (!resp.ok) {
+          throw new Error(
+            `Failed to fetch label for order ${id}: HTTP ${resp.status}`,
+          );
+        }
+        const buf = new Uint8Array(await resp.arrayBuffer());
+        const contentType = (resp.headers.get("content-type") ?? "")
+          .split(";", 1)[0]
+          .trim()
+          .toLowerCase();
+        const isPdf =
+          contentType === "application/pdf" ||
+          /\.pdf(\?|$)/i.test(labelUrl) ||
+          (buf.length >= 4 &&
+            buf[0] === 0x25 &&
+            buf[1] === 0x50 &&
+            buf[2] === 0x44 &&
+            buf[3] === 0x46);
+
+        if (isPdf) {
+          const src = await PDFDocument.load(buf);
+          const pages = await out.copyPages(src, src.getPageIndices());
+          for (const p of pages) out.addPage(p);
+        } else {
+          const isJpg =
+            contentType === "image/jpeg" ||
+            contentType === "image/jpg" ||
+            (buf.length >= 3 &&
+              buf[0] === 0xff &&
+              buf[1] === 0xd8 &&
+              buf[2] === 0xff);
+          const img = isJpg
+            ? await out.embedJpg(buf)
+            : await out.embedPng(buf);
+          const page = out.addPage([PAGE_W, PAGE_H]);
+          const scale = Math.min(PAGE_W / img.width, PAGE_H / img.height);
+          const w = img.width * scale;
+          const h = img.height * scale;
+          page.drawImage(img, {
+            x: (PAGE_W - w) / 2,
+            y: (PAGE_H - h) / 2,
+            width: w,
+            height: h,
+          });
+        }
+      }
+    } catch (err) {
+      req.log.error({ err }, "Failed to merge shipping labels into PDF");
+      res.status(502).json({ error: "Failed to merge shipping labels" });
+      return;
+    }
+
+    const pdfBytes = await out.save();
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="shipping-labels-${targets.length}.pdf"`,
+    );
+    res.setHeader("Content-Length", String(pdfBytes.byteLength));
+    res.end(Buffer.from(pdfBytes));
   },
 );
 
