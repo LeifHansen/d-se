@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
+import { Link } from "wouter";
 import { ShoppingBag, User, Menu, X, ChevronDown } from "lucide-react";
 import { Logo, Emblem } from "./Logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useCart } from "@/hooks/useCart";
 
 const nav = [
   { label: "Shop", href: "#shop" },
@@ -14,6 +16,9 @@ const nav = [
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const cart = useCart();
+  const itemCount =
+    cart.data?.items.reduce((s, i) => s + i.quantity, 0) ?? 0;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -91,24 +96,27 @@ export function Header() {
           >
             <User className="h-4 w-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Cart"
-            className="relative text-current hover:bg-white/5"
-            data-testid="header-cart"
-          >
-            <ShoppingBag className="h-4 w-4" />
-            <span
-              className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full text-[9px] font-semibold"
-              style={{
-                background: "hsl(42 53% 54%)",
-                color: "hsl(170 58% 14%)",
-              }}
+          <Link href="/cart">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Cart"
+              className="relative text-current hover:bg-white/5"
+              data-testid="header-cart"
             >
-              0
-            </span>
-          </Button>
+              <ShoppingBag className="h-4 w-4" />
+              <span
+                className="absolute -right-1 -top-1 grid h-4 w-4 place-items-center rounded-full text-[9px] font-semibold"
+                style={{
+                  background: "hsl(42 53% 54%)",
+                  color: "hsl(170 58% 14%)",
+                }}
+                data-testid="header-cart-count"
+              >
+                {itemCount}
+              </span>
+            </Button>
+          </Link>
         </div>
       </div>
 

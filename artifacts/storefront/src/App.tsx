@@ -16,6 +16,9 @@ const AdminDashboard = lazy(() => import("@/pages/admin/dashboard"));
 const Unsubscribe = lazy(() => import("@/pages/Unsubscribe"));
 const AdminNewsletter = lazy(() => import("@/pages/admin/Newsletter"));
 const NotFound = lazy(() => import("@/pages/not-found"));
+const Cart = lazy(() => import("@/pages/cart"));
+const Product = lazy(() => import("@/pages/product"));
+const Shop = lazy(() => import("@/pages/shop"));
 
 const queryClient = new QueryClient();
 
@@ -36,6 +39,9 @@ function Router() {
     <Suspense fallback={null}>
       <Switch>
         <Route path="/" component={Home} />
+        <Route path="/cart" component={Cart} />
+        <Route path="/shop" component={Shop} />
+        <Route path="/products/:slug" component={Product} />
         <Route path="/privacy" component={Privacy} />
         <Route path="/terms" component={Terms} />
         <Route path="/shipping-policy" component={Shipping} />
