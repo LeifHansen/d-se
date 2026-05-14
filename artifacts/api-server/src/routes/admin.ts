@@ -109,6 +109,9 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
   const dayStart = new Date();
   dayStart.setHours(0, 0, 0, 0);
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const sevenDaysWindowStart = new Date();
+  sevenDaysWindowStart.setHours(0, 0, 0, 0);
+  sevenDaysWindowStart.setDate(sevenDaysWindowStart.getDate() - 6);
 
   const [{ totalOrders }] = await db
     .select({ totalOrders: count() })
@@ -171,6 +174,57 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
         eq(ordersTable.status, "paid"),
       ),
     );
+
+  const ordersDailyRows = (await db
+    .select({
+      day: sql<string>`to_char(${ordersTable.createdAt}::date, 'YYYY-MM-DD')`,
+      orders: count(),
+      revenueCents: sum(ordersTable.totalCents),
+    })
+    .from(ordersTable)
+    .where(
+      and(
+        gte(ordersTable.createdAt, sevenDaysWindowStart),
+        eq(ordersTable.status, "paid"),
+      ),
+    )
+    .groupBy(sql`${ordersTable.createdAt}::date`)) as Array<{
+    day: string;
+    orders: number;
+    revenueCents: string | number | null;
+  }>;
+  const subscribersDailyRows = (await db
+    .select({
+      day: sql<string>`to_char(${newsletterSubscribersTable.createdAt}::date, 'YYYY-MM-DD')`,
+      added: count(),
+    })
+    .from(newsletterSubscribersTable)
+    .where(gte(newsletterSubscribersTable.createdAt, sevenDaysWindowStart))
+    .groupBy(sql`${newsletterSubscribersTable.createdAt}::date`)) as Array<{
+    day: string;
+    added: number;
+  }>;
+
+  const ordersByDay = new Map(ordersDailyRows.map((r) => [r.day, r]));
+  const subscribersByDay = new Map(
+    subscribersDailyRows.map((r) => [r.day, r]),
+  );
+  const subscribersDaily: Array<{ date: string; value: number }> = [];
+  const ordersDaily: Array<{ date: string; value: number }> = [];
+  const revenueCentsDaily: Array<{ date: string; value: number }> = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(sevenDaysWindowStart);
+    d.setDate(d.getDate() + i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const o = ordersByDay.get(key);
+    const s = subscribersByDay.get(key);
+    subscribersDaily.push({ date: key, value: Number(s?.added ?? 0) });
+    ordersDaily.push({ date: key, value: Number(o?.orders ?? 0) });
+    revenueCentsDaily.push({
+      date: key,
+      value: Number(o?.revenueCents ?? 0),
+    });
+  }
   // GA4 measurement IDs (G-XXXXXXX) cannot be turned into a stable property
   // URL. When configured, link to the GA account picker so the operator can
   // jump into the right property; otherwise return null.
@@ -195,6 +249,9 @@ router.get("/admin/stats", async (_req, res): Promise<void> => {
         ordersLast7Days,
         revenueCentsLast7Days: Number(revenueCentsLast7Days ?? 0),
         ga4Url,
+        subscribersDaily,
+        ordersDaily,
+        revenueCentsDaily,
       },
     }),
   );

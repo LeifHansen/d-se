@@ -346,12 +346,24 @@ export interface TaxSummary {
   warning?: string | null;
 }
 
+export interface MarketingDailyPoint {
+  /**
+   * Day in YYYY-MM-DD format (UTC-naive calendar date).
+   * @pattern ^[0-9]{4}-[0-9]{2}-[0-9]{2}$
+   */
+  date: string;
+  value: number;
+}
+
 export interface MarketingStats {
   newsletterSubscribers: number;
   ordersLast7Days: number;
   revenueCentsLast7Days: number;
   /** @nullable */
   ga4Url: string | null;
+  subscribersDaily: MarketingDailyPoint[];
+  ordersDaily: MarketingDailyPoint[];
+  revenueCentsDaily: MarketingDailyPoint[];
 }
 
 export interface AdminStats {

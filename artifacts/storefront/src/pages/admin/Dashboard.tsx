@@ -1,6 +1,76 @@
 import { useGetAdminStats } from "@workspace/api-client-react";
+import type { MarketingDailyPoint } from "@workspace/api-client-react";
+import {
+  Area,
+  AreaChart,
+  ResponsiveContainer,
+  Tooltip,
+  YAxis,
+} from "recharts";
 import { AdminLayout } from "./AdminLayout";
 import { formatCurrency, formatDateTime } from "./utils";
+
+function Sparkline({
+  data,
+  testId,
+  format,
+  color = "currentColor",
+}: {
+  data: MarketingDailyPoint[];
+  testId: string;
+  format: (value: number) => string;
+  color?: string;
+}) {
+  const hasAnyValue = data.some((d) => d.value > 0);
+  return (
+    <div className="mt-2 h-10 w-full" data-testid={testId}>
+      {hasAnyValue ? (
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart
+            data={data}
+            margin={{ top: 2, right: 2, bottom: 2, left: 2 }}
+          >
+            <defs>
+              <linearGradient id={`${testId}-fill`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={color} stopOpacity={0.3} />
+                <stop offset="100%" stopColor={color} stopOpacity={0} />
+              </linearGradient>
+            </defs>
+            <YAxis hide domain={[0, "dataMax"]} />
+            <Tooltip
+              cursor={{ stroke: color, strokeOpacity: 0.3 }}
+              contentStyle={{
+                fontSize: "0.75rem",
+                padding: "0.25rem 0.5rem",
+                borderRadius: "0.375rem",
+              }}
+              labelFormatter={(label: string) =>
+                new Date(label).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                })
+              }
+              formatter={(value: number) => [format(value), ""]}
+              separator=""
+            />
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke={color}
+              strokeWidth={1.5}
+              fill={`url(#${testId}-fill)`}
+              isAnimationActive={false}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      ) : (
+        <div className="flex h-full items-center text-xs text-muted-foreground">
+          No activity in the last 7 days
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StatCard({
   label,
@@ -160,6 +230,11 @@ export default function AdminDashboard() {
                       "en-US",
                     )}
                   </p>
+                  <Sparkline
+                    data={data.marketing.subscribersDaily}
+                    testId="sparkline-subscribers"
+                    format={(v) => `${v.toLocaleString("en-US")} new`}
+                  />
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -171,6 +246,13 @@ export default function AdminDashboard() {
                   >
                     {data.marketing.ordersLast7Days.toLocaleString("en-US")}
                   </p>
+                  <Sparkline
+                    data={data.marketing.ordersDaily}
+                    testId="sparkline-orders-7d"
+                    format={(v) =>
+                      `${v.toLocaleString("en-US")} ${v === 1 ? "order" : "orders"}`
+                    }
+                  />
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-wider text-muted-foreground">
@@ -182,6 +264,11 @@ export default function AdminDashboard() {
                   >
                     {formatCurrency(data.marketing.revenueCentsLast7Days)}
                   </p>
+                  <Sparkline
+                    data={data.marketing.revenueCentsDaily}
+                    testId="sparkline-revenue-7d"
+                    format={(v) => formatCurrency(v)}
+                  />
                 </div>
               </div>
             </section>

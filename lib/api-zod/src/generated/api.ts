@@ -657,6 +657,13 @@ export const GetBlogPostBySlugResponse = zod.object({
 /**
  * @summary Dashboard summary
  */
+export const getAdminStatsResponseMarketingSubscribersDailyItemDateRegExp =
+  new RegExp("^[0-9]{4}-[0-9]{2}-[0-9]{2}$");
+export const getAdminStatsResponseMarketingOrdersDailyItemDateRegExp =
+  new RegExp("^[0-9]{4}-[0-9]{2}-[0-9]{2}$");
+export const getAdminStatsResponseMarketingRevenueCentsDailyItemDateRegExp =
+  new RegExp("^[0-9]{4}-[0-9]{2}-[0-9]{2}$");
+
 export const GetAdminStatsResponse = zod.object({
   totalOrders: zod.number(),
   ordersToday: zod.number(),
@@ -714,6 +721,33 @@ export const GetAdminStatsResponse = zod.object({
     ordersLast7Days: zod.number(),
     revenueCentsLast7Days: zod.number(),
     ga4Url: zod.string().nullable(),
+    subscribersDaily: zod.array(
+      zod.object({
+        date: zod
+          .string()
+          .regex(getAdminStatsResponseMarketingSubscribersDailyItemDateRegExp)
+          .describe("Day in YYYY-MM-DD format (UTC-naive calendar date)."),
+        value: zod.number(),
+      }),
+    ),
+    ordersDaily: zod.array(
+      zod.object({
+        date: zod
+          .string()
+          .regex(getAdminStatsResponseMarketingOrdersDailyItemDateRegExp)
+          .describe("Day in YYYY-MM-DD format (UTC-naive calendar date)."),
+        value: zod.number(),
+      }),
+    ),
+    revenueCentsDaily: zod.array(
+      zod.object({
+        date: zod
+          .string()
+          .regex(getAdminStatsResponseMarketingRevenueCentsDailyItemDateRegExp)
+          .describe("Day in YYYY-MM-DD format (UTC-naive calendar date)."),
+        value: zod.number(),
+      }),
+    ),
   }),
 });
 

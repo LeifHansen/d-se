@@ -5,6 +5,7 @@
  * E-commerce storefront API
  * OpenAPI spec version: 0.1.0
  */
+import type { MarketingDailyPoint } from "./marketingDailyPoint";
 
 export interface MarketingStats {
   newsletterSubscribers: number;
@@ -12,4 +13,7 @@ export interface MarketingStats {
   revenueCentsLast7Days: number;
   /** @nullable */
   ga4Url: string | null;
+  subscribersDaily: MarketingDailyPoint[];
+  ordersDaily: MarketingDailyPoint[];
+  revenueCentsDaily: MarketingDailyPoint[];
 }
