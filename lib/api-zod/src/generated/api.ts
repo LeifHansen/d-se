@@ -1062,6 +1062,83 @@ export const SubscribeNewsletterResponse = zod.object({
   alreadySubscribed: zod.boolean().optional(),
 });
 
+/**
+ * @summary Public, token-based unsubscribe (used by email links)
+ */
+export const unsubscribeNewsletterBodyTokenMin = 8;
+
+export const UnsubscribeNewsletterBody = zod.object({
+  token: zod.string().min(unsubscribeNewsletterBodyTokenMin),
+});
+
+export const UnsubscribeNewsletterResponse = zod.object({
+  ok: zod.boolean(),
+  email: zod.string().nullish(),
+});
+
+/**
+ * @summary List newsletter subscribers (paginated, searchable)
+ */
+export const listAdminNewsletterSubscribersQueryPageDefault = 1;
+
+export const listAdminNewsletterSubscribersQueryPageSizeDefault = 50;
+export const listAdminNewsletterSubscribersQueryPageSizeMax = 200;
+
+export const ListAdminNewsletterSubscribersQueryParams = zod.object({
+  search: zod.coerce.string().optional(),
+  status: zod.enum(["active", "unsubscribed", "all"]).optional(),
+  page: zod.coerce
+    .number()
+    .min(1)
+    .default(listAdminNewsletterSubscribersQueryPageDefault),
+  pageSize: zod.coerce
+    .number()
+    .min(1)
+    .max(listAdminNewsletterSubscribersQueryPageSizeMax)
+    .default(listAdminNewsletterSubscribersQueryPageSizeDefault),
+});
+
+export const ListAdminNewsletterSubscribersResponse = zod.object({
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      email: zod.string(),
+      source: zod.string().nullable(),
+      status: zod.enum(["active", "unsubscribed"]),
+      createdAt: zod.coerce.date(),
+      unsubscribedAt: zod.coerce.date().nullish(),
+      resendContactId: zod.string().nullish(),
+    }),
+  ),
+  total: zod.number(),
+  page: zod.number(),
+  pageSize: zod.number(),
+});
+
+/**
+ * @summary Download all subscribers as CSV
+ */
+export const ExportAdminNewsletterSubscribersQueryParams = zod.object({
+  status: zod.enum(["active", "unsubscribed", "all"]).optional(),
+});
+
+/**
+ * @summary Unsubscribe a subscriber and remove them from the Resend audience
+ */
+export const AdminUnsubscribeNewsletterSubscriberParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUnsubscribeNewsletterSubscriberResponse = zod.object({
+  id: zod.number(),
+  email: zod.string(),
+  source: zod.string().nullable(),
+  status: zod.enum(["active", "unsubscribed"]),
+  createdAt: zod.coerce.date(),
+  unsubscribedAt: zod.coerce.date().nullish(),
+  resendContactId: zod.string().nullish(),
+});
+
 export const ListProductReviewsParams = zod.object({
   slug: zod.coerce.string(),
 });

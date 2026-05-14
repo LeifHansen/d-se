@@ -187,16 +187,31 @@ export async function sendLowStockDigest(opts: {
 
 export async function sendWelcomeEmail(opts: {
   to: string;
+  unsubscribeUrl?: string | null;
 }): Promise<void> {
   const r = await getResend();
   if (!r) return;
+  const unsubFooter = opts.unsubscribeUrl
+    ? `<hr style="margin-top:32px;border:none;border-top:1px solid #eee" />
+<p style="font-size:12px;color:#666">
+You received this email because you signed up for ${STORE_NAME} updates.
+<a href="${opts.unsubscribeUrl}">Unsubscribe</a>.
+</p>`
+    : "";
+  const headers: Record<string, string> = {};
+  if (opts.unsubscribeUrl) {
+    headers["List-Unsubscribe"] = `<${opts.unsubscribeUrl}>`;
+    headers["List-Unsubscribe-Post"] = "List-Unsubscribe=One-Click";
+  }
   await r.client.emails.send({
     from: `${STORE_NAME} <${r.fromEmail}>`,
     to: opts.to,
     subject: `Welcome to ${STORE_NAME}`,
+    headers,
     html: `<h1>Welcome to ${STORE_NAME}.</h1>
 <p>Thanks for subscribing — you're on the list for new drops, ritual recipes, and the occasional poem about going slow.</p>
-<p>Use code <strong>WELCOME10</strong> for $10 off your first order.</p>`,
+<p>Use code <strong>WELCOME10</strong> for $10 off your first order.</p>
+${unsubFooter}`,
   });
 }
 
@@ -225,6 +240,32 @@ export async function addToResendAudience(opts: {
     };
   } catch {
     return { ok: false, contactId: null, alreadyExists: false };
+  }
+}
+
+export async function removeFromResendAudience(opts: {
+  contactId?: string | null;
+  email?: string | null;
+}): Promise<{ ok: boolean }> {
+  const audienceId = process.env.RESEND_AUDIENCE_ID;
+  if (!audienceId) return { ok: false };
+  if (!opts.contactId && !opts.email) return { ok: false };
+  const r = await getResend();
+  if (!r) return { ok: false };
+  try {
+    const result = await r.client.contacts.remove({
+      audienceId,
+      ...(opts.contactId
+        ? { id: opts.contactId }
+        : { email: opts.email as string }),
+    });
+    const errMsg = (result as { error?: { message?: string } }).error?.message;
+    if (errMsg && !/not.*found|exist/i.test(errMsg)) {
+      return { ok: false };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false };
   }
 }
 

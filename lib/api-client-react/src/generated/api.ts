@@ -19,6 +19,8 @@ import type {
 import type {
   AbandonedCart,
   AddCartItemBody,
+  AdminNewsletterSubscriber,
+  AdminNewsletterSubscriberList,
   AdminStats,
   ApplyCartDiscountBody,
   BadRequestResponse,
@@ -32,11 +34,13 @@ import type {
   DiscountCodeInput,
   DiscountValidation,
   Error,
+  ExportAdminNewsletterSubscribersParams,
   ForbiddenResponse,
   FulfillOrderBody,
   GetCartParams,
   GetShippingRatesBody,
   HealthStatus,
+  ListAdminNewsletterSubscribersParams,
   ListAdminOrdersParams,
   ListAdminReviewsParams,
   ListBlogPostsParams,
@@ -44,6 +48,8 @@ import type {
   ModerateReviewBody,
   NewsletterSubscribeBody,
   NewsletterSubscribeResponse,
+  NewsletterUnsubscribeBody,
+  NewsletterUnsubscribeResponse,
   NotFoundResponse,
   Order,
   Product,
@@ -2704,6 +2710,402 @@ export const useSubscribeNewsletter = <
   TContext
 > => {
   return useMutation(getSubscribeNewsletterMutationOptions(options));
+};
+
+/**
+ * @summary Public, token-based unsubscribe (used by email links)
+ */
+export const getUnsubscribeNewsletterUrl = () => {
+  return `/api/newsletter/unsubscribe`;
+};
+
+export const unsubscribeNewsletter = async (
+  newsletterUnsubscribeBody: NewsletterUnsubscribeBody,
+  options?: RequestInit,
+): Promise<NewsletterUnsubscribeResponse> => {
+  return customFetch<NewsletterUnsubscribeResponse>(
+    getUnsubscribeNewsletterUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(newsletterUnsubscribeBody),
+    },
+  );
+};
+
+export const getUnsubscribeNewsletterMutationOptions = <
+  TError = ErrorType<Error>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unsubscribeNewsletter>>,
+    TError,
+    { data: BodyType<NewsletterUnsubscribeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof unsubscribeNewsletter>>,
+  TError,
+  { data: BodyType<NewsletterUnsubscribeBody> },
+  TContext
+> => {
+  const mutationKey = ["unsubscribeNewsletter"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof unsubscribeNewsletter>>,
+    { data: BodyType<NewsletterUnsubscribeBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return unsubscribeNewsletter(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UnsubscribeNewsletterMutationResult = NonNullable<
+  Awaited<ReturnType<typeof unsubscribeNewsletter>>
+>;
+export type UnsubscribeNewsletterMutationBody =
+  BodyType<NewsletterUnsubscribeBody>;
+export type UnsubscribeNewsletterMutationError = ErrorType<Error>;
+
+/**
+ * @summary Public, token-based unsubscribe (used by email links)
+ */
+export const useUnsubscribeNewsletter = <
+  TError = ErrorType<Error>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof unsubscribeNewsletter>>,
+    TError,
+    { data: BodyType<NewsletterUnsubscribeBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof unsubscribeNewsletter>>,
+  TError,
+  { data: BodyType<NewsletterUnsubscribeBody> },
+  TContext
+> => {
+  return useMutation(getUnsubscribeNewsletterMutationOptions(options));
+};
+
+/**
+ * @summary List newsletter subscribers (paginated, searchable)
+ */
+export const getListAdminNewsletterSubscribersUrl = (
+  params?: ListAdminNewsletterSubscribersParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/newsletter/subscribers?${stringifiedParams}`
+    : `/api/admin/newsletter/subscribers`;
+};
+
+export const listAdminNewsletterSubscribers = async (
+  params?: ListAdminNewsletterSubscribersParams,
+  options?: RequestInit,
+): Promise<AdminNewsletterSubscriberList> => {
+  return customFetch<AdminNewsletterSubscriberList>(
+    getListAdminNewsletterSubscribersUrl(params),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAdminNewsletterSubscribersQueryKey = (
+  params?: ListAdminNewsletterSubscribersParams,
+) => {
+  return [
+    `/api/admin/newsletter/subscribers`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getListAdminNewsletterSubscribersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminNewsletterSubscribers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminNewsletterSubscribersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminNewsletterSubscribers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminNewsletterSubscribersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminNewsletterSubscribers>>
+  > = ({ signal }) =>
+    listAdminNewsletterSubscribers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminNewsletterSubscribers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminNewsletterSubscribersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminNewsletterSubscribers>>
+>;
+export type ListAdminNewsletterSubscribersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List newsletter subscribers (paginated, searchable)
+ */
+
+export function useListAdminNewsletterSubscribers<
+  TData = Awaited<ReturnType<typeof listAdminNewsletterSubscribers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminNewsletterSubscribersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminNewsletterSubscribers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminNewsletterSubscribersQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Download all subscribers as CSV
+ */
+export const getExportAdminNewsletterSubscribersUrl = (
+  params?: ExportAdminNewsletterSubscribersParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/newsletter/subscribers/export.csv?${stringifiedParams}`
+    : `/api/admin/newsletter/subscribers/export.csv`;
+};
+
+export const exportAdminNewsletterSubscribers = async (
+  params?: ExportAdminNewsletterSubscribersParams,
+  options?: RequestInit,
+): Promise<string> => {
+  return customFetch<string>(getExportAdminNewsletterSubscribersUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getExportAdminNewsletterSubscribersQueryKey = (
+  params?: ExportAdminNewsletterSubscribersParams,
+) => {
+  return [
+    `/api/admin/newsletter/subscribers/export.csv`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getExportAdminNewsletterSubscribersQueryOptions = <
+  TData = Awaited<ReturnType<typeof exportAdminNewsletterSubscribers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ExportAdminNewsletterSubscribersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportAdminNewsletterSubscribers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ??
+    getExportAdminNewsletterSubscribersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof exportAdminNewsletterSubscribers>>
+  > = ({ signal }) =>
+    exportAdminNewsletterSubscribers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof exportAdminNewsletterSubscribers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ExportAdminNewsletterSubscribersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof exportAdminNewsletterSubscribers>>
+>;
+export type ExportAdminNewsletterSubscribersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Download all subscribers as CSV
+ */
+
+export function useExportAdminNewsletterSubscribers<
+  TData = Awaited<ReturnType<typeof exportAdminNewsletterSubscribers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ExportAdminNewsletterSubscribersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof exportAdminNewsletterSubscribers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getExportAdminNewsletterSubscribersQueryOptions(
+    params,
+    options,
+  );
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Unsubscribe a subscriber and remove them from the Resend audience
+ */
+export const getAdminUnsubscribeNewsletterSubscriberUrl = (id: number) => {
+  return `/api/admin/newsletter/subscribers/${id}/unsubscribe`;
+};
+
+export const adminUnsubscribeNewsletterSubscriber = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminNewsletterSubscriber> => {
+  return customFetch<AdminNewsletterSubscriber>(
+    getAdminUnsubscribeNewsletterSubscriberUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getAdminUnsubscribeNewsletterSubscriberMutationOptions = <
+  TError = ErrorType<Error>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUnsubscribeNewsletterSubscriber>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUnsubscribeNewsletterSubscriber>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminUnsubscribeNewsletterSubscriber"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUnsubscribeNewsletterSubscriber>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminUnsubscribeNewsletterSubscriber(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUnsubscribeNewsletterSubscriberMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUnsubscribeNewsletterSubscriber>>
+>;
+
+export type AdminUnsubscribeNewsletterSubscriberMutationError =
+  ErrorType<Error>;
+
+/**
+ * @summary Unsubscribe a subscriber and remove them from the Resend audience
+ */
+export const useAdminUnsubscribeNewsletterSubscriber = <
+  TError = ErrorType<Error>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUnsubscribeNewsletterSubscriber>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUnsubscribeNewsletterSubscriber>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(
+    getAdminUnsubscribeNewsletterSubscriberMutationOptions(options),
+  );
 };
 
 export const getListProductReviewsUrl = (slug: string) => {

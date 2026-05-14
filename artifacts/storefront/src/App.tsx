@@ -13,6 +13,8 @@ import Contact from "@/pages/legal/Contact";
 
 const Home = lazy(() => import("@/pages/home"));
 const AdminDashboard = lazy(() => import("@/pages/admin/dashboard"));
+const Unsubscribe = lazy(() => import("@/pages/Unsubscribe"));
+const AdminNewsletter = lazy(() => import("@/pages/admin/Newsletter"));
 const NotFound = lazy(() => import("@/pages/not-found"));
 
 const queryClient = new QueryClient();
@@ -41,6 +43,8 @@ function Router() {
         <Route path="/accessibility" component={Accessibility} />
         <Route path="/contact" component={Contact} />
         <Route path="/admin" component={AdminDashboard} />
+        <Route path="/unsubscribe" component={Unsubscribe} />
+        <Route path="/admin/newsletter" component={AdminNewsletter} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>

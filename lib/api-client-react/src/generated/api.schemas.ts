@@ -396,6 +396,45 @@ export interface NewsletterSubscribeResponse {
   alreadySubscribed?: boolean;
 }
 
+export interface NewsletterUnsubscribeBody {
+  /** @minLength 8 */
+  token: string;
+}
+
+export interface NewsletterUnsubscribeResponse {
+  ok: boolean;
+  /** @nullable */
+  email?: string | null;
+}
+
+export type AdminNewsletterSubscriberStatus =
+  (typeof AdminNewsletterSubscriberStatus)[keyof typeof AdminNewsletterSubscriberStatus];
+
+export const AdminNewsletterSubscriberStatus = {
+  active: "active",
+  unsubscribed: "unsubscribed",
+} as const;
+
+export interface AdminNewsletterSubscriber {
+  id: number;
+  email: string;
+  /** @nullable */
+  source: string | null;
+  status: AdminNewsletterSubscriberStatus;
+  createdAt: string;
+  /** @nullable */
+  unsubscribedAt?: string | null;
+  /** @nullable */
+  resendContactId?: string | null;
+}
+
+export interface AdminNewsletterSubscriberList {
+  items: AdminNewsletterSubscriber[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 /**
  * Not found
  */
@@ -503,6 +542,42 @@ export type ValidateDiscountBody = {
   code: string;
   cartId: string;
 };
+
+export type ListAdminNewsletterSubscribersParams = {
+  search?: string;
+  status?: ListAdminNewsletterSubscribersStatus;
+  /**
+   * @minimum 1
+   */
+  page?: number;
+  /**
+   * @minimum 1
+   * @maximum 200
+   */
+  pageSize?: number;
+};
+
+export type ListAdminNewsletterSubscribersStatus =
+  (typeof ListAdminNewsletterSubscribersStatus)[keyof typeof ListAdminNewsletterSubscribersStatus];
+
+export const ListAdminNewsletterSubscribersStatus = {
+  active: "active",
+  unsubscribed: "unsubscribed",
+  all: "all",
+} as const;
+
+export type ExportAdminNewsletterSubscribersParams = {
+  status?: ExportAdminNewsletterSubscribersStatus;
+};
+
+export type ExportAdminNewsletterSubscribersStatus =
+  (typeof ExportAdminNewsletterSubscribersStatus)[keyof typeof ExportAdminNewsletterSubscribersStatus];
+
+export const ExportAdminNewsletterSubscribersStatus = {
+  active: "active",
+  unsubscribed: "unsubscribed",
+  all: "all",
+} as const;
 
 export type SubmitProductReviewBody = {
   /**
