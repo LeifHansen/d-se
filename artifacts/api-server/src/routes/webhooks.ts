@@ -162,6 +162,7 @@ router.post(
       orderCurrency: string;
       orderDiscountCode: string | null;
       orderDiscountCodeId: number | null;
+      orderLookupToken: string | null;
       analyticsEventId: string;
       analyticsClientId: string | null;
       analyticsFbp: string | null;
@@ -290,6 +291,7 @@ router.post(
           orderCurrency: order.currency,
           orderDiscountCode: order.discountCode,
           orderDiscountCodeId: order.discountCodeId,
+          orderLookupToken: order.lookupToken,
           analyticsEventId:
             order.analyticsEventId ??
             session.metadata?.analyticsEventId ??
@@ -354,7 +356,9 @@ router.post(
               quantity: i.quantity,
               priceCents: i.priceCents,
             })),
-            orderUrl: `${SITE_URL}/orders/${orderId}?email=${encodeURIComponent(ctx.email)}`,
+            orderUrl: ctx.orderLookupToken
+              ? `${SITE_URL}/orders/${orderId}?token=${encodeURIComponent(ctx.orderLookupToken)}`
+              : `${SITE_URL}/orders/${orderId}?email=${encodeURIComponent(ctx.email)}`,
           });
         } catch (err) {
           req.log.warn({ err }, "Order email send failed");

@@ -536,7 +536,8 @@ export type CreateCheckout200 = {
 
 export type LookupOrderBody = {
   orderId: number;
-  email: string;
+  email?: string;
+  token?: string;
 };
 
 export type ListBlogPostsParams = {

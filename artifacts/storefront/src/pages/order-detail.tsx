@@ -32,10 +32,23 @@ export default function OrderDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
 
-  // Auto-attempt with email from URL query, then localStorage.
+  // Auto-attempt with token from URL query, then email from URL/localStorage.
   useEffect(() => {
     if (!Number.isFinite(orderId) || tried) return;
     const url = new URL(window.location.href);
+    const token = url.searchParams.get("token") ?? "";
+    if (token) {
+      setTried(true);
+      lookup
+        .mutateAsync({ data: { orderId, token } })
+        .then((res) => setOrder(res))
+        .catch(() => {
+          setError(
+            "This link is invalid or expired. Enter the email used at checkout.",
+          );
+        });
+      return;
+    }
     let candidate = url.searchParams.get("email") ?? "";
     if (!candidate) {
       try {

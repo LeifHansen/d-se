@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { randomBytes, timingSafeEqual } from "crypto";
 import type Stripe from "stripe";
 import { desc, eq } from "drizzle-orm";
 import {
@@ -32,6 +33,17 @@ import { recordAbandonedCart } from "../lib/abandonedCart";
 const STRIPE_TAX_ENABLED = process.env.STRIPE_TAX_ENABLED === "1";
 
 const router: IRouter = Router();
+
+function generateLookupToken(): string {
+  return randomBytes(32).toString("base64url");
+}
+
+function tokensMatch(a: string, b: string): boolean {
+  const ab = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ab.length !== bb.length) return false;
+  return timingSafeEqual(ab, bb);
+}
 
 async function buildOrderResponse(orderId: number) {
   const [order] = await db
@@ -147,6 +159,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
       userId,
       email: parsed.data.email ?? null,
       status: "pending",
+      lookupToken: generateLookupToken(),
       subtotalCents,
       shippingCents,
       taxCents: 0,
@@ -336,13 +349,34 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const submittedEmail = parsed.data.email?.trim().toLowerCase() ?? null;
+  const submittedToken = parsed.data.token?.trim() ?? null;
+  if (!submittedEmail && !submittedToken) {
+    res.status(400).json({ error: "Email or token is required" });
+    return;
+  }
   const [row] = await db
     .select()
     .from(ordersTable)
     .where(eq(ordersTable.id, parsed.data.orderId));
-  const submittedEmail = parsed.data.email.trim().toLowerCase();
-  if (!row || !row.email || row.email.trim().toLowerCase() !== submittedEmail) {
-    // Don't leak whether the order exists when the email doesn't match.
+  // Don't leak whether the order exists when credentials don't match.
+  if (!row) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  let authorized = false;
+  if (submittedToken && row.lookupToken) {
+    authorized = tokensMatch(row.lookupToken, submittedToken);
+  }
+  if (
+    !authorized &&
+    submittedEmail &&
+    row.email &&
+    row.email.trim().toLowerCase() === submittedEmail
+  ) {
+    authorized = true;
+  }
+  if (!authorized) {
     res.status(404).json({ error: "Order not found" });
     return;
   }

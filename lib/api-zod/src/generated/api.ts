@@ -610,11 +610,12 @@ export const GetOrderResponse = zod.object({
 });
 
 /**
- * @summary Look up an order by ID and email (guest checkout)
+ * @summary Look up an order by ID and email or magic-link token (guest checkout)
  */
 export const LookupOrderBody = zod.object({
   orderId: zod.number(),
-  email: zod.string().email(),
+  email: zod.string().email().optional(),
+  token: zod.string().optional(),
 });
 
 export const LookupOrderResponse = zod.object({

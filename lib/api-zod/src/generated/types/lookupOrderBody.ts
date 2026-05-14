@@ -8,5 +8,6 @@
 
 export type LookupOrderBody = {
   orderId: number;
-  email: string;
+  email?: string;
+  token?: string;
 };
