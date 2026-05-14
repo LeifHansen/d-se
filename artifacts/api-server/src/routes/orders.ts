@@ -35,6 +35,15 @@ import { recordAbandonedCart } from "../lib/abandonedCart";
 
 const STRIPE_TAX_ENABLED = process.env.STRIPE_TAX_ENABLED === "1";
 
+// Magic-link order lookup tokens expire after this many ms (default: 90 days).
+// Set ORDER_LOOKUP_TOKEN_TTL_MS=0 to disable expiry entirely.
+const LOOKUP_TOKEN_TTL_MS = (() => {
+  const raw = process.env.ORDER_LOOKUP_TOKEN_TTL_MS;
+  if (raw === undefined) return 90 * 24 * 60 * 60 * 1000;
+  const n = Number(raw);
+  return Number.isFinite(n) && n >= 0 ? n : 90 * 24 * 60 * 60 * 1000;
+})();
+
 const router: IRouter = Router();
 
 function generateLookupToken(): string {
@@ -178,6 +187,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
       email: normalisedEmail,
       status: "pending",
       lookupToken: generateLookupToken(),
+      lookupTokenIssuedAt: new Date(),
       subtotalCents,
       shippingCents,
       taxCents: 0,
@@ -387,8 +397,12 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
     return;
   }
   let authorized = false;
+  let viaToken = false;
   if (submittedToken && row.lookupToken) {
-    authorized = tokensMatch(row.lookupToken, submittedToken);
+    if (tokensMatch(row.lookupToken, submittedToken)) {
+      authorized = true;
+      viaToken = true;
+    }
   }
   if (
     !authorized &&
@@ -401,6 +415,32 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
   if (!authorized) {
     res.status(404).json({ error: "Order not found" });
     return;
+  }
+  // Token presented and matched — enforce TTL so a forwarded email from months
+  // ago can't be replayed forever. Email-based lookups stay valid (the shopper
+  // proved control of the inbox at submit time).
+  if (viaToken && LOOKUP_TOKEN_TTL_MS > 0) {
+    const issuedAt = row.lookupTokenIssuedAt ?? row.createdAt;
+    const ageMs = Date.now() - new Date(issuedAt).getTime();
+    if (ageMs > LOOKUP_TOKEN_TTL_MS) {
+      res.status(410).json({
+        error:
+          "This order link has expired. Enter the email used at checkout to view your order.",
+        code: "lookup_token_expired",
+      });
+      return;
+    }
+  }
+  if (viaToken) {
+    // Best-effort: record last-used so admins can audit token activity.
+    try {
+      await db
+        .update(ordersTable)
+        .set({ lookupTokenLastUsedAt: new Date() })
+        .where(eq(ordersTable.id, row.id));
+    } catch (err) {
+      req.log.warn({ err }, "Failed to update lookup_token_last_used_at");
+    }
   }
   const order = await buildOrderResponse(row.id);
   res.json(GetOrderResponse.parse(order));

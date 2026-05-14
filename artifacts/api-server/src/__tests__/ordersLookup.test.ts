@@ -119,4 +119,47 @@ describe("POST /api/orders/lookup — guest order authorization", () => {
       .send({ orderId });
     expect(res.status).toBe(400);
   });
+
+  it("returns 410 with code lookup_token_expired when the token is older than the TTL", async () => {
+    const { orderId, lookupToken } = await createOrder("buyer@example.com");
+    // Backdate the token issuance well past the 90-day default TTL.
+    const issuedAt = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000);
+    await db
+      .update(ordersTable)
+      .set({ lookupTokenIssuedAt: issuedAt })
+      .where(eq(ordersTable.id, orderId));
+
+    const res = await request(app)
+      .post("/api/orders/lookup")
+      .send({ orderId, token: lookupToken });
+    expect(res.status).toBe(410);
+    expect(res.body.code).toBe("lookup_token_expired");
+
+    // Email-based lookup should still succeed for the same order.
+    const emailRes = await request(app)
+      .post("/api/orders/lookup")
+      .send({ orderId, email: "buyer@example.com" });
+    expect(emailRes.status).toBe(200);
+    expect(emailRes.body.id).toBe(orderId);
+  });
+
+  it("records lookup_token_last_used_at on a successful token lookup", async () => {
+    const { orderId, lookupToken } = await createOrder("buyer@example.com");
+    const before = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+    expect(before[0].lookupTokenLastUsedAt).toBeNull();
+
+    const res = await request(app)
+      .post("/api/orders/lookup")
+      .send({ orderId, token: lookupToken });
+    expect(res.status).toBe(200);
+
+    const after = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+    expect(after[0].lookupTokenLastUsedAt).toBeInstanceOf(Date);
+  });
 });

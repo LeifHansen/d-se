@@ -35,6 +35,8 @@ export const ordersTable = pgTable("orders", {
   carrier: text("carrier"),
   labelUrl: text("label_url"),
   lookupToken: text("lookup_token").unique(),
+  lookupTokenIssuedAt: timestamp("lookup_token_issued_at"),
+  lookupTokenLastUsedAt: timestamp("lookup_token_last_used_at"),
   stripeSessionId: text("stripe_session_id"),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
   discountCodeId: integer("discount_code_id"),
