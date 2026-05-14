@@ -100,6 +100,106 @@ describe("GET /api/orders/:id", () => {
   });
 });
 
+describe("POST /api/orders/lookup", () => {
+  beforeEach(async () => {
+    await resetDb();
+    __setAuth(null);
+  });
+
+  it("returns the order when the email matches (guest happy path)", async () => {
+    const product = await seedProduct({ slug: "p-lookup-1" });
+    const orderId = await seedOrder({ userId: null, productId: product.id });
+
+    const res = await request(app)
+      .post("/api/orders/lookup")
+      .send({ orderId, email: "buyer@example.com" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(orderId);
+    expect(res.body.email).toBe("buyer@example.com");
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0].productId).toBe(product.id);
+  });
+
+  it("matches email case-insensitively", async () => {
+    const product = await seedProduct({ slug: "p-lookup-case" });
+    const orderId = await seedOrder({ userId: null, productId: product.id });
+
+    const res = await request(app)
+      .post("/api/orders/lookup")
+      .send({ orderId, email: "BUYER@Example.com" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.id).toBe(orderId);
+  });
+
+  it("returns 404 when the email does not match (no existence leak)", async () => {
+    const product = await seedProduct({ slug: "p-lookup-2" });
+    const orderId = await seedOrder({ userId: null, productId: product.id });
+
+    const res = await request(app)
+      .post("/api/orders/lookup")
+      .send({ orderId, email: "someone-else@example.com" });
+
+    expect(res.status).toBe(404);
+    // Body must not surface fields that would confirm the order exists.
+    expect(res.body).not.toHaveProperty("id");
+    expect(res.body).not.toHaveProperty("items");
+    expect(res.body).not.toHaveProperty("email");
+  });
+
+  it("returns 404 when the order has no email on file", async () => {
+    const product = await seedProduct({ slug: "p-lookup-3" });
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        userId: null,
+        email: null,
+        status: "paid",
+        subtotalCents: 1_000,
+        totalCents: 1_000,
+        currency: "usd",
+      })
+      .returning();
+    await db.insert(orderItemsTable).values({
+      orderId: order.id,
+      productId: product.id,
+      productName: "Test Product",
+      quantity: 1,
+      priceCents: 1_000,
+    });
+
+    const res = await request(app)
+      .post("/api/orders/lookup")
+      .send({ orderId: order.id, email: "anyone@example.com" });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 404 for an order that does not exist (no existence leak)", async () => {
+    const res = await request(app)
+      .post("/api/orders/lookup")
+      .send({ orderId: 999_999, email: "nobody@example.com" });
+
+    expect(res.status).toBe(404);
+  });
+
+  it("returns 400 when the body is invalid", async () => {
+    const missingEmail = await request(app)
+      .post("/api/orders/lookup")
+      .send({ orderId: 1 });
+    expect(missingEmail.status).toBe(400);
+
+    const wrongTypes = await request(app)
+      .post("/api/orders/lookup")
+      .send({ orderId: "not-a-number", email: "buyer@example.com" });
+    expect(wrongTypes.status).toBe(400);
+
+    const empty = await request(app).post("/api/orders/lookup").send({});
+    expect(empty.status).toBe(400);
+  });
+});
+
 describe("GET /api/orders/me", () => {
   beforeEach(async () => {
     await resetDb();

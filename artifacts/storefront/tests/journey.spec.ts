@@ -290,6 +290,62 @@ async function installStorefrontMocks(
     });
   });
 
+  await page.route("**/api/orders/me", async (route: Route) => {
+    // Default: not signed in. Account page falls back to the guest lookup UI.
+    await route.fulfill({
+      status: 401,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Unauthenticated" }),
+    });
+  });
+
+  await page.route("**/api/orders/lookup", async (route: Route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    const body = JSON.parse(route.request().postData() ?? "{}");
+    const orderId = Number(body.orderId);
+    const email = String(body.email ?? "")
+      .trim()
+      .toLowerCase();
+    if (orderId === 7777 && email === "guest@example.com") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: 7777,
+          status: "paid",
+          email: "guest@example.com",
+          items: [
+            {
+              id: 1,
+              productId: PRODUCTS[0].id,
+              productName: PRODUCTS[0].name,
+              productImage: null,
+              quantity: 1,
+              priceCents: PRODUCTS[0].priceCents,
+            },
+          ],
+          subtotalCents: PRODUCTS[0].priceCents,
+          shippingCents: 0,
+          taxCents: 0,
+          discountCents: 0,
+          discountCode: null,
+          totalCents: PRODUCTS[0].priceCents,
+          currency: "usd",
+          shippingAddress: undefined,
+          trackingCode: null,
+          labelUrl: null,
+          createdAt: "2026-05-10T12:00:00.000Z",
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 404,
+      contentType: "application/json",
+      body: JSON.stringify({ error: "Order not found" }),
+    });
+  });
+
   await page.route("**/api/blog/posts", async (route: Route) => {
     if (route.request().method() !== "GET") return route.fallback();
     await route.fulfill({
@@ -398,6 +454,56 @@ test.describe("storefront customer journey", () => {
     await expect(submit).toBeVisible();
     await expect(submit).toBeEnabled();
     expect(api.checkoutCalls).toHaveLength(0);
+  });
+
+  test("guest can look up an order from /account and view it on /orders/:id", async ({
+    page,
+  }) => {
+    const api = new StorefrontApi();
+    await installStorefrontMocks(page, api);
+
+    // Visit /account first so we can dismiss overlays before interacting.
+    await page.goto("/account");
+    await dismissOverlays(page);
+    await page.reload();
+
+    // Account falls back to the guest lookup form when the user isn't signed in.
+    await expect(page.getByTestId("account-signin")).toBeVisible();
+    await expect(page.getByTestId("guest-order-lookup")).toBeVisible();
+
+    await page.getByTestId("lookup-order-id").fill("7777");
+    await page.getByTestId("lookup-order-email").fill("guest@example.com");
+    await page.getByTestId("lookup-order-submit").click();
+
+    // The form navigates to /orders/:id and forwards the email via query string;
+    // the order detail page auto-attempts the lookup and renders the summary.
+    await expect(page).toHaveURL(/\/orders\/7777\?email=/);
+    await expect(page.getByTestId("order-summary")).toBeVisible();
+    await expect(page.getByTestId("order-total")).toContainText("$45.00");
+    await expect(page.getByTestId("order-item-1")).toContainText(
+      "Calm Tincture",
+    );
+  });
+
+  test("/orders/:id shows the lookup form and an error when the email doesn't match", async ({
+    page,
+  }) => {
+    const api = new StorefrontApi();
+    await installStorefrontMocks(page, api);
+
+    // Visit with an email that the mocked lookup will reject. The page
+    // auto-attempts the lookup, fails, and renders the form + error.
+    await page.goto("/orders/7777?email=not-the-buyer@example.com");
+    await dismissOverlays(page);
+
+    await expect(page.getByTestId("order-lookup-form")).toBeVisible();
+    await expect(page.getByTestId("order-lookup-error")).toBeVisible();
+
+    // Resubmitting with the correct email reveals the order summary.
+    await page.getByTestId("order-lookup-email").fill("guest@example.com");
+    await page.getByTestId("order-lookup-submit").click();
+    await expect(page.getByTestId("order-summary")).toBeVisible();
+    await expect(page.getByTestId("order-total")).toContainText("$45.00");
   });
 
   test("blog list -> open a post -> back to list", async ({ page }) => {
