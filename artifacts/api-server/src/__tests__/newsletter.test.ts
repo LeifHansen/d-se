@@ -98,6 +98,54 @@ describe("POST /api/newsletter/subscribe", () => {
       .send({ email: "not-an-email" });
     expect(res.status).toBe(400);
   });
+
+  it("shadow-accepts a disposable-domain signup without creating a row", async () => {
+    const res = await request(app)
+      .post("/api/newsletter/subscribe")
+      .send({ email: "spammer@mailinator.com" });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, alreadySubscribed: true });
+    const rows = await db.select().from(newsletterSubscribersTable);
+    expect(rows).toHaveLength(0);
+    expect(emailMock.addToResendAudience).not.toHaveBeenCalled();
+    expect(emailMock.sendWelcomeEmail).not.toHaveBeenCalled();
+  });
+
+  it("shadow-accepts a blocked-TLD signup without creating a row", async () => {
+    const res = await request(app)
+      .post("/api/newsletter/subscribe")
+      .send({ email: "bot@evil.xyz" });
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, alreadySubscribed: true });
+    const rows = await db.select().from(newsletterSubscribersTable);
+    expect(rows).toHaveLength(0);
+  });
+
+  it("shadow-accepts after the per-IP burst threshold is exceeded", async () => {
+    process.env.NEWSLETTER_SPAM_RATE_MAX = "3";
+    try {
+      for (let i = 0; i < 3; i++) {
+        const ok = await request(app)
+          .post("/api/newsletter/subscribe")
+          .send({ email: `real${i}@example.com` });
+        expect(ok.status).toBe(200);
+        expect(ok.body.alreadySubscribed).toBe(false);
+      }
+      const burst = await request(app)
+        .post("/api/newsletter/subscribe")
+        .send({ email: "fourth@example.com" });
+      expect(burst.status).toBe(200);
+      expect(burst.body).toEqual({ ok: true, alreadySubscribed: true });
+      const rows = await db.select().from(newsletterSubscribersTable);
+      expect(rows.map((r) => r.email).sort()).toEqual([
+        "real0@example.com",
+        "real1@example.com",
+        "real2@example.com",
+      ]);
+    } finally {
+      delete process.env.NEWSLETTER_SPAM_RATE_MAX;
+    }
+  });
 });
 
 describe("POST /api/newsletter/unsubscribe", () => {

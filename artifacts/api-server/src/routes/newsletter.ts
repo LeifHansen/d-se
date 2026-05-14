@@ -8,6 +8,7 @@ import {
   eq,
   ilike,
   or,
+  sql,
   type SQL,
 } from "drizzle-orm";
 import { db, newsletterSubscribersTable } from "@workspace/db";
@@ -57,7 +58,136 @@ function serialize(row: typeof newsletterSubscribersTable.$inferSelect) {
   };
 }
 
+// --- Spam protection ---------------------------------------------------------
+//
+// Mirrors the contact form's defenses (per-IP rate limit + content heuristics)
+// because a wide-open newsletter endpoint pollutes the Resend audience and
+// hurts deliverability. Suspicious signups are silently shadow-accepted (200
+// OK with `alreadySubscribed: true`) so bots don't learn what tripped the
+// filter, and the reasons are logged for the owner.
+//
+// All thresholds are tunable via env vars. Blocked-TLD list is shared with the
+// contact form by default (CONTACT_SPAM_BLOCKED_TLDS) but can be overridden
+// per-form via NEWSLETTER_SPAM_BLOCKED_TLDS.
+
+const NEWSLETTER_RATE_WINDOW_MINUTES = 60;
+const NEWSLETTER_RATE_MAX_PER_WINDOW = 10;
+
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+async function rateLimitNewsletter(ip: string): Promise<number> {
+  const windowMin = envInt(
+    "NEWSLETTER_SPAM_RATE_WINDOW_MINUTES",
+    NEWSLETTER_RATE_WINDOW_MINUTES,
+  );
+  const result = await db.execute<{ hits: number }>(sql`
+    INSERT INTO newsletter_rate_limits (ip, hits, window_start, updated_at)
+    VALUES (${ip}, 1, NOW(), NOW())
+    ON CONFLICT (ip) DO UPDATE SET
+      hits = CASE
+        WHEN newsletter_rate_limits.window_start < NOW() - (${windowMin}::int * INTERVAL '1 minute')
+          THEN 1
+        ELSE newsletter_rate_limits.hits + 1
+      END,
+      window_start = CASE
+        WHEN newsletter_rate_limits.window_start < NOW() - (${windowMin}::int * INTERVAL '1 minute')
+          THEN NOW()
+        ELSE newsletter_rate_limits.window_start
+      END,
+      updated_at = NOW()
+    RETURNING hits
+  `);
+  return Number(result.rows[0]?.hits ?? 0);
+}
+
+const DEFAULT_BLOCKED_TLDS =
+  ".ru,.cn,.top,.xyz,.click,.loan,.work,.tk,.ml,.ga,.cf,.zip,.mov,.country,.gdn,.review";
+
+// Built-in disposable / throwaway-email providers. Operators can extend this
+// list via NEWSLETTER_SPAM_DISPOSABLE_DOMAINS (comma-separated). Entries are
+// merged with (not replacing) the defaults below.
+const DEFAULT_DISPOSABLE_DOMAINS = [
+  "mailinator.com",
+  "guerrillamail.com",
+  "guerrillamail.net",
+  "guerrillamail.org",
+  "sharklasers.com",
+  "10minutemail.com",
+  "10minutemail.net",
+  "tempmail.com",
+  "temp-mail.org",
+  "trashmail.com",
+  "yopmail.com",
+  "throwawaymail.com",
+  "getnada.com",
+  "maildrop.cc",
+  "dispostable.com",
+  "fakeinbox.com",
+  "mintemail.com",
+  "mohmal.com",
+  "spambog.com",
+  "mytemp.email",
+  "tempr.email",
+  "emailondeck.com",
+  "moakt.com",
+];
+
+function getBlockedTlds(): string[] {
+  const raw =
+    process.env.NEWSLETTER_SPAM_BLOCKED_TLDS ??
+    process.env.CONTACT_SPAM_BLOCKED_TLDS ??
+    DEFAULT_BLOCKED_TLDS;
+  return raw
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter((t) => t.startsWith("."));
+}
+
+function getDisposableDomains(): string[] {
+  const extra = (process.env.NEWSLETTER_SPAM_DISPOSABLE_DOMAINS ?? "")
+    .split(",")
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
+  return Array.from(new Set([...DEFAULT_DISPOSABLE_DOMAINS, ...extra]));
+}
+
+function detectEmailSpam(email: string): string[] {
+  const reasons: string[] = [];
+  const at = email.lastIndexOf("@");
+  if (at < 0) return reasons;
+  const domain = email.slice(at + 1).toLowerCase();
+
+  for (const tld of getBlockedTlds()) {
+    if (domain.endsWith(tld)) {
+      reasons.push(`blocked_tld:${tld}`);
+      break;
+    }
+  }
+
+  const disposable = getDisposableDomains();
+  if (disposable.includes(domain)) {
+    reasons.push(`disposable_domain:${domain}`);
+  } else {
+    // Also catch subdomains of a known disposable host (e.g. foo.mailinator.com).
+    for (const d of disposable) {
+      if (domain.endsWith(`.${d}`)) {
+        reasons.push(`disposable_domain:${d}`);
+        break;
+      }
+    }
+  }
+
+  return reasons;
+}
+
 router.post("/newsletter/subscribe", async (req, res): Promise<void> => {
+  const ip = (req.ip ?? req.socket.remoteAddress ?? "unknown").toString();
+
   const parsed = SubscribeNewsletterBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -65,6 +195,36 @@ router.post("/newsletter/subscribe", async (req, res): Promise<void> => {
   }
   const email = parsed.data.email.trim().toLowerCase();
   const source = parsed.data.source ?? null;
+
+  // Per-IP rate limit. Bursts above the threshold are shadow-accepted so the
+  // bot stops retrying but no real signup is recorded. If the limit check
+  // itself blows up, we log and fall through (don't punish real users for an
+  // infra hiccup).
+  const maxPerWindow = envInt(
+    "NEWSLETTER_SPAM_RATE_MAX",
+    NEWSLETTER_RATE_MAX_PER_WINDOW,
+  );
+  let hits = 0;
+  try {
+    hits = await rateLimitNewsletter(ip);
+  } catch (err) {
+    req.log.warn({ err }, "Newsletter rate-limit check failed (continuing)");
+  }
+
+  const reasons: string[] = [];
+  if (hits > maxPerWindow) reasons.push(`rate_limited:${hits}`);
+  reasons.push(...detectEmailSpam(email));
+
+  if (reasons.length > 0) {
+    req.log.warn(
+      { ip, email, source, reasons },
+      "Newsletter signup shadow-accepted (spam heuristics matched)",
+    );
+    res.json(
+      SubscribeNewsletterResponse.parse({ ok: true, alreadySubscribed: true }),
+    );
+    return;
+  }
 
   const [existing] = await db
     .select()
