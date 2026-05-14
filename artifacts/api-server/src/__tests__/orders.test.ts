@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { eq } from "drizzle-orm";
 import { db, resetDb } from "./testDb";
-import { cartItemsTable, cartsTable, ordersTable, orderItemsTable } from "@workspace/db";
+import { cartItemsTable, cartsTable, ordersTable, orderItemsTable, productsTable } from "@workspace/db";
 import { makeApp, seedCart, seedProduct } from "./helpers";
 
 vi.mock("../lib/stripe", () => ({
@@ -98,6 +98,195 @@ describe("GET /api/orders/:id", () => {
     expect(res.body.status).toBe("paid");
     expect(res.body.items).toHaveLength(1);
     expect(res.body.items[0].productId).toBe(product.id);
+  });
+});
+
+describe("POST /api/orders/:id/reorder", () => {
+  beforeEach(async () => {
+    await resetDb();
+    __setAuth(null);
+  });
+
+  it("returns 401 when unauthenticated", async () => {
+    const res = await request(app).post("/api/orders/1/reorder").send({});
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 404 for an order owned by another user", async () => {
+    const product = await seedProduct({ slug: "p-reorder-other" });
+    const orderId = await seedOrder({
+      userId: "user_owner",
+      productId: product.id,
+    });
+    __setAuth("user_intruder");
+
+    const res = await request(app)
+      .post(`/api/orders/${orderId}/reorder`)
+      .send({});
+    expect(res.status).toBe(404);
+  });
+
+  it("adds available items to a new cart and returns it", async () => {
+    const product = await seedProduct({
+      slug: "p-reorder-ok",
+      inventory: 10,
+    });
+    const orderId = await seedOrder({
+      userId: "user_re",
+      productId: product.id,
+    });
+    __setAuth("user_re");
+
+    const res = await request(app)
+      .post(`/api/orders/${orderId}/reorder`)
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.skipped).toEqual([]);
+    expect(res.body.cart.items).toHaveLength(1);
+    expect(res.body.cart.items[0].productId).toBe(product.id);
+    expect(res.body.cart.items[0].quantity).toBe(1);
+  });
+
+  it("merges into an existing cart by id", async () => {
+    const product = await seedProduct({
+      slug: "p-reorder-merge",
+      inventory: 10,
+    });
+    const orderId = await seedOrder({
+      userId: "user_merge",
+      productId: product.id,
+    });
+    await seedCart({
+      cartId: "cart_existing",
+      productId: product.id,
+      quantity: 2,
+    });
+    __setAuth("user_merge");
+
+    const res = await request(app)
+      .post(`/api/orders/${orderId}/reorder`)
+      .send({ cartId: "cart_existing" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.cart.id).toBe("cart_existing");
+    expect(res.body.cart.items).toHaveLength(1);
+    expect(res.body.cart.items[0].quantity).toBe(3);
+  });
+
+  it("skips items when current inventory can't cover the original quantity", async () => {
+    const product = await seedProduct({
+      slug: "p-reorder-partial",
+      inventory: 1,
+    });
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        userId: "user_partial",
+        email: "buyer@example.com",
+        status: "paid",
+        subtotalCents: 0,
+        totalCents: 0,
+        currency: "usd",
+      })
+      .returning();
+    await db.insert(orderItemsTable).values({
+      orderId: order.id,
+      productId: product.id,
+      productName: "Partial Stock",
+      quantity: 3,
+      priceCents: 1000,
+    });
+    __setAuth("user_partial");
+
+    const res = await request(app)
+      .post(`/api/orders/${order.id}/reorder`)
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.cart.items).toHaveLength(0);
+    expect(res.body.skipped).toHaveLength(1);
+    expect(res.body.skipped[0]).toMatchObject({
+      productId: product.id,
+      quantity: 3,
+      reason: "out_of_stock",
+    });
+  });
+
+  it("skips out-of-stock and unpublished items", async () => {
+    const inStock = await seedProduct({
+      slug: "p-reorder-instock",
+      inventory: 5,
+    });
+    const outOfStock = await seedProduct({
+      slug: "p-reorder-oos",
+      inventory: 0,
+    });
+    const unpublished = await seedProduct({ slug: "p-reorder-unpub" });
+    await db
+      .update(productsTable)
+      .set({ published: false })
+      .where(eq(productsTable.id, unpublished.id));
+
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        userId: "user_skip",
+        email: "buyer@example.com",
+        status: "paid",
+        subtotalCents: 0,
+        totalCents: 0,
+        currency: "usd",
+      })
+      .returning();
+    await db.insert(orderItemsTable).values([
+      {
+        orderId: order.id,
+        productId: inStock.id,
+        productName: "In Stock",
+        quantity: 2,
+        priceCents: 1000,
+      },
+      {
+        orderId: order.id,
+        productId: outOfStock.id,
+        productName: "Out Of Stock",
+        quantity: 1,
+        priceCents: 1000,
+      },
+      {
+        orderId: order.id,
+        productId: unpublished.id,
+        productName: "Unpublished",
+        quantity: 1,
+        priceCents: 1000,
+      },
+    ]);
+    __setAuth("user_skip");
+
+    const res = await request(app)
+      .post(`/api/orders/${order.id}/reorder`)
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.cart.items).toHaveLength(1);
+    expect(res.body.cart.items[0].productId).toBe(inStock.id);
+    expect(res.body.cart.items[0].quantity).toBe(2);
+    expect(res.body.skipped).toHaveLength(2);
+    const reasons = res.body.skipped.map(
+      (s: { productName: string; reason: string }) => ({
+        productName: s.productName,
+        reason: s.reason,
+      }),
+    );
+    expect(reasons).toContainEqual({
+      productName: "Out Of Stock",
+      reason: "out_of_stock",
+    });
+    expect(reasons).toContainEqual({
+      productName: "Unpublished",
+      reason: "unavailable",
+    });
   });
 });
 

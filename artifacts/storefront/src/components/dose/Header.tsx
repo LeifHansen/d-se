@@ -13,7 +13,7 @@ import { useGetCart } from "@workspace/api-client-react";
 import { Logo, Emblem } from "./Logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useStoredCartId } from "@/lib/cart";
+import { useStoredCartId, onOpenCartDrawer } from "@/lib/cart";
 import { CartDrawer } from "./CartDrawer";
 
 const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
@@ -46,6 +46,8 @@ export function Header() {
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => onOpenCartDrawer(() => setCartOpen(true)), []);
 
   return (
     <header

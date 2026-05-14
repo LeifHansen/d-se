@@ -723,6 +723,66 @@ export const LookupOrderByTokenResponse = zod.object({
 });
 
 /**
+ * @summary Add every still-available item from a past order to the current cart
+ */
+export const ReorderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ReorderBody = zod.object({
+  cartId: zod.string().nullish(),
+});
+
+export const ReorderResponse = zod.object({
+  cart: zod.object({
+    id: zod.string(),
+    items: zod.array(
+      zod.object({
+        id: zod.number(),
+        productId: zod.number(),
+        quantity: zod.number(),
+        product: zod.object({
+          id: zod.number(),
+          slug: zod.string(),
+          name: zod.string(),
+          description: zod.string(),
+          shortDescription: zod.string().nullish(),
+          priceCents: zod.number(),
+          compareAtCents: zod.number().nullish(),
+          currency: zod.string(),
+          images: zod.array(zod.string()),
+          inventory: zod.number(),
+          lowStockThreshold: zod.number(),
+          weightOz: zod.number().nullish(),
+          tags: zod.array(zod.string()).optional(),
+          seoTitle: zod.string().nullish(),
+          seoDescription: zod.string().nullish(),
+          featured: zod.boolean(),
+          published: zod.boolean(),
+          averageRating: zod.number().nullish(),
+          reviewCount: zod.number().optional(),
+          createdAt: zod.coerce.date(),
+        }),
+        lineTotalCents: zod.number(),
+      }),
+    ),
+    subtotalCents: zod.number(),
+    currency: zod.string(),
+    discountCode: zod.string().nullish(),
+    discountCents: zod.number().optional(),
+    totalCents: zod.number().optional(),
+  }),
+  skipped: zod.array(
+    zod.object({
+      productId: zod.number().nullish(),
+      productName: zod.string(),
+      quantity: zod.number().optional(),
+      reason: zod.enum(["unavailable", "out_of_stock"]),
+    }),
+  ),
+});
+
+/**
  * @summary List published blog posts
  */
 export const listBlogPostsQueryLimitDefault = 20;

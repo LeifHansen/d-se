@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { randomBytes, timingSafeEqual } from "crypto";
 import type Stripe from "stripe";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import {
   db,
   ordersTable,
@@ -21,7 +21,7 @@ import {
   LookupOrderBody,
   LookupOrderByTokenBody,
 } from "@workspace/api-zod";
-import { loadCart } from "./cart";
+import { loadCart, ensureCart } from "./cart";
 import { computeShippingRates } from "./shipping";
 import { getStripe, isStripeConfigured } from "../lib/stripe";
 import { getUserId, requireAuth } from "../lib/auth";
@@ -437,6 +437,94 @@ router.post("/orders/by-token", async (req, res): Promise<void> => {
   }
   const order = await buildOrderResponse(row.id);
   res.json(GetOrderResponse.parse(order));
+});
+
+router.post("/orders/:id/reorder", async (req, res): Promise<void> => {
+  const idNum = Number(req.params.id);
+  if (!Number.isFinite(idNum) || idNum <= 0) {
+    res.status(400).json({ error: "Invalid order id" });
+    return;
+  }
+  const userId = getUserId(req);
+  if (!userId) {
+    res.status(401).json({ error: "Sign in to reorder" });
+    return;
+  }
+  const [order] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, idNum));
+  if (!order || order.userId !== userId) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  const items = await db
+    .select()
+    .from(orderItemsTable)
+    .where(eq(orderItemsTable.orderId, idNum));
+
+  const requestedCartId =
+    typeof req.body?.cartId === "string" && req.body.cartId.length > 0
+      ? req.body.cartId
+      : null;
+  const cartId = await ensureCart(requestedCartId);
+
+  const skipped: Array<{
+    productId: number | null;
+    productName: string;
+    quantity: number;
+    reason: "unavailable" | "out_of_stock";
+  }> = [];
+
+  for (const item of items) {
+    const [product] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, item.productId));
+    if (!product || !product.published) {
+      skipped.push({
+        productId: product?.id ?? item.productId,
+        productName: item.productName,
+        quantity: item.quantity,
+        reason: "unavailable",
+      });
+      continue;
+    }
+    if (product.inventory < item.quantity) {
+      skipped.push({
+        productId: product.id,
+        productName: item.productName,
+        quantity: item.quantity,
+        reason: "out_of_stock",
+      });
+      continue;
+    }
+    const addQty = item.quantity;
+    const [existing] = await db
+      .select()
+      .from(cartItemsTable)
+      .where(
+        and(
+          eq(cartItemsTable.cartId, cartId),
+          eq(cartItemsTable.productId, product.id),
+        ),
+      );
+    if (existing) {
+      await db
+        .update(cartItemsTable)
+        .set({ quantity: existing.quantity + addQty })
+        .where(eq(cartItemsTable.id, existing.id));
+    } else {
+      await db.insert(cartItemsTable).values({
+        cartId,
+        productId: product.id,
+        quantity: addQty,
+      });
+    }
+  }
+
+  const cart = await loadCart(cartId);
+  res.json({ cart, skipped });
 });
 
 router.get("/orders/:id", async (req, res): Promise<void> => {

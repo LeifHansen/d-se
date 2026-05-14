@@ -61,6 +61,8 @@ import type {
   ProductInput,
   RemoveCartDiscountParams,
   RemoveCartItemParams,
+  ReorderBody,
+  ReorderResponse,
   ResumeCartParams,
   Review,
   ReviewList,
@@ -1544,6 +1546,95 @@ export const useLookupOrderByToken = <
   TContext
 > => {
   return useMutation(getLookupOrderByTokenMutationOptions(options));
+};
+
+/**
+ * @summary Add every still-available item from a past order to the current cart
+ */
+export const getReorderUrl = (id: number) => {
+  return `/api/orders/${id}/reorder`;
+};
+
+export const reorder = async (
+  id: number,
+  reorderBody?: ReorderBody,
+  options?: RequestInit,
+): Promise<ReorderResponse> => {
+  return customFetch<ReorderResponse>(getReorderUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(reorderBody),
+  });
+};
+
+export const getReorderMutationOptions = <
+  TError = ErrorType<ForbiddenResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorder>>,
+    TError,
+    { id: number; data: BodyType<ReorderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof reorder>>,
+  TError,
+  { id: number; data: BodyType<ReorderBody> },
+  TContext
+> => {
+  const mutationKey = ["reorder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof reorder>>,
+    { id: number; data: BodyType<ReorderBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return reorder(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ReorderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof reorder>>
+>;
+export type ReorderMutationBody = BodyType<ReorderBody>;
+export type ReorderMutationError = ErrorType<
+  ForbiddenResponse | NotFoundResponse
+>;
+
+/**
+ * @summary Add every still-available item from a past order to the current cart
+ */
+export const useReorder = <
+  TError = ErrorType<ForbiddenResponse | NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof reorder>>,
+    TError,
+    { id: number; data: BodyType<ReorderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof reorder>>,
+  TError,
+  { id: number; data: BodyType<ReorderBody> },
+  TContext
+> => {
+  return useMutation(getReorderMutationOptions(options));
 };
 
 /**

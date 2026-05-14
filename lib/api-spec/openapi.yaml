@@ -371,6 +371,32 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Order" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /orders/{id}/reorder:
+    post:
+      operationId: reorder
+      tags: [orders, cart]
+      summary: Add every still-available item from a past order to the current cart
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                cartId: { type: ["string", "null"] }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReorderResponse" }
+        "401": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /blog/posts:
     get:
@@ -1199,6 +1225,24 @@ components:
         productImage: { type: ["string", "null"] }
         quantity: { type: integer }
         priceCents: { type: integer }
+
+    ReorderResponse:
+      type: object
+      required: [cart, skipped]
+      properties:
+        cart: { $ref: "#/components/schemas/Cart" }
+        skipped:
+          type: array
+          items:
+            type: object
+            required: [productName, reason]
+            properties:
+              productId: { type: ["integer", "null"] }
+              productName: { type: string }
+              quantity: { type: integer }
+              reason:
+                type: string
+                enum: [unavailable, out_of_stock]
 
     BlogPost:
       type: object

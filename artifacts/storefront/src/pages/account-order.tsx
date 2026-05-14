@@ -1,9 +1,20 @@
 import { Link, useParams } from "wouter";
-import { useGetOrder } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useGetOrder,
+  useReorder,
+  getGetCartQueryKey,
+} from "@workspace/api-client-react";
 import { SiteShell } from "@/components/dose/SiteShell";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
-import { formatMoney } from "@/lib/cart";
+import {
+  formatMoney,
+  getStoredCartId,
+  setStoredCartId,
+  requestOpenCartDrawer,
+} from "@/lib/cart";
+import { useToast } from "@/hooks/use-toast";
 
 function formatDate(s: string | Date): string {
   try {
@@ -29,6 +40,57 @@ export default function AccountOrderPage() {
       query: { enabled: validId, retry: false } as never,
     },
   );
+
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const reorderMutation = useReorder();
+
+  const handleReorder = () => {
+    if (!validId) return;
+    reorderMutation.mutate(
+      { id: orderId, data: { cartId: getStoredCartId() } },
+      {
+        onSuccess: ({ cart, skipped }) => {
+          if (cart?.id) setStoredCartId(cart.id);
+          queryClient.invalidateQueries({
+            queryKey: getGetCartQueryKey({ cartId: cart?.id }),
+          });
+          queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
+          const added = (order?.items.length ?? 0) - skipped.length;
+          if (added <= 0) {
+            toast({
+              title: "Nothing could be reordered",
+              description:
+                skipped.length > 0
+                  ? `${skipped.map((s) => s.productName).join(", ")} ${skipped.length === 1 ? "is" : "are"} no longer available.`
+                  : "This order has no items to reorder.",
+              variant: "destructive",
+            });
+            return;
+          }
+          if (skipped.length > 0) {
+            toast({
+              title: "Some items were skipped",
+              description: `${skipped.map((s) => `${s.productName} (${s.reason === "out_of_stock" ? "out of stock" : "unavailable"})`).join("; ")}.`,
+            });
+          } else {
+            toast({
+              title: "Added to cart",
+              description: "Your past order is back in your cart.",
+            });
+          }
+          requestOpenCartDrawer();
+        },
+        onError: () => {
+          toast({
+            title: "Couldn't reorder",
+            description: "Please try again in a moment.",
+            variant: "destructive",
+          });
+        },
+      },
+    );
+  };
 
   const unauthenticated =
     isError &&
@@ -139,6 +201,29 @@ export default function AccountOrderPage() {
                 <p className="font-display text-2xl" data-testid="order-total">
                   {formatMoney(order.totalCents, order.currency)}
                 </p>
+              </div>
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  onClick={handleReorder}
+                  disabled={
+                    reorderMutation.isPending || order.items.length === 0
+                  }
+                  className="rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
+                  style={{
+                    background: "hsl(170 58% 14%)",
+                    color: "hsl(45 49% 90%)",
+                  }}
+                  data-testid="button-reorder"
+                >
+                  {reorderMutation.isPending ? "Adding to cart…" : "Reorder"}
+                </Button>
+                <span
+                  className="text-xs"
+                  style={{ color: "hsl(170 18% 32%)" }}
+                >
+                  Adds the same items to your current cart.
+                </span>
               </div>
             </div>
 

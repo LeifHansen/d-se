@@ -324,5 +324,5 @@ router.get("/cart/resume", async (req, res): Promise<void> => {
 });
 
 export default router;
-export { loadCart };
+export { loadCart, ensureCart };
 export type LoadedCart = Awaited<ReturnType<typeof loadCart>>;

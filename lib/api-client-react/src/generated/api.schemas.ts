@@ -160,6 +160,27 @@ export interface Order {
   createdAt: string;
 }
 
+export type ReorderResponseSkippedItemReason =
+  (typeof ReorderResponseSkippedItemReason)[keyof typeof ReorderResponseSkippedItemReason];
+
+export const ReorderResponseSkippedItemReason = {
+  unavailable: "unavailable",
+  out_of_stock: "out_of_stock",
+} as const;
+
+export type ReorderResponseSkippedItem = {
+  /** @nullable */
+  productId?: number | null;
+  productName: string;
+  quantity?: number;
+  reason: ReorderResponseSkippedItemReason;
+};
+
+export interface ReorderResponse {
+  cart: Cart;
+  skipped: ReorderResponseSkippedItem[];
+}
+
 export interface BlogPost {
   id: number;
   slug: string;
@@ -557,6 +578,11 @@ export type LookupOrderBody = {
 
 export type LookupOrderByTokenBody = {
   token: string;
+};
+
+export type ReorderBody = {
+  /** @nullable */
+  cartId?: string | null;
 };
 
 export type ListBlogPostsParams = {

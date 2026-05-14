@@ -2,6 +2,18 @@ import { useEffect, useState } from "react";
 
 const CART_KEY = "dose-cart-id";
 const CART_EVENT = "dose:cart-id-changed";
+const CART_OPEN_EVENT = "dose:cart-open";
+
+export function requestOpenCartDrawer(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(CART_OPEN_EVENT));
+}
+
+export function onOpenCartDrawer(handler: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener(CART_OPEN_EVENT, handler);
+  return () => window.removeEventListener(CART_OPEN_EVENT, handler);
+}
 
 export function getStoredCartId(): string | null {
   if (typeof window === "undefined") return null;
