@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
+import { eq } from "drizzle-orm";
 import { db, resetDb } from "./testDb";
-import { ordersTable, orderItemsTable } from "@workspace/db";
-import { makeApp, seedProduct } from "./helpers";
+import { cartItemsTable, cartsTable, ordersTable, orderItemsTable } from "@workspace/db";
+import { makeApp, seedCart, seedProduct } from "./helpers";
 
 vi.mock("../lib/stripe", () => ({
   getStripe: async () => ({}),
@@ -197,6 +198,70 @@ describe("POST /api/orders/lookup", () => {
 
     const empty = await request(app).post("/api/orders/lookup").send({});
     expect(empty.status).toBe(400);
+  });
+});
+
+describe("POST /api/checkout — dev fallback when Stripe is not configured", () => {
+  beforeEach(async () => {
+    await resetDb();
+    __setAuth(null);
+  });
+
+  it("skips Stripe, marks the order paid, clears the cart, and returns the success url", async () => {
+    const product = await seedProduct({
+      slug: "p-fallback",
+      priceCents: 3_000,
+    });
+    const cartId = "cart-fallback";
+    await seedCart({ cartId, productId: product.id, quantity: 2 });
+
+    const res = await request(app).post("/api/checkout").send({ cartId });
+
+    expect(res.status).toBe(200);
+    expect(typeof res.body.orderId).toBe("number");
+    expect(res.body.url).toBe(
+      `/checkout/success?orderId=${res.body.orderId}`,
+    );
+
+    // The order is created and immediately marked paid in the dev fallback.
+    const [order] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, res.body.orderId));
+    expect(order.status).toBe("paid");
+    expect(order.subtotalCents).toBe(6_000);
+    expect(order.totalCents).toBe(6_000);
+    expect(order.shippingCents).toBe(0);
+
+    // The server-side cart is emptied so a refresh doesn't show stale items.
+    const remainingItems = await db
+      .select()
+      .from(cartItemsTable)
+      .where(eq(cartItemsTable.cartId, cartId));
+    expect(remainingItems).toHaveLength(0);
+    const [cart] = await db
+      .select()
+      .from(cartsTable)
+      .where(eq(cartsTable.id, cartId));
+    expect(cart.checkedOutAt).not.toBeNull();
+  });
+
+  it("rejects a shippingRateId without an address with a 400", async () => {
+    const product = await seedProduct({
+      slug: "p-fallback-rate",
+      priceCents: 2_000,
+    });
+    const cartId = "cart-fallback-rate";
+    await seedCart({ cartId, productId: product.id, quantity: 1 });
+
+    const res = await request(app)
+      .post("/api/checkout")
+      .send({ cartId, shippingRateId: "usps_priority" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/address/i);
+    const orders = await db.select().from(ordersTable);
+    expect(orders).toHaveLength(0);
   });
 });
 

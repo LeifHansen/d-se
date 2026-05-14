@@ -117,3 +117,103 @@ describe("POST /api/checkout — Stripe promotion code attachment", () => {
     expect(savedDiscount.stripePromotionCodeId).toBe("promo_test_1");
   });
 });
+
+describe("POST /api/checkout — no-address handoff", () => {
+  beforeEach(async () => {
+    await resetDb();
+    stripeMock.sessionsCreate.mockClear();
+    stripeMock.couponsCreate.mockClear();
+    stripeMock.promotionCodesCreate.mockClear();
+  });
+
+  it("returns a Stripe session URL when the cart hands off without an address", async () => {
+    const product = await seedProduct({ priceCents: 4_200 });
+    const cartId = "cart-no-address";
+    await seedCart({ cartId, productId: product.id, quantity: 1 });
+
+    const res = await request(app).post("/api/checkout").send({ cartId });
+
+    expect(res.status).toBe(200);
+    expect(res.body.url).toBe("https://stripe.test/checkout/cs_test_123");
+    expect(typeof res.body.orderId).toBe("number");
+    expect(stripeMock.sessionsCreate).toHaveBeenCalledTimes(1);
+
+    const params = stripeMock.sessionsCreate.mock.calls[0][0] as {
+      shipping_address_collection?: { allowed_countries: string[] };
+      success_url: string;
+      cancel_url: string;
+      line_items: unknown[];
+    };
+    // Without a client-supplied address, Stripe Checkout must collect one.
+    expect(params.shipping_address_collection?.allowed_countries).toEqual(
+      expect.arrayContaining(["US"]),
+    );
+    expect(params.success_url).toContain(`orderId=${res.body.orderId}`);
+    expect(params.line_items).toHaveLength(1);
+
+    // Order is persisted with shippingCents=0 (Stripe collects address).
+    const [order] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, res.body.orderId));
+    expect(order.shippingCents).toBe(0);
+    expect(order.shippingAddress).toBeNull();
+    expect(order.stripeSessionId).toBe("cs_test_123");
+  });
+
+  it("preserves a discount persisted on the cart even when the request omits one", async () => {
+    const product = await seedProduct({ priceCents: 5_000 });
+    const discount = await seedDiscount({
+      code: "STAY10",
+      type: "percent",
+      value: 10,
+    });
+    const cartId = "cart-no-address-discount";
+    await seedCart({
+      cartId,
+      productId: product.id,
+      quantity: 2,
+      discountCode: "STAY10",
+      discountCodeId: discount.id,
+    });
+
+    // Body intentionally omits discountCode — should fall back to the cart's.
+    const res = await request(app).post("/api/checkout").send({ cartId });
+
+    expect(res.status).toBe(200);
+    expect(res.body.url).toContain("stripe.test");
+
+    const [order] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, res.body.orderId));
+    expect(order.discountCode).toBe("STAY10");
+    expect(order.discountCents).toBe(1_000);
+    expect(order.totalCents).toBe(9_000);
+
+    const params = stripeMock.sessionsCreate.mock.calls[0][0] as {
+      discounts?: Array<{ promotion_code: string }>;
+      metadata?: Record<string, string>;
+    };
+    expect(params.discounts).toEqual([{ promotion_code: "promo_test_1" }]);
+    expect(params.metadata?.discountCode).toBe("STAY10");
+  });
+
+  it("rejects a shippingRateId when no address is supplied", async () => {
+    const product = await seedProduct({ priceCents: 1_500 });
+    const cartId = "cart-rate-no-address";
+    await seedCart({ cartId, productId: product.id, quantity: 1 });
+
+    const res = await request(app)
+      .post("/api/checkout")
+      .send({ cartId, shippingRateId: "usps_priority" });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toMatch(/address/i);
+    // Must not have created a Stripe session for an invalid request.
+    expect(stripeMock.sessionsCreate).not.toHaveBeenCalled();
+    // Must not have persisted an order either.
+    const orders = await db.select().from(ordersTable);
+    expect(orders).toHaveLength(0);
+  });
+});
