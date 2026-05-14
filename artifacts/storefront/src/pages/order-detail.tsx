@@ -6,6 +6,7 @@ import {
 } from "@workspace/api-client-react";
 import type { Order } from "@workspace/api-client-react";
 import { SiteShell } from "@/components/dose/SiteShell";
+import { OrderTracking } from "@/components/dose/OrderTracking";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -244,25 +245,26 @@ export default function OrderDetailPage() {
                 </p>
               </div>
             ) : null}
-            {order.trackingCode ? (
-              <div className="mt-6 text-sm" data-testid="order-tracking">
-                <p>
-                  {order.carrier ? `${order.carrier}: ` : "Tracking: "}
-                  <code className="break-all">{order.trackingCode}</code>
+            <div className="mt-6">
+              <h2 className="font-display text-xl">Tracking</h2>
+              <p
+                className="mt-1 text-xs uppercase tracking-[0.18em]"
+                style={{ color: "hsl(170 18% 32%)" }}
+                data-testid="order-shipment-status"
+              >
+                Status: {order.status}
+              </p>
+              <OrderTracking order={order} variant="inline" />
+              {!order.trackingCode ? (
+                <p
+                  className="mt-3 text-sm"
+                  style={{ color: "hsl(170 18% 32%)" }}
+                  data-testid="order-tracking-pending"
+                >
+                  Tracking will appear here once your order ships.
                 </p>
-                {order.trackingUrl ? (
-                  <a
-                    href={order.trackingUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-block underline"
-                    data-testid="order-tracking-link"
-                  >
-                    Track your package →
-                  </a>
-                ) : null}
-              </div>
-            ) : null}
+              ) : null}
+            </div>
             <Button
               asChild
               className="mt-8 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
