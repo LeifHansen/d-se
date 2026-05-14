@@ -4,6 +4,8 @@ import {
   useListAdminOrders,
   useGetAdminOrderShippingRates,
   useFulfillOrder,
+  getAdminOrderShippingRates,
+  fulfillOrder,
   getListAdminOrdersQueryKey,
   type ListAdminOrdersParams,
   type Order,
@@ -28,6 +30,15 @@ export default function AdminOrders() {
   const [to, setTo] = useState("");
   const [appliedSearch, setAppliedSearch] = useState("");
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<{
+    done: number;
+    total: number;
+  } | null>(null);
+  const [bulkErrors, setBulkErrors] = useState<
+    { orderId: number; message: string }[]
+  >([]);
 
   const params = useMemo<ListAdminOrdersParams>(() => {
     const p: ListAdminOrdersParams = {};
@@ -45,6 +56,99 @@ export default function AdminOrders() {
     () => (data ?? []).find((o) => o.id === selectedId) ?? null,
     [data, selectedId],
   );
+
+  const queryClient = useQueryClient();
+
+  const eligibleOrders = useMemo(
+    () =>
+      (data ?? []).filter(
+        (o) =>
+          o.status === "paid" &&
+          o.shippingAddress &&
+          !o.trackingCode &&
+          !o.labelUrl,
+      ),
+    [data],
+  );
+  const eligibleIds = useMemo(
+    () => new Set(eligibleOrders.map((o) => o.id)),
+    [eligibleOrders],
+  );
+  const checkedEligibleCount = useMemo(
+    () => Array.from(checkedIds).filter((id) => eligibleIds.has(id)).length,
+    [checkedIds, eligibleIds],
+  );
+  const allEligibleChecked =
+    eligibleOrders.length > 0 &&
+    checkedEligibleCount === eligibleOrders.length;
+
+  function toggleChecked(id: number) {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllEligible() {
+    if (allEligibleChecked) {
+      setCheckedIds(new Set());
+    } else {
+      setCheckedIds(new Set(eligibleOrders.map((o) => o.id)));
+    }
+  }
+
+  async function handleBulkBuyLabels() {
+    const targets = (data ?? []).filter(
+      (o) => checkedIds.has(o.id) && eligibleIds.has(o.id),
+    );
+    if (targets.length === 0) return;
+    setBulkRunning(true);
+    setBulkErrors([]);
+    setBulkProgress({ done: 0, total: targets.length });
+    const labels: { orderId: number; labelUrl: string }[] = [];
+    const errors: { orderId: number; message: string }[] = [];
+    for (let i = 0; i < targets.length; i++) {
+      const order = targets[i];
+      try {
+        const ratesResp = await getAdminOrderShippingRates(order.id);
+        if (!ratesResp.rates || ratesResp.rates.length === 0) {
+          throw new Error("No shipping rates available");
+        }
+        const cheapest = [...ratesResp.rates].sort(
+          (a, b) => a.amountCents - b.amountCents,
+        )[0];
+        const updated = await fulfillOrder(order.id, {
+          shippingRateId: cheapest.id,
+          ...(ratesResp.shipmentId ? { shipmentId: ratesResp.shipmentId } : {}),
+        });
+        if (updated.labelUrl) {
+          labels.push({ orderId: order.id, labelUrl: updated.labelUrl });
+        } else {
+          errors.push({
+            orderId: order.id,
+            message: "Label purchased but no label URL returned",
+          });
+        }
+      } catch (err) {
+        errors.push({
+          orderId: order.id,
+          message: err instanceof Error ? err.message : "Failed",
+        });
+      }
+      setBulkProgress({ done: i + 1, total: targets.length });
+    }
+    setBulkErrors(errors);
+    setBulkRunning(false);
+    setCheckedIds(new Set());
+    await queryClient.invalidateQueries({
+      queryKey: getListAdminOrdersQueryKey(params),
+    });
+    if (labels.length > 0) {
+      openLabelPrintSheet(labels);
+    }
+  }
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -159,6 +263,47 @@ export default function AdminOrders() {
           </div>
         </form>
 
+        <div
+          className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm"
+          data-testid="bulk-actions-bar"
+        >
+          <span className="text-muted-foreground">
+            {checkedEligibleCount === 0
+              ? "Select paid orders with a shipping address to buy labels in bulk."
+              : `${checkedEligibleCount} order${checkedEligibleCount === 1 ? "" : "s"} selected`}
+          </span>
+          <button
+            type="button"
+            onClick={handleBulkBuyLabels}
+            disabled={checkedEligibleCount === 0 || bulkRunning}
+            className="ml-auto h-9 rounded-md bg-foreground px-3 text-sm font-medium text-background disabled:opacity-50"
+            data-testid="button-bulk-buy-labels"
+          >
+            {bulkRunning && bulkProgress
+              ? `Buying labels… ${bulkProgress.done}/${bulkProgress.total}`
+              : "Buy cheapest label for selected"}
+          </button>
+        </div>
+
+        {bulkErrors.length > 0 ? (
+          <div
+            className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive"
+            data-testid="text-bulk-errors"
+          >
+            <p className="mb-1 font-medium">
+              {bulkErrors.length} order{bulkErrors.length === 1 ? "" : "s"}{" "}
+              couldn't be fulfilled:
+            </p>
+            <ul className="list-disc pl-5">
+              {bulkErrors.map((e) => (
+                <li key={e.orderId}>
+                  #{e.orderId}: {e.message}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading orders…</p>
         ) : error ? (
@@ -173,6 +318,16 @@ export default function AdminOrders() {
             <table className="w-full text-sm">
               <thead className="text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <tr>
+                  <th className="px-4 py-2 w-8">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all eligible paid orders"
+                      checked={allEligibleChecked}
+                      disabled={eligibleOrders.length === 0 || bulkRunning}
+                      onChange={toggleAllEligible}
+                      data-testid="checkbox-select-all-paid"
+                    />
+                  </th>
                   <th className="px-4 py-2">Order</th>
                   <th className="px-4 py-2">Email</th>
                   <th className="px-4 py-2">Status</th>
@@ -182,31 +337,47 @@ export default function AdminOrders() {
                 </tr>
               </thead>
               <tbody>
-                {(data ?? []).map((o) => (
-                  <tr
-                    key={o.id}
-                    className="cursor-pointer border-t border-border/60 hover:bg-foreground/5"
-                    data-testid={`row-order-${o.id}`}
-                    onClick={() => setSelectedId(o.id)}
-                  >
-                    <td className="px-4 py-2 font-mono">#{o.id}</td>
-                    <td className="px-4 py-2">{o.email ?? "—"}</td>
-                    <td className="px-4 py-2 capitalize">{o.status}</td>
-                    <td className="px-4 py-2 text-right">
-                      {o.items.reduce((s, i) => s + i.quantity, 0)}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      {formatCurrency(o.totalCents, o.currency)}
-                    </td>
-                    <td className="px-4 py-2 text-right text-muted-foreground">
-                      {formatDateTime(o.createdAt)}
-                    </td>
-                  </tr>
-                ))}
+                {(data ?? []).map((o) => {
+                  const isEligible = eligibleIds.has(o.id);
+                  return (
+                    <tr
+                      key={o.id}
+                      className="cursor-pointer border-t border-border/60 hover:bg-foreground/5"
+                      data-testid={`row-order-${o.id}`}
+                      onClick={() => setSelectedId(o.id)}
+                    >
+                      <td
+                        className="px-4 py-2"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          aria-label={`Select order ${o.id}`}
+                          checked={checkedIds.has(o.id)}
+                          disabled={!isEligible || bulkRunning}
+                          onChange={() => toggleChecked(o.id)}
+                          data-testid={`checkbox-order-${o.id}`}
+                        />
+                      </td>
+                      <td className="px-4 py-2 font-mono">#{o.id}</td>
+                      <td className="px-4 py-2">{o.email ?? "—"}</td>
+                      <td className="px-4 py-2 capitalize">{o.status}</td>
+                      <td className="px-4 py-2 text-right">
+                        {o.items.reduce((s, i) => s + i.quantity, 0)}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {formatCurrency(o.totalCents, o.currency)}
+                      </td>
+                      <td className="px-4 py-2 text-right text-muted-foreground">
+                        {formatDateTime(o.createdAt)}
+                      </td>
+                    </tr>
+                  );
+                })}
                 {(data ?? []).length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-4 py-10 text-center text-sm text-muted-foreground"
                       data-testid="text-orders-empty"
                     >
@@ -547,4 +718,105 @@ function OrderDetailDrawer({
       </div>
     </div>
   );
+}
+
+function openLabelPrintSheet(
+  labels: { orderId: number; labelUrl: string }[],
+) {
+  const win = window.open("", "_blank", "noopener,noreferrer,width=900,height=1100");
+  if (!win) return;
+  const escape = (s: string) =>
+    s.replace(/[&<>"']/g, (c) =>
+      c === "&"
+        ? "&amp;"
+        : c === "<"
+          ? "&lt;"
+          : c === ">"
+            ? "&gt;"
+            : c === '"'
+              ? "&quot;"
+              : "&#39;",
+    );
+  const isPdf = (url: string) => /\.pdf(\?|$)/i.test(url);
+  const pages = labels
+    .map((l) => {
+      const url = escape(l.labelUrl);
+      const inner = isPdf(l.labelUrl)
+        ? `<iframe src="${url}" title="Label for order ${l.orderId}"></iframe>`
+        : `<img src="${url}" alt="Label for order ${l.orderId}" />`;
+      return `<section class="label-page">
+        <header>Order #${l.orderId}</header>
+        ${inner}
+      </section>`;
+    })
+    .join("\n");
+  const pendingImgs = labels.filter((l) => !isPdf(l.labelUrl)).length;
+  const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Shipping labels (${labels.length})</title>
+  <style>
+    @page { size: 4in 6in; margin: 0; }
+    html, body { margin: 0; padding: 0; background: #f5f5f5; font-family: system-ui, sans-serif; }
+    .label-page {
+      page-break-after: always;
+      width: 4in;
+      height: 6in;
+      margin: 12px auto;
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      overflow: hidden;
+    }
+    .label-page:last-child { page-break-after: auto; }
+    .label-page header {
+      font-size: 10px;
+      padding: 4px 8px;
+      color: #555;
+      border-bottom: 1px solid #eee;
+    }
+    .label-page img, .label-page iframe {
+      flex: 1;
+      width: 100%;
+      object-fit: contain;
+      border: 0;
+    }
+    @media print {
+      body { background: white; }
+      .label-page { margin: 0; box-shadow: none; }
+      .label-page header { display: none; }
+    }
+  </style>
+</head>
+<body>
+  ${pages}
+  <script>
+    (function () {
+      var imgs = document.images;
+      var remaining = ${pendingImgs};
+      function maybePrint() {
+        if (remaining <= 0) {
+          setTimeout(function () { window.focus(); window.print(); }, 200);
+        }
+      }
+      if (remaining === 0) { maybePrint(); }
+      for (var i = 0; i < imgs.length; i++) {
+        var img = imgs[i];
+        if (img.complete) { remaining--; }
+        else {
+          img.addEventListener('load', function () { remaining--; maybePrint(); });
+          img.addEventListener('error', function () { remaining--; maybePrint(); });
+        }
+      }
+      maybePrint();
+    })();
+  </script>
+</body>
+</html>`;
+  win.document.open();
+  win.document.write(html);
+  win.document.close();
 }
