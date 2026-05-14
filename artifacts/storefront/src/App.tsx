@@ -19,6 +19,12 @@ const NotFound = lazy(() => import("@/pages/not-found"));
 const Cart = lazy(() => import("@/pages/cart"));
 const Product = lazy(() => import("@/pages/product"));
 const Shop = lazy(() => import("@/pages/shop"));
+const AdminDiscounts = lazy(() => import("@/pages/admin/AdminDiscounts"));
+const AdminReviews = lazy(() => import("@/pages/admin/AdminReviews"));
+const AdminAbandonedCarts = lazy(
+  () => import("@/pages/admin/AdminAbandonedCarts"),
+);
+const AdminTaxSummary = lazy(() => import("@/pages/admin/AdminTaxSummary"));
 
 const queryClient = new QueryClient();
 
@@ -51,6 +57,10 @@ function Router() {
         <Route path="/admin" component={AdminDashboard} />
         <Route path="/unsubscribe" component={Unsubscribe} />
         <Route path="/admin/newsletter" component={AdminNewsletter} />
+        <Route path="/admin/discounts" component={AdminDiscounts} />
+        <Route path="/admin/reviews" component={AdminReviews} />
+        <Route path="/admin/abandoned-carts" component={AdminAbandonedCarts} />
+        <Route path="/admin/tax" component={AdminTaxSummary} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>

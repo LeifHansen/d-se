@@ -1,5 +1,7 @@
+import { type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { HelmetProvider } from "react-helmet-async";
+import { ClerkProvider } from "@clerk/clerk-react";
 import App from "./App";
 import "./index.css";
 import {
@@ -65,10 +67,26 @@ function preloadHero() {
 }
 
 preloadHero();
+
+const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
+  | string
+  | undefined;
+
+function MaybeClerkProvider({ children }: { children: ReactNode }) {
+  if (!clerkPublishableKey) return <>{children}</>;
+  return (
+    <ClerkProvider publishableKey={clerkPublishableKey}>
+      {children}
+    </ClerkProvider>
+  );
+}
+
 createRoot(document.getElementById("root")!).render(
   <RootErrorBoundary>
     <HelmetProvider>
-      <App />
+      <MaybeClerkProvider>
+        <App />
+      </MaybeClerkProvider>
     </HelmetProvider>
   </RootErrorBoundary>,
 );
