@@ -72,6 +72,10 @@ Storefront is branded as **DŌSE** — a precision THC-infused beverage dropper 
 - Run locally: `pnpm e2e:install` (once), then `E2E_BASE_URL=http://localhost:5000 pnpm e2e`.
 - CI: `.github/workflows/e2e.yml` runs the suite on every PR and uploads the HTML report.
 
+## Setup
+
+The post-merge script (`scripts/post-merge.sh`) installs deps, pushes the DB schema, and seeds the launch catalog (3 DŌSE products + brand imagery) by running `pnpm --filter @workspace/api-server seed`. The seed is idempotent (slug-keyed upsert) and is skipped automatically when `DATABASE_URL` or `PUBLIC_OBJECT_SEARCH_PATHS` are unset. To run it manually: `pnpm --filter @workspace/api-server seed`.
+
 ## Status
 
 Backend, schema, codegen, seed data, and integration scaffolding done. Observability (Sentry, request IDs, healthz, webhook freshness, daily low-stock digest) and admin API extensions (search, bulk inventory, CSV export, today metrics, per-product threshold) are in place. Playwright e2e harness is wired in CI. Stripe + Resend + EasyPost API keys still need to be wired. Storefront branding (logo, palette, typography, marketing landing) is applied; product/cart/checkout/blog/admin UI flows still need wiring to the API — admin UI extensions (search inputs, bulk inventory editor, CSV download button, today's-orders banner, webhook stale banner) are pending the customer/admin pages task that introduces the admin SPA.

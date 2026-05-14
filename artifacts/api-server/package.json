@@ -7,6 +7,7 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
+    "seed": "node ./src/scripts/seed-dose.mjs",
     "test": "tsx --tsconfig tsconfig.json tests/purchase-tracking.test.ts",
     "test:vitest": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
