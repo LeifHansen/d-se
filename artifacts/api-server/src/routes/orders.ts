@@ -1,5 +1,4 @@
 import { Router, type IRouter } from "express";
-import { randomBytes, timingSafeEqual } from "crypto";
 import type Stripe from "stripe";
 import { and, desc, eq } from "drizzle-orm";
 import {
@@ -21,6 +20,7 @@ import {
   LookupOrderBody,
   LookupOrderByTokenBody,
 } from "@workspace/api-zod";
+
 import { loadCart, ensureCart } from "./cart";
 import { computeShippingRates } from "./shipping";
 import { getStripe, isStripeConfigured } from "../lib/stripe";
@@ -36,21 +36,7 @@ import { normaliseEmail } from "../lib/normaliseEmail";
 
 const STRIPE_TAX_ENABLED = process.env.STRIPE_TAX_ENABLED === "1";
 
-// Magic-link order lookup tokens expire after this many ms (default: 90 days).
-// Set ORDER_LOOKUP_TOKEN_TTL_MS=0 to disable expiry entirely.
-const LOOKUP_TOKEN_TTL_MS = (() => {
-  const raw = process.env.ORDER_LOOKUP_TOKEN_TTL_MS;
-  if (raw === undefined) return 90 * 24 * 60 * 60 * 1000;
-  const n = Number(raw);
-  return Number.isFinite(n) && n >= 0 ? n : 90 * 24 * 60 * 60 * 1000;
-})();
-
 const router: IRouter = Router();
-
-function generateLookupToken(): string {
-  return randomBytes(32).toString("base64url");
-}
-
 
 // In-memory rate limit for the guest order lookup endpoint. Counts failed
 // attempts per (ip, orderId) and short-circuits with 429 once the threshold
@@ -102,13 +88,6 @@ function clearLookupFailures(ip: string, orderId: number): void {
 
 export function __resetLookupRateLimitForTests(): void {
   lookupFailures.clear();
-}
-
-function tokensMatch(a: string, b: string): boolean {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  if (ab.length !== bb.length) return false;
-  return timingSafeEqual(ab, bb);
 }
 
 async function buildOrderResponse(orderId: number) {
@@ -231,8 +210,6 @@ router.post("/checkout", async (req, res): Promise<void> => {
       userId,
       email: normalisedEmail,
       status: "pending",
-      lookupToken: generateLookupToken(),
-      lookupTokenIssuedAt: new Date(),
       subtotalCents,
       shippingCents,
       taxCents: 0,
@@ -426,10 +403,9 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
   // simple equality check on row.email would suffice. We still normalise the
   // submitted value here as defence in depth — clients can still send
   // arbitrary casing/whitespace, and historic rows pre-migration may exist.
-  const submittedEmail = parsed.data.email?.trim().toLowerCase() ?? null;
-  const submittedToken = parsed.data.token?.trim() ?? null;
-  if (!submittedEmail && !submittedToken) {
-    res.status(400).json({ error: "Email or token is required" });
+  const submittedEmail = parsed.data.email.trim().toLowerCase();
+  if (!submittedEmail) {
+    res.status(400).json({ error: "Email is required" });
     return;
   }
 
@@ -454,60 +430,11 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
     .from(ordersTable)
     .where(eq(ordersTable.id, parsed.data.orderId));
   // Don't leak whether the order exists when credentials don't match.
-  if (!row) {
+  if (!row || !row.email || row.email !== submittedEmail) {
     recordLookupFailure(clientIp, parsed.data.orderId);
     res.status(404).json({ error: "Order not found" });
     return;
   }
-  let authorized = false;
-  let viaToken = false;
-  if (submittedToken && row.lookupToken) {
-    if (tokensMatch(row.lookupToken, submittedToken)) {
-      authorized = true;
-      viaToken = true;
-    }
-  }
-  if (
-    !authorized &&
-    submittedEmail &&
-    row.email &&
-    row.email === submittedEmail
-  ) {
-    authorized = true;
-  }
-  if (!authorized) {
-    recordLookupFailure(clientIp, parsed.data.orderId);
-    res.status(404).json({ error: "Order not found" });
-    return;
-  }
-  // Token presented and matched — enforce TTL so a forwarded email from months
-  // ago can't be replayed forever. Email-based lookups stay valid (the shopper
-  // proved control of the inbox at submit time).
-  if (viaToken && LOOKUP_TOKEN_TTL_MS > 0) {
-    const issuedAt = row.lookupTokenIssuedAt ?? row.createdAt;
-    const ageMs = Date.now() - new Date(issuedAt).getTime();
-    if (ageMs > LOOKUP_TOKEN_TTL_MS) {
-      res.status(410).json({
-        error:
-          "This order link has expired. Enter the email used at checkout to view your order.",
-        code: "lookup_token_expired",
-      });
-      return;
-    }
-  }
-
-  if (viaToken) {
-    // Best-effort: record last-used so admins can audit token activity.
-    try {
-      await db
-        .update(ordersTable)
-        .set({ lookupTokenLastUsedAt: new Date() })
-        .where(eq(ordersTable.id, row.id));
-    } catch (err) {
-      req.log.warn({ err }, "Failed to update lookup_token_last_used_at");
-    }
-  }
-
   clearLookupFailures(clientIp, parsed.data.orderId);
   const order = await buildOrderResponse(row.id);
   res.json(GetOrderResponse.parse(order));

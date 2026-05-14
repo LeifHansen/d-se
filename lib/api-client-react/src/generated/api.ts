@@ -1381,7 +1381,7 @@ export function useGetOrder<
 }
 
 /**
- * @summary Look up an order by ID and email or magic-link token (guest checkout)
+ * @summary Look up an order by ID and the email used at checkout (guest checkout)
  */
 export const getLookupOrderUrl = () => {
   return `/api/orders/lookup`;
@@ -1444,7 +1444,7 @@ export type LookupOrderMutationBody = BodyType<LookupOrderBody>;
 export type LookupOrderMutationError = ErrorType<NotFoundResponse>;
 
 /**
- * @summary Look up an order by ID and email or magic-link token (guest checkout)
+ * @summary Look up an order by ID and the email used at checkout (guest checkout)
  */
 export const useLookupOrder = <
   TError = ErrorType<NotFoundResponse>,

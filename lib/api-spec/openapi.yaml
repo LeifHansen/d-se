@@ -331,18 +331,17 @@ paths:
     post:
       operationId: lookupOrder
       tags: [orders]
-      summary: Look up an order by ID and email or magic-link token (guest checkout)
+      summary: Look up an order by ID and the email used at checkout (guest checkout)
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [orderId]
+              required: [orderId, email]
               properties:
                 orderId: { type: integer }
                 email: { type: string, format: email }
-                token: { type: string }
       responses:
         "200":
           description: OK

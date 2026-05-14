@@ -15,13 +15,6 @@ import { formatMoney } from "@/lib/cart";
 
 const GUEST_EMAIL_KEY = "dose-last-order-email";
 
-function isExpiredLinkError(err: unknown): boolean {
-  if (!err || typeof err !== "object") return false;
-  const e = err as { status?: number; data?: { code?: string } };
-  if (e.status === 410) return true;
-  return e.data?.code === "lookup_token_expired";
-}
-
 function formatDate(s: string | Date): string {
   try {
     return new Date(s).toLocaleDateString("en-US", {
@@ -54,26 +47,10 @@ export default function OrderDetailPage() {
       lookupByToken
         .mutateAsync({ data: { token } })
         .then((res) => setOrder(res))
-        .catch((tokenErr: unknown) => {
-          // Fall back to the legacy random-token endpoint for orders whose
-          // confirmation email pre-dates the signed-token rollout.
-          lookup
-            .mutateAsync({ data: { orderId, token } })
-            .then((res) => setOrder(res))
-            .catch((err: unknown) => {
-              if (
-                isExpiredLinkError(err) ||
-                isExpiredLinkError(tokenErr)
-              ) {
-                setError(
-                  "This order link has expired. Enter the email used at checkout to view your order.",
-                );
-              } else {
-                setError(
-                  "This link is invalid or expired. Enter the email used at checkout.",
-                );
-              }
-            });
+        .catch(() => {
+          setError(
+            "This link is invalid or expired. Enter the email used at checkout.",
+          );
         });
       return;
     }

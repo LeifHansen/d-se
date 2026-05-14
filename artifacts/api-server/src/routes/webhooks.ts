@@ -165,7 +165,6 @@ router.post(
       orderCurrency: string;
       orderDiscountCode: string | null;
       orderDiscountCodeId: number | null;
-      orderLookupToken: string | null;
       analyticsEventId: string;
       analyticsClientId: string | null;
       analyticsFbp: string | null;
@@ -298,7 +297,6 @@ router.post(
           orderCurrency: order.currency,
           orderDiscountCode: order.discountCode,
           orderDiscountCodeId: order.discountCodeId,
-          orderLookupToken: order.lookupToken,
           analyticsEventId:
             order.analyticsEventId ??
             session.metadata?.analyticsEventId ??

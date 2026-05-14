@@ -1,8 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { eq } from "drizzle-orm";
-import { db, resetDb } from "./testDb";
-import { ordersTable } from "@workspace/db";
+import { resetDb } from "./testDb";
 import { makeApp, seedCart, seedProduct } from "./helpers";
 
 vi.mock("../lib/stripe", () => ({
@@ -31,10 +29,7 @@ const app = makeApp((r) => {
   r.use(ordersRouter);
 });
 
-async function createOrder(email: string | null): Promise<{
-  orderId: number;
-  lookupToken: string;
-}> {
+async function createOrder(email: string): Promise<{ orderId: number }> {
   const product = await seedProduct({
     slug: `lookup-${Math.random().toString(36).slice(2, 8)}`,
     priceCents: 2_500,
@@ -43,51 +38,15 @@ async function createOrder(email: string | null): Promise<{
   await seedCart({ cartId, productId: product.id, quantity: 1 });
   const res = await request(app)
     .post("/api/checkout")
-    .send({ cartId, email: email ?? undefined });
+    .send({ cartId, email });
   expect(res.status).toBe(200);
-  const orderId = res.body.orderId as number;
-  const [row] = await db
-    .select()
-    .from(ordersTable)
-    .where(eq(ordersTable.id, orderId));
-  expect(row.lookupToken).toBeTruthy();
-  return { orderId, lookupToken: row.lookupToken! };
+  return { orderId: res.body.orderId as number };
 }
 
 describe("POST /api/orders/lookup — guest order authorization", () => {
   beforeEach(async () => {
     await resetDb();
     __resetLookupRateLimitForTests();
-  });
-
-  it("persists a non-null lookup_token on every new order", async () => {
-    const { orderId, lookupToken } = await createOrder("buyer@example.com");
-    expect(typeof lookupToken).toBe("string");
-    expect(lookupToken.length).toBeGreaterThanOrEqual(32);
-
-    // Sanity: a second order also gets a token, and tokens differ.
-    const second = await createOrder("buyer2@example.com");
-    expect(second.lookupToken).not.toBe(lookupToken);
-    expect(second.orderId).not.toBe(orderId);
-  });
-
-  it("returns the order when the magic-link token matches", async () => {
-    const { orderId, lookupToken } = await createOrder("buyer@example.com");
-    const res = await request(app)
-      .post("/api/orders/lookup")
-      .send({ orderId, token: lookupToken });
-    expect(res.status).toBe(200);
-    expect(res.body.id).toBe(orderId);
-    expect(res.body.email).toBe("buyer@example.com");
-  });
-
-  it("returns 404 when the token is wrong", async () => {
-    const { orderId } = await createOrder("buyer@example.com");
-    const res = await request(app)
-      .post("/api/orders/lookup")
-      .send({ orderId, token: "definitely-not-the-real-token-xxxxxxxxxx" });
-    expect(res.status).toBe(404);
-    expect(res.body.error).toMatch(/not found/i);
   });
 
   it("returns the order when the email matches (case-insensitive)", async () => {
@@ -108,14 +67,14 @@ describe("POST /api/orders/lookup — guest order authorization", () => {
     expect(res.body.error).toMatch(/not found/i);
   });
 
-  it("returns 404 for a non-existent order id even with a valid-looking token", async () => {
+  it("returns 404 for a non-existent order id", async () => {
     const res = await request(app)
       .post("/api/orders/lookup")
-      .send({ orderId: 99_999, token: "anything" });
+      .send({ orderId: 99_999, email: "buyer@example.com" });
     expect(res.status).toBe(404);
   });
 
-  it("rejects requests that supply neither email nor token", async () => {
+  it("rejects requests that omit the email", async () => {
     const { orderId } = await createOrder("buyer@example.com");
     const res = await request(app)
       .post("/api/orders/lookup")
@@ -123,70 +82,27 @@ describe("POST /api/orders/lookup — guest order authorization", () => {
     expect(res.status).toBe(400);
   });
 
-  it("returns 410 with code lookup_token_expired when the token is older than the TTL", async () => {
-    const { orderId, lookupToken } = await createOrder("buyer@example.com");
-    // Backdate the token issuance well past the 90-day default TTL.
-    const issuedAt = new Date(Date.now() - 200 * 24 * 60 * 60 * 1000);
-    await db
-      .update(ordersTable)
-      .set({ lookupTokenIssuedAt: issuedAt })
-      .where(eq(ordersTable.id, orderId));
-
-    const res = await request(app)
-      .post("/api/orders/lookup")
-      .send({ orderId, token: lookupToken });
-    expect(res.status).toBe(410);
-    expect(res.body.code).toBe("lookup_token_expired");
-
-    // Email-based lookup should still succeed for the same order.
-    const emailRes = await request(app)
-      .post("/api/orders/lookup")
-      .send({ orderId, email: "buyer@example.com" });
-    expect(emailRes.status).toBe(200);
-    expect(emailRes.body.id).toBe(orderId);
-  });
-
-  it("records lookup_token_last_used_at on a successful token lookup", async () => {
-    const { orderId, lookupToken } = await createOrder("buyer@example.com");
-    const before = await db
-      .select()
-      .from(ordersTable)
-      .where(eq(ordersTable.id, orderId));
-    expect(before[0].lookupTokenLastUsedAt).toBeNull();
-
-    const res = await request(app)
-      .post("/api/orders/lookup")
-      .send({ orderId, token: lookupToken });
-    expect(res.status).toBe(200);
-
-    const after = await db
-      .select()
-      .from(ordersTable)
-      .where(eq(ordersTable.id, orderId));
-    expect(after[0].lookupTokenLastUsedAt).toBeInstanceOf(Date);
-  });
-
   it("throttles repeated failed lookups with a 429", async () => {
-    const { orderId, lookupToken } = await createOrder("buyer@example.com");
+    const { orderId } = await createOrder("buyer@example.com");
     // 5 failed attempts are allowed (each returns 404), the 6th gets blocked.
     for (let i = 0; i < 5; i++) {
       const bad = await request(app)
         .post("/api/orders/lookup")
-        .send({ orderId, token: `wrong-token-${i}-xxxxxxxxxxxxxxxxxxxxxxxx` });
+        .send({ orderId, email: `wrong-${i}@example.com` });
       expect(bad.status).toBe(404);
     }
     const blocked = await request(app)
-        .post("/api/orders/lookup")
-        .send({ orderId, token: "still-wrong-xxxxxxxxxxxxxxxxxxxxxxxxxxxx" });
+      .post("/api/orders/lookup")
+      .send({ orderId, email: "still-wrong@example.com" });
     expect(blocked.status).toBe(429);
     expect(blocked.headers["retry-after"]).toBeTruthy();
 
-    // Even the *correct* token is blocked while the throttle is active —
+    // Even the *correct* email is blocked while the throttle is active —
     // the attacker can't bypass the limit by interleaving a guess with the
-    // real token.
+    // real email.
     const stillBlocked = await request(app)
       .post("/api/orders/lookup")
-      .send({ orderId, token: lookupToken });
+      .send({ orderId, email: "buyer@example.com" });
     expect(stillBlocked.status).toBe(429);
   });
 
@@ -199,28 +115,28 @@ describe("POST /api/orders/lookup — guest order authorization", () => {
       const bad = await request(app)
         .post("/api/orders/lookup")
         .set("X-Forwarded-For", `203.0.113.${i}`)
-        .send({ orderId, token: `wrong-token-${i}-xxxxxxxxxxxxxxxxxxxxxxxx` });
+        .send({ orderId, email: `wrong-${i}@example.com` });
       expect(bad.status).toBe(404);
     }
     const blocked = await request(app)
       .post("/api/orders/lookup")
       .set("X-Forwarded-For", "203.0.113.99")
-      .send({ orderId, token: "still-wrong-xxxxxxxxxxxxxxxxxxxxxxxxxxxx" });
+      .send({ orderId, email: "still-wrong@example.com" });
     expect(blocked.status).toBe(429);
   });
 
   it("does not throttle a successful lookup, and clears prior failures", async () => {
-    const { orderId, lookupToken } = await createOrder("buyer@example.com");
+    const { orderId } = await createOrder("buyer@example.com");
     // A couple of typos shouldn't lock out the legitimate user.
     for (let i = 0; i < 3; i++) {
       const bad = await request(app)
         .post("/api/orders/lookup")
-        .send({ orderId, token: `wrong-token-${i}-xxxxxxxxxxxxxxxxxxxxxxxx` });
+        .send({ orderId, email: `wrong-${i}@example.com` });
       expect(bad.status).toBe(404);
     }
     const ok = await request(app)
       .post("/api/orders/lookup")
-      .send({ orderId, token: lookupToken });
+      .send({ orderId, email: "buyer@example.com" });
     expect(ok.status).toBe(200);
 
     // After a success, the failure counter resets — the user can fat-finger
@@ -228,24 +144,8 @@ describe("POST /api/orders/lookup — guest order authorization", () => {
     for (let i = 0; i < 5; i++) {
       const bad = await request(app)
         .post("/api/orders/lookup")
-        .send({ orderId, token: `wrong-again-${i}-xxxxxxxxxxxxxxxxxxxxxx` });
+        .send({ orderId, email: `wrong-again-${i}@example.com` });
       expect(bad.status).toBe(404);
     }
-  });
-
-  it("cannot be bypassed by spoofing the X-Forwarded-For header", async () => {
-    const { orderId } = await createOrder("buyer@example.com");
-    for (let i = 0; i < 5; i++) {
-      const res = await request(app)
-        .post("/api/orders/lookup")
-        .set("X-Forwarded-For", `1.2.3.${i}`)
-        .send({ orderId, token: "wrong" });
-      expect(res.status).toBe(404);
-    }
-    const blocked = await request(app)
-      .post("/api/orders/lookup")
-      .set("X-Forwarded-For", "1.2.3.99")
-      .send({ orderId, token: "wrong" });
-    expect(blocked.status).toBe(429);
   });
 });
