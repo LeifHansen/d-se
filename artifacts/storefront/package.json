@@ -11,7 +11,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test:a11y": "playwright test --config=playwright.config.ts",
     "test:e2e": "playwright test --config=playwright.admin.config.ts",
-    "test:journey": "playwright test --config=playwright.journey.config.ts"
+    "test:journey": "playwright test --config=playwright.journey.config.ts",
+    "test:checkout-real": "playwright test --config=playwright.checkout-real.config.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "4.10.1",

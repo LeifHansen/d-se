@@ -79,6 +79,29 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    // E2E_API_PROXY (e.g. http://localhost:18181) lets a Playwright run
+    // forward the storefront's same-origin /api/* calls (and the SEO
+    // routes the api-server also exposes at /sitemap.xml + /robots.txt)
+    // to a real api-server process, so we can drive the full stack from
+    // a single browser origin without a separate path-routing proxy.
+    ...(process.env.E2E_API_PROXY
+      ? {
+          proxy: {
+            "/api": {
+              target: process.env.E2E_API_PROXY,
+              changeOrigin: true,
+            },
+            "/sitemap.xml": {
+              target: process.env.E2E_API_PROXY,
+              changeOrigin: true,
+            },
+            "/robots.txt": {
+              target: process.env.E2E_API_PROXY,
+              changeOrigin: true,
+            },
+          },
+        }
+      : {}),
   },
   preview: {
     port,
