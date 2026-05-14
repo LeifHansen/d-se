@@ -47,8 +47,51 @@ import {
   GetAdminTaxSummaryResponse,
   BulkUpdateInventoryBody,
 } from "@workspace/api-zod";
-import { requireAdmin } from "../lib/auth";
+import { requireAdmin, getUserId } from "../lib/auth";
 import { buildOrderResponse } from "./orders";
+import { ObjectStorageService } from "../lib/objectStorage";
+
+const objectStorageService = new ObjectStorageService();
+
+/**
+ * For each image entry that points at a freshly uploaded private object
+ * (either a raw GCS signed URL or a `/objects/<id>` path), publish the
+ * object publicly and rewrite to the served URL `/api/storage/objects/<id>`
+ * so the storefront can render it. Already-public URLs (http(s)://… or
+ * `/api/storage/objects/…`) are passed through untouched.
+ */
+async function publishUploadedImage(
+  raw: string,
+  ownerId: string,
+  log: { error: (obj: unknown, msg?: string) => void },
+): Promise<string> {
+  const looksLikeUpload =
+    raw.startsWith("/objects/") ||
+    raw.startsWith("https://storage.googleapis.com/");
+  if (!looksLikeUpload) return raw;
+  try {
+    const path = await objectStorageService.trySetObjectEntityAclPolicy(
+      raw,
+      { owner: ownerId, visibility: "public" },
+    );
+    if (path.startsWith("/objects/")) {
+      return `/api/storage${path}`;
+    }
+    return raw;
+  } catch (err) {
+    log.error({ err, raw }, "Failed to publish uploaded image ACL");
+    return raw;
+  }
+}
+
+async function finalizeProductImages(
+  images: string[],
+  ownerId: string,
+  log: { error: (obj: unknown, msg?: string) => void },
+): Promise<string[]> {
+  return Promise.all(images.map((raw) => publishUploadedImage(raw, ownerId, log)));
+}
+
 import {
   getEasyPost,
   isEasyPostConfigured,
@@ -364,12 +407,33 @@ router.post(
   },
 );
 
+router.post(
+  "/admin/uploads/publish-image",
+  async (req, res): Promise<void> => {
+    const objectPath =
+      typeof req.body?.objectPath === "string" ? req.body.objectPath : "";
+    if (!objectPath) {
+      res.status(400).json({ error: "objectPath is required" });
+      return;
+    }
+    const ownerId = getUserId(req) ?? "admin";
+    const url = await publishUploadedImage(objectPath, ownerId, req.log);
+    res.json({ url });
+  },
+);
+
 router.post("/admin/products", async (req, res): Promise<void> => {
   const parsed = CreateProductBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  const ownerId = getUserId(req) ?? "admin";
+  const images = await finalizeProductImages(
+    parsed.data.images ?? [],
+    ownerId,
+    req.log,
+  );
   const [row] = await db
     .insert(productsTable)
     .values({
@@ -380,7 +444,7 @@ router.post("/admin/products", async (req, res): Promise<void> => {
       priceCents: parsed.data.priceCents,
       compareAtCents: parsed.data.compareAtCents ?? null,
       currency: parsed.data.currency ?? "usd",
-      images: parsed.data.images ?? [],
+      images,
       inventory: parsed.data.inventory,
       lowStockThreshold: parsed.data.lowStockThreshold ?? 5,
       weightOz:
@@ -406,6 +470,12 @@ router.patch("/admin/products/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: body.error.message });
     return;
   }
+  const ownerId = getUserId(req) ?? "admin";
+  const images = await finalizeProductImages(
+    body.data.images ?? [],
+    ownerId,
+    req.log,
+  );
   const [row] = await db
     .update(productsTable)
     .set({
@@ -416,7 +486,7 @@ router.patch("/admin/products/:id", async (req, res): Promise<void> => {
       priceCents: body.data.priceCents,
       compareAtCents: body.data.compareAtCents ?? null,
       currency: body.data.currency ?? "usd",
-      images: body.data.images ?? [],
+      images,
       inventory: body.data.inventory,
       lowStockThreshold: body.data.lowStockThreshold ?? 5,
       weightOz:

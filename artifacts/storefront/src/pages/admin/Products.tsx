@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type FormEvent,
+} from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   useListAdminProducts,
@@ -6,12 +13,14 @@ import {
   useUpdateProduct,
   useDeleteProduct,
   useBulkUpdateInventory,
+  useRequestUploadUrl,
   getExportProductsCsvUrl,
   getListAdminProductsQueryKey,
   type Product,
   type ProductInput,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiFetch } from "@/lib/api";
 import { AdminLayout } from "./AdminLayout";
 import { formatCurrency } from "./utils";
 import { Button } from "@/components/ui/button";
@@ -47,7 +56,7 @@ type EditorForm = {
   price: string;
   compareAt: string;
   currency: string;
-  images: string;
+  images: string[];
   inventory: string;
   lowStockThreshold: string;
   weightOz: string;
@@ -66,7 +75,7 @@ const EMPTY_FORM: EditorForm = {
   price: "",
   compareAt: "",
   currency: "USD",
-  images: "",
+  images: [],
   inventory: "0",
   lowStockThreshold: "0",
   weightOz: "",
@@ -93,7 +102,7 @@ function toForm(p: Product): EditorForm {
     price: (p.priceCents / 100).toFixed(2),
     compareAt: p.compareAtCents != null ? (p.compareAtCents / 100).toFixed(2) : "",
     currency: p.currency || "USD",
-    images: (p.images ?? []).join("\n"),
+    images: p.images ?? [],
     inventory: String(p.inventory ?? 0),
     lowStockThreshold: String(p.lowStockThreshold ?? 0),
     weightOz: p.weightOz != null ? String(p.weightOz) : "",
@@ -142,10 +151,7 @@ function fromForm(f: EditorForm): ProductInput | { error: string } {
       return { error: "Weight must be a non-negative number" };
     weightOz = w;
   }
-  const images = f.images
-    .split(/\r?\n/)
-    .map((s) => s.trim())
-    .filter(Boolean);
+  const images = f.images.map((s) => s.trim()).filter(Boolean);
   const tags = f.tags
     .split(",")
     .map((s) => s.trim())
@@ -784,16 +790,10 @@ export default function AdminProducts() {
             </div>
 
             <div>
-              <Label htmlFor="p-images">Images (one URL per line)</Label>
-              <Textarea
-                id="p-images"
-                value={form.images}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, images: e.target.value }))
-                }
-                rows={4}
-                placeholder="https://…"
-                data-testid="input-product-images"
+              <Label>Images</Label>
+              <ImageManager
+                images={form.images}
+                onChange={(images) => setForm((f) => ({ ...f, images }))}
               />
             </div>
 
@@ -1026,6 +1026,202 @@ function BulkBar({
       >
         Clear
       </button>
+    </div>
+  );
+}
+
+function ImageManager({
+  images,
+  onChange,
+}: {
+  images: string[];
+  onChange: (images: string[]) => void;
+}) {
+  const { toast } = useToast();
+  const requestUpload = useRequestUploadUrl();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    const uploaded: string[] = [];
+    const failed: string[] = [];
+    try {
+      for (const file of Array.from(files)) {
+        if (!file.type.startsWith("image/")) {
+          toast({
+            title: "Skipped non-image file",
+            description: file.name,
+          });
+          continue;
+        }
+        try {
+          const { uploadURL, objectPath } = await requestUpload.mutateAsync({
+            data: {
+              name: file.name,
+              size: file.size,
+              contentType: file.type,
+            },
+          });
+          const put = await fetch(uploadURL, {
+            method: "PUT",
+            headers: { "Content-Type": file.type },
+            body: file,
+          });
+          if (!put.ok) {
+            throw new Error(`HTTP ${put.status}`);
+          }
+          const published = await apiFetch<{ url: string }>(
+            "/admin/uploads/publish-image",
+            {
+              method: "POST",
+              body: JSON.stringify({ objectPath }),
+            },
+          );
+          uploaded.push(published.url);
+        } catch (e) {
+          failed.push(`${file.name}: ${(e as Error).message}`);
+        }
+      }
+      if (uploaded.length > 0) {
+        onChange([...images, ...uploaded]);
+      }
+      if (failed.length > 0) {
+        toast({
+          title: `Failed to upload ${failed.length} file${failed.length === 1 ? "" : "s"}`,
+          description: failed.join("\n"),
+        });
+      }
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function remove(index: number) {
+    onChange(images.filter((_, i) => i !== index));
+  }
+
+  function move(from: number, to: number) {
+    if (from === to || from < 0 || to < 0 || from >= images.length || to >= images.length) {
+      return;
+    }
+    const next = images.slice();
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    onChange(next);
+  }
+
+  function onDragStart(e: DragEvent<HTMLLIElement>, index: number) {
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function onDragOver(e: DragEvent<HTMLLIElement>) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  }
+
+  function onDrop(e: DragEvent<HTMLLIElement>, index: number) {
+    e.preventDefault();
+    if (dragIndex == null) return;
+    move(dragIndex, index);
+    setDragIndex(null);
+  }
+
+  return (
+    <div className="space-y-3" data-testid="product-image-manager">
+      <div className="flex items-center gap-2">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="sr-only"
+          onChange={(e) => handleFiles(e.target.files)}
+          data-testid="input-product-image-file"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          data-testid="button-upload-image"
+        >
+          {uploading ? "Uploading…" : "Upload images"}
+        </Button>
+        <p className="text-xs text-muted-foreground">
+          Drag thumbnails to reorder. The first image is the cover.
+        </p>
+      </div>
+      {images.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No images yet.</p>
+      ) : (
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          {images.map((src, i) => (
+            <li
+              key={`${src}-${i}`}
+              draggable
+              onDragStart={(e) => onDragStart(e, i)}
+              onDragOver={onDragOver}
+              onDrop={(e) => onDrop(e, i)}
+              className={`group relative overflow-hidden rounded-md border border-border bg-muted/30 ${
+                dragIndex === i ? "opacity-50" : ""
+              }`}
+              data-testid={`product-image-thumb-${i}`}
+            >
+              <div className="aspect-square w-full">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={src}
+                  alt={`Product image ${i + 1}`}
+                  className="h-full w-full object-cover"
+                  draggable={false}
+                />
+              </div>
+              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-background/85 px-1.5 py-1 text-[10px]">
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => move(i, i - 1)}
+                    disabled={i === 0}
+                    className="rounded border border-border px-1.5 py-0.5 disabled:opacity-30"
+                    aria-label="Move left"
+                    data-testid={`button-image-up-${i}`}
+                  >
+                    ←
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => move(i, i + 1)}
+                    disabled={i === images.length - 1}
+                    className="rounded border border-border px-1.5 py-0.5 disabled:opacity-30"
+                    aria-label="Move right"
+                    data-testid={`button-image-down-${i}`}
+                  >
+                    →
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => remove(i)}
+                  className="rounded border border-destructive/40 px-1.5 py-0.5 text-destructive hover:bg-destructive/10"
+                  data-testid={`button-image-remove-${i}`}
+                >
+                  Remove
+                </button>
+              </div>
+              {i === 0 ? (
+                <span className="absolute left-1 top-1 rounded bg-foreground/80 px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-background">
+                  Cover
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
