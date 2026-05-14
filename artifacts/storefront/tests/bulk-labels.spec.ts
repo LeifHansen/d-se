@@ -439,13 +439,15 @@ test.describe("admin orders — bulk buy cheapest label", () => {
     );
     await page.getByTestId("button-close-drawer").click();
 
-    // The print-label window was opened exactly once for the batch.
+    // The bulk flow no longer pops a print window — it downloads a single
+    // merged PDF instead. The dedicated merged-PDF tests below assert the
+    // download contract; here we just assert no stray window.open happened.
     const labelWindowOpens = await page.evaluate(
       () =>
         (window as unknown as { __labelPrintCalls?: number })
           .__labelPrintCalls ?? 0,
     );
-    expect(labelWindowOpens).toBe(1);
+    expect(labelWindowOpens).toBe(0);
   });
 
   test("partial failure: surfaces the failing order in the error panel and ships the rest", async ({
