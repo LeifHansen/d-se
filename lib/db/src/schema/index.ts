@@ -7,3 +7,4 @@ export * from "./reviews";
 export * from "./abandonedCarts";
 export * from "./system";
 export * from "./newsletter";
+export * from "./contactRateLimits";
