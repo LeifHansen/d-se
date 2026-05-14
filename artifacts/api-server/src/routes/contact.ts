@@ -4,6 +4,7 @@ import { Resend } from "resend";
 import { db } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import type { Logger } from "pino";
+import { createHash } from "node:crypto";
 
 const router: IRouter = Router();
 
@@ -122,6 +123,140 @@ async function fetchResendCreds(): Promise<ResendCreds | null> {
   }
 }
 
+// --- Spam heuristics ---------------------------------------------------------
+//
+// Even after Turnstile, determined spammers can solve challenges in bulk. These
+// heuristics look at the actual content for signals (link count, suspicious
+// TLDs, bursts of identical bodies, BBCode tags, non-Latin majority text) and
+// silently "shadow accept" suspicious submissions: the API responds 200 OK so
+// the spammer thinks they got through, but no email is delivered. Real
+// customers are unaffected because the thresholds are well above what a normal
+// person types into a contact form.
+//
+// All thresholds are tunable via env vars so this can be tightened or relaxed
+// without a redeploy of the heuristics themselves.
+
+type SpamSignal = { reasons: string[] };
+
+const DEFAULT_BLOCKED_TLDS =
+  ".ru,.cn,.top,.xyz,.click,.loan,.work,.tk,.ml,.ga,.cf,.zip,.mov,.country,.gdn,.review";
+
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+function detectContentSpam(input: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}): SpamSignal {
+  const reasons: string[] = [];
+  const text = `${input.subject}\n${input.message}`;
+
+  const maxLinks = envInt("CONTACT_SPAM_MAX_LINKS", 3);
+  const explicitUrls = text.match(/\bhttps?:\/\/[^\s<>"')]+/gi) ?? [];
+  const bareDomains =
+    text.match(/\b[a-z0-9][a-z0-9-]{0,62}\.[a-z]{2,24}\b/gi) ?? [];
+  const linkLike = Math.max(explicitUrls.length, bareDomains.length);
+  if (linkLike > maxLinks) {
+    reasons.push(`too_many_links:${linkLike}`);
+  }
+
+  const blockedTlds = (
+    process.env.CONTACT_SPAM_BLOCKED_TLDS ?? DEFAULT_BLOCKED_TLDS
+  )
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter((t) => t.startsWith("."));
+  const candidates = [...explicitUrls, ...bareDomains, input.email].map((s) =>
+    s.toLowerCase(),
+  );
+  for (const candidate of candidates) {
+    for (const tld of blockedTlds) {
+      // Match the TLD only at the end of a host (before path/query/space).
+      const re = new RegExp(
+        `${tld.replace(/\./g, "\\.")}(?=$|[\\s/?#:'"<>)])`,
+        "i",
+      );
+      if (re.test(candidate)) {
+        reasons.push(`blocked_tld:${tld}`);
+        break;
+      }
+    }
+  }
+
+  if (/\[url[=\]]|\[\/url\]|\[link[=\]]/i.test(text)) {
+    reasons.push("bbcode_links");
+  }
+
+  // Non-Latin majority detection is OFF by default — legitimate non-English
+  // customers (Russian, Chinese, etc.) would otherwise be silently dropped.
+  // Operators can opt in by setting CONTACT_SPAM_NON_LATIN_BLOCK=1 only if
+  // their customer base is exclusively Latin-script speakers.
+  if (process.env.CONTACT_SPAM_NON_LATIN_BLOCK === "1") {
+    const letters = text.replace(/[^\p{L}]/gu, "");
+    if (letters.length >= 30) {
+      const cyrillic = (letters.match(/[\u0400-\u04FF]/g) ?? []).length;
+      const cjk = (letters.match(/[\u3400-\u9FFF]/g) ?? []).length;
+      const nonLatin = cyrillic + cjk;
+      if (nonLatin / letters.length > 0.6) {
+        reasons.push("non_latin_majority");
+      }
+    }
+  }
+
+  return { reasons };
+}
+
+function fingerprint(input: {
+  name: string;
+  email: string;
+  subject: string;
+  message: string;
+}): string {
+  // Normalize to catch slightly mutated repeats (case, whitespace, punctuation).
+  const norm = `${input.subject}\n${input.message}`
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/[^\p{L}\p{N} ]/gu, "")
+    .trim();
+  return createHash("sha256").update(norm).digest("hex");
+}
+
+async function recordFingerprint(
+  hash: string,
+  ip: string,
+): Promise<{ count: number; duplicate: boolean }> {
+  const windowMin = envInt("CONTACT_SPAM_DUP_WINDOW_MINUTES", 60);
+  // Default 5 identical retries from the same IP within the window before we
+  // call it a burst. This is well above the "user retried after a transient
+  // send failure" case (1-2 retries) so legitimate retries always go through.
+  const threshold = envInt("CONTACT_SPAM_DUP_THRESHOLD", 5);
+  const result = await db.execute<{ count: number }>(sql`
+    INSERT INTO contact_submission_fingerprints (hash, ip, count, first_seen, updated_at)
+    VALUES (${hash}, ${ip}, 1, NOW(), NOW())
+    ON CONFLICT (hash, ip) DO UPDATE SET
+      count = CASE
+        WHEN contact_submission_fingerprints.first_seen < NOW() - (${windowMin}::int * INTERVAL '1 minute')
+          THEN 1
+        ELSE contact_submission_fingerprints.count + 1
+      END,
+      first_seen = CASE
+        WHEN contact_submission_fingerprints.first_seen < NOW() - (${windowMin}::int * INTERVAL '1 minute')
+          THEN NOW()
+        ELSE contact_submission_fingerprints.first_seen
+      END,
+      updated_at = NOW()
+    RETURNING count
+  `);
+  const count = Number(result.rows[0]?.count ?? 0);
+  return { count, duplicate: count >= threshold };
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")
@@ -162,6 +297,31 @@ router.post("/contact", async (req, res): Promise<void> => {
     res.status(400).json({
       error: "We couldn't verify that you're human. Please try again.",
     });
+    return;
+  }
+
+  // Content heuristics + duplicate-burst detection. Both are tunable via env
+  // vars; suspicious submissions are shadow-accepted (200 OK, no email sent).
+  const contentSignal = detectContentSpam({ name, email, subject, message });
+  let dupReason: string | null = null;
+  try {
+    const fp = fingerprint({ name, email, subject, message });
+    const { count, duplicate } = await recordFingerprint(fp, ip);
+    if (duplicate) dupReason = `duplicate_burst:${count}`;
+  } catch (err) {
+    // Fingerprint tracking failures should never block real customers; just log.
+    req.log.warn({ err }, "Contact spam fingerprint check failed (continuing)");
+  }
+  const allReasons = [
+    ...contentSignal.reasons,
+    ...(dupReason ? [dupReason] : []),
+  ];
+  if (allReasons.length > 0) {
+    req.log.warn(
+      { ip, email, subject, reasons: allReasons },
+      "Contact submission shadow-accepted (spam heuristics matched)",
+    );
+    res.json({ ok: true });
     return;
   }
 

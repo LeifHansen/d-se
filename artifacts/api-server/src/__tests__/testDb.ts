@@ -131,6 +131,15 @@ CREATE TABLE IF NOT EXISTS newsletter_subscribers (
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS contact_submission_fingerprints (
+  hash TEXT NOT NULL,
+  ip TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  first_seen TIMESTAMP NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (hash, ip)
+);
+
 CREATE TABLE IF NOT EXISTS product_reviews (
   id SERIAL PRIMARY KEY,
   product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
