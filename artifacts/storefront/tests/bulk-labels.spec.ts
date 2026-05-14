@@ -409,13 +409,10 @@ test.describe("admin orders — bulk buy cheapest label", () => {
 
     await page.getByTestId("button-bulk-buy-labels").click();
 
-    // While the bulk run is in flight the button text reports progress as
-    // "Buying labels… done/total". Assert the final state (2/2) is reached.
-    await expect(page.getByTestId("button-bulk-buy-labels")).toContainText(
-      /Buying labels…\s*\d+\/2/,
-    );
-
-    // Wait for both fulfill calls to complete.
+    // Wait for both fulfill calls to complete. (The bulk button briefly
+    // shows "Buying labels… done/total" while the run is in flight, but
+    // with mocked instant routes that intermediate state can disappear
+    // before any assertion sees it — so we don't assert on it here.)
     await expect.poll(() => api.fulfillCalls.length).toBe(2);
 
     // Each order had its rates fetched and was fulfilled with the cheapest
@@ -437,7 +434,11 @@ test.describe("admin orders — bulk buy cheapest label", () => {
     await expect(page.getByTestId("text-bulk-errors")).toHaveCount(0);
 
     // Open one of the now-shipped orders to assert the tracking code stuck.
-    await page.getByTestId("row-order-6001").click();
+    // Click on the #6001 cell specifically — the row's onClick toggles the
+    // drawer, but the per-customer "View all orders" link cell calls
+    // e.stopPropagation(), so a default center-click on the row lands on
+    // that cell and does nothing.
+    await page.getByTestId("row-order-6001").getByText("#6001").click();
     await expect(page.getByTestId("text-tracking-code")).toContainText(
       "TRK-6001",
     );
@@ -446,12 +447,19 @@ test.describe("admin orders — bulk buy cheapest label", () => {
     // The bulk flow no longer pops a print window — it downloads a single
     // merged PDF instead. The dedicated merged-PDF tests below assert the
     // download contract; here we just assert no stray window.open happened.
-    const labelWindowOpens = await page.evaluate(
-      () =>
-        (window as unknown as { __labelPrintCalls?: number })
-          .__labelPrintCalls ?? 0,
-    );
-    expect(labelWindowOpens).toBe(0);
+    // Use expect.poll so the assertion is resilient to any late
+    // microtask/state settle that might happen after the drawer close.
+    await expect
+      .poll(
+        async () =>
+          await page.evaluate(
+            () =>
+              (window as unknown as { __labelPrintCalls?: number })
+                .__labelPrintCalls ?? 0,
+          ),
+        { timeout: 2_000 },
+      )
+      .toBe(0);
   });
 
   test("partial failure: surfaces the failing order in the error panel and ships the rest", async ({

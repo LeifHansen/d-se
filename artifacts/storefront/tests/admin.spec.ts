@@ -321,8 +321,17 @@ test.describe("admin dashboard", () => {
     await installAdminMocks(page, api);
 
     await page.goto("/admin");
+    // Wait for the admin shell to render so we know the page itself is up,
+    // then give the stats query (which gates banner-today behind isLoading)
+    // a generous timeout. On cold vite compile the first /admin render can
+    // take noticeably longer than the default 5s expect timeout.
+    await expect(page.getByTestId("admin-shell")).toBeVisible({
+      timeout: 15_000,
+    });
 
-    await expect(page.getByTestId("banner-today")).toBeVisible();
+    await expect(page.getByTestId("banner-today")).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(page.getByTestId("banner-today")).toContainText("3");
     await expect(page.getByTestId("banner-today")).toContainText("$99.00");
 
