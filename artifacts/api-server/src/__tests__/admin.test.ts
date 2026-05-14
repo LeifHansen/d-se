@@ -12,12 +12,34 @@ vi.mock("../lib/email", () => ({
   sendShipmentEmail: vi.fn(async () => {}),
   addToResendAudience: vi.fn(async () => ({ contactId: null })),
   removeFromResendAudience: vi.fn(async () => {}),
+  buildTrackingUrl: (_carrier: string | null, code: string | null) =>
+    code ? `https://track.test/${code}` : null,
   STORE_NAME: "Test",
 }));
 
+const easypostState = vi.hoisted(() => ({
+  configured: false,
+  buyImpl: vi.fn(async (_shipmentId: string, _rateId: string) => ({
+    id: "shp_default",
+    tracking_code: "TRK-DEFAULT",
+    postage_label: { label_url: "https://labels.test/default.pdf" },
+    selected_rate: { carrier: "Carrier" },
+  })),
+  createImpl: vi.fn(async (_input: unknown) => ({
+    id: "shp_created",
+    rates: [],
+  })),
+}));
+
 vi.mock("../lib/easypost", () => ({
-  getEasyPost: () => ({}),
-  isEasyPostConfigured: () => false,
+  getEasyPost: () => ({
+    Shipment: {
+      buy: (shipmentId: string, rateId: string) =>
+        easypostState.buyImpl(shipmentId, rateId),
+      create: (input: unknown) => easypostState.createImpl(input),
+    },
+  }),
+  isEasyPostConfigured: () => easypostState.configured,
   FROM_ADDRESS: {},
 }));
 
@@ -35,6 +57,10 @@ const { __setAuth } = clerk as unknown as {
 };
 
 const adminRouter = (await import("../routes/admin")).default;
+const { sendShipmentEmail } = await import("../lib/email");
+const sendShipmentEmailMock = sendShipmentEmail as unknown as ReturnType<
+  typeof vi.fn
+>;
 
 const app = makeApp((r) => {
   r.use(adminRouter);
@@ -307,5 +333,82 @@ describe("GET /admin/blog/posts/by-slug/:slug (draft preview)", () => {
       "/api/admin/blog/posts/by-slug/missing",
     );
     expect(res.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/orders/:id/fulfill — when EasyPost is configured, the real
+// carrier from the bought shipment's selected_rate must be forwarded into the
+// shipment email so customers see "USPS"/"UPS"/"FedEx" instead of the
+// "Carrier" fallback.
+// ---------------------------------------------------------------------------
+describe("POST /admin/orders/:id/fulfill (EasyPost configured)", () => {
+  beforeEach(async () => {
+    await resetDb();
+    __setAuth("user_admin", ADMIN_USER);
+    sendShipmentEmailMock.mockClear();
+    easypostState.configured = true;
+    easypostState.buyImpl.mockReset();
+    easypostState.createImpl.mockReset();
+    easypostState.createImpl.mockResolvedValue({
+      id: "shp_new",
+      rates: [],
+    });
+  });
+
+  afterEach(() => {
+    easypostState.configured = false;
+  });
+
+  it("forwards the bought shipment's carrier into sendShipmentEmail", async () => {
+    easypostState.buyImpl.mockResolvedValue({
+      id: "shp_bought_123",
+      tracking_code: "9400111899223197428490",
+      postage_label: { label_url: "https://labels.test/usps.pdf" },
+      selected_rate: { carrier: "USPS" },
+    });
+
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "paid",
+        subtotalCents: 5_000,
+        totalCents: 5_000,
+        currency: "usd",
+        shippingAddress: {
+          name: "Jane Buyer",
+          street1: "123 Main St",
+          street2: null,
+          city: "Brooklyn",
+          state: "NY",
+          zip: "11201",
+          country: "US",
+          phone: null,
+        },
+      })
+      .returning();
+
+    const res = await request(app)
+      .post(`/api/admin/orders/${order.id}/fulfill`)
+      .send({ shipmentId: "shp_existing", shippingRateId: "rate_usps_priority" });
+
+    expect(res.status).toBe(200);
+    expect(easypostState.buyImpl).toHaveBeenCalledWith(
+      "shp_existing",
+      "rate_usps_priority",
+    );
+    expect(sendShipmentEmailMock).toHaveBeenCalledTimes(1);
+    const arg = sendShipmentEmailMock.mock.calls[0][0] as {
+      to: string;
+      orderId: number;
+      trackingCode: string;
+      carrier: string;
+    };
+    expect(arg.carrier).toBe("USPS");
+    expect(arg.carrier).not.toBe("Carrier");
+    expect(arg.trackingCode).toBe("9400111899223197428490");
+    expect(arg.to).toBe("buyer@example.com");
+    expect(arg.orderId).toBe(order.id);
   });
 });
