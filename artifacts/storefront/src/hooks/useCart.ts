@@ -185,6 +185,62 @@ export function useRemoveDiscount() {
   });
 }
 
+export type ShippingRate = {
+  id: string;
+  carrier: string;
+  service: string;
+  amountCents: number;
+  currency: string;
+  deliveryDays: number | null;
+};
+
+export type CheckoutAddress = {
+  name: string;
+  street1: string;
+  street2?: string | null;
+  city: string;
+  state: string;
+  zip: string;
+  country: string;
+  phone?: string | null;
+};
+
+export function useShippingRates() {
+  return useMutation({
+    mutationFn: async (vars: {
+      cartId: string;
+      address: CheckoutAddress;
+    }): Promise<ShippingRate[]> => {
+      const data = await apiFetch<ShippingRate[]>(`/shipping/rates`, {
+        method: "POST",
+        body: JSON.stringify(vars),
+      });
+      return data;
+    },
+  });
+}
+
+export function useCreateCheckout() {
+  return useMutation({
+    mutationFn: async (vars: {
+      cartId: string;
+      email?: string;
+      address: CheckoutAddress;
+      shippingRateId: string;
+      discountCode?: string;
+    }): Promise<{ url: string; orderId: number }> => {
+      const data = await apiFetch<{ url: string; orderId: number }>(
+        `/checkout`,
+        {
+          method: "POST",
+          body: JSON.stringify(vars),
+        },
+      );
+      return data;
+    },
+  });
+}
+
 export async function resumeCartFromToken(
   cartId: string,
   token: string,

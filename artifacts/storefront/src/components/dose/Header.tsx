@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ShoppingBag, User, Menu, X, ChevronDown } from "lucide-react";
+import { ShoppingBag, User, Menu, X } from "lucide-react";
 import { Link } from "wouter";
 import {
   ClerkLoaded,
@@ -14,6 +14,7 @@ import { Logo, Emblem } from "./Logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useStoredCartId } from "@/lib/cart";
+import { CartDrawer } from "./CartDrawer";
 
 const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
   | string
@@ -29,10 +30,10 @@ const nav = [
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
   const cartId = useStoredCartId();
   const { data: cart } = useGetCart(
     { cartId: cartId ?? undefined },
-    // queryKey is filled in by the generated hook
     { query: { enabled: !!cartId } as never },
   );
   const cartCount =
@@ -50,9 +51,7 @@ export function Header() {
       data-testid="dose-header"
       className={cn(
         "sticky top-0 z-40 w-full transition-colors duration-300",
-        scrolled
-          ? "backdrop-blur-md"
-          : "backdrop-blur-sm",
+        scrolled ? "backdrop-blur-md" : "backdrop-blur-sm",
       )}
       style={{
         background: scrolled
@@ -105,7 +104,14 @@ export function Header() {
           {clerkPublishableKey ? (
             <ClerkLoaded>
               <SignedOut>
-                <SignInButton mode="modal" forceRedirectUrl={typeof window !== "undefined" ? window.location.pathname + window.location.search : undefined}>
+                <SignInButton
+                  mode="modal"
+                  forceRedirectUrl={
+                    typeof window !== "undefined"
+                      ? window.location.pathname + window.location.search
+                      : undefined
+                  }
+                >
                   <Button
                     variant="ghost"
                     size="icon"
@@ -116,7 +122,14 @@ export function Header() {
                     <User className="h-4 w-4" />
                   </Button>
                 </SignInButton>
-                <SignUpButton mode="modal" forceRedirectUrl={typeof window !== "undefined" ? window.location.pathname + window.location.search : undefined}>
+                <SignUpButton
+                  mode="modal"
+                  forceRedirectUrl={
+                    typeof window !== "undefined"
+                      ? window.location.pathname + window.location.search
+                      : undefined
+                  }
+                >
                   <button
                     type="button"
                     className="hidden text-[11px] font-semibold uppercase tracking-[0.22em] hover:opacity-70 md:inline"
@@ -129,7 +142,11 @@ export function Header() {
               <SignedIn>
                 <div data-testid="header-user-button">
                   <UserButton
-                    afterSignOutUrl={typeof window !== "undefined" ? window.location.pathname : "/"}
+                    afterSignOutUrl={
+                      typeof window !== "undefined"
+                        ? window.location.pathname
+                        : "/"
+                    }
                     appearance={{
                       elements: {
                         avatarBox: "h-7 w-7",
@@ -154,26 +171,24 @@ export function Header() {
             </Button>
           )}
           <Button
-            asChild
             variant="ghost"
             size="icon"
             aria-label={`Cart, ${cartCount} item${cartCount === 1 ? "" : "s"}`}
             className="relative text-current hover:bg-white/5"
             data-testid="header-cart"
+            onClick={() => setCartOpen(true)}
           >
-            <Link href="/cart">
-              <ShoppingBag className="h-4 w-4" />
-              <span
-                className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[9px] font-semibold"
-                style={{
-                  background: "hsl(42 53% 54%)",
-                  color: "hsl(170 58% 14%)",
-                }}
-                data-testid="header-cart-count"
-              >
-                {cartCount}
-              </span>
-            </Link>
+            <ShoppingBag className="h-4 w-4" />
+            <span
+              className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[9px] font-semibold"
+              style={{
+                background: "hsl(42 53% 54%)",
+                color: "hsl(170 58% 14%)",
+              }}
+              data-testid="header-cart-count"
+            >
+              {cartCount > 99 ? "99+" : cartCount}
+            </span>
           </Button>
         </div>
       </div>
@@ -210,6 +225,8 @@ export function Header() {
           </nav>
         </div>
       )}
+
+      <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
     </header>
   );
 }
