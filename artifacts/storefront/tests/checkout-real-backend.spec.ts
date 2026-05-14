@@ -346,6 +346,158 @@ test.describe("checkout failure paths against real api-server", () => {
     }
   });
 
+  test("rejects a shippingRateId supplied without an address and creates no order", async ({
+    request,
+  }) => {
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const localSeed = await seedProductAndCart(unique);
+    try {
+      const res = await request.post("/api/checkout", {
+        data: {
+          cartId: localSeed.cartId,
+          email: "rate-no-address@example.com",
+          shippingRateId: "flat-standard",
+          // address intentionally omitted
+        },
+      });
+      expect(res.status()).toBe(400);
+      const body = (await res.json()) as { error?: string };
+      expect(body.error).toMatch(/shipping address is required/i);
+
+      // No order row was created, the seeded cart_items survived, and the
+      // cart was not marked checked-out.
+      expect(await countOrdersForCart(localSeed.cartId)).toBe(0);
+      await withDb(async (c) => {
+        const items = await c.query(
+          `SELECT 1 FROM cart_items WHERE cart_id = $1`,
+          [localSeed.cartId],
+        );
+        expect(items.rowCount).toBe(1);
+        const cartRes = await c.query<{ checked_out_at: Date | null }>(
+          `SELECT checked_out_at FROM carts WHERE id = $1`,
+          [localSeed.cartId],
+        );
+        expect(cartRes.rowCount).toBe(1);
+        expect(cartRes.rows[0].checked_out_at).toBeNull();
+      });
+    } finally {
+      await cleanupSeed(localSeed);
+    }
+  });
+
+  test("rejects a stale/unknown shippingRateId and creates no order", async ({
+    request,
+  }) => {
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const localSeed = await seedProductAndCart(unique);
+    try {
+      const res = await request.post("/api/checkout", {
+        data: {
+          cartId: localSeed.cartId,
+          email: "stale-rate@example.com",
+          shippingRateId: `bogus-rate-${unique}`,
+          address: {
+            name: "E2E Real Buyer",
+            street1: "1 Real St",
+            city: "Town",
+            state: "CA",
+            zip: "90210",
+            country: "US",
+          },
+        },
+      });
+      expect(res.status()).toBe(400);
+      const body = (await res.json()) as { error?: string };
+      expect(body.error).toMatch(/selected shipping rate is no longer available/i);
+
+      expect(await countOrdersForCart(localSeed.cartId)).toBe(0);
+      await withDb(async (c) => {
+        const items = await c.query(
+          `SELECT 1 FROM cart_items WHERE cart_id = $1`,
+          [localSeed.cartId],
+        );
+        expect(items.rowCount).toBe(1);
+        const cartRes = await c.query<{ checked_out_at: Date | null }>(
+          `SELECT checked_out_at FROM carts WHERE id = $1`,
+          [localSeed.cartId],
+        );
+        expect(cartRes.rowCount).toBe(1);
+        expect(cartRes.rows[0].checked_out_at).toBeNull();
+      });
+    } finally {
+      await cleanupSeed(localSeed);
+    }
+  });
+
+  test("rejects an invalid/expired discount code and creates no order", async ({
+    request,
+  }) => {
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const localSeed = await seedProductAndCart(unique);
+    // Seed an expired discount so we exercise the "Discount: Code has expired"
+    // branch of validateDiscount, then also assert that an entirely unknown
+    // code returns "Discount: Invalid code".
+    const expiredCode = `E2EEXP${unique.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 10)}`;
+    const unknownCode = `E2ENOPE${unique.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 10)}`;
+    await withDb(async (c) => {
+      await c.query(
+        `INSERT INTO discount_codes
+           (code, type, value, active, expires_at, redemptions_count, created_at, updated_at)
+         VALUES ($1, 'percent', 10, TRUE, NOW() - INTERVAL '1 day', 0, NOW(), NOW())`,
+        [expiredCode],
+      );
+    });
+    try {
+      const expiredRes = await request.post("/api/checkout", {
+        data: {
+          cartId: localSeed.cartId,
+          email: "expired-discount@example.com",
+          discountCode: expiredCode,
+        },
+      });
+      expect(expiredRes.status()).toBe(400);
+      const expiredBody = (await expiredRes.json()) as { error?: string };
+      expect(expiredBody.error).toMatch(/^Discount:/);
+      expect(expiredBody.error).toMatch(/expired/i);
+
+      const unknownRes = await request.post("/api/checkout", {
+        data: {
+          cartId: localSeed.cartId,
+          email: "unknown-discount@example.com",
+          discountCode: unknownCode,
+        },
+      });
+      expect(unknownRes.status()).toBe(400);
+      const unknownBody = (await unknownRes.json()) as { error?: string };
+      expect(unknownBody.error).toMatch(/^Discount:/);
+      expect(unknownBody.error).toMatch(/invalid code/i);
+
+      // Neither attempt created an order, the seeded cart_items survived,
+      // and the cart was not marked checked-out.
+      expect(await countOrdersForCart(localSeed.cartId)).toBe(0);
+      await withDb(async (c) => {
+        const items = await c.query(
+          `SELECT 1 FROM cart_items WHERE cart_id = $1`,
+          [localSeed.cartId],
+        );
+        expect(items.rowCount).toBe(1);
+        const cartRes = await c.query<{ checked_out_at: Date | null }>(
+          `SELECT checked_out_at FROM carts WHERE id = $1`,
+          [localSeed.cartId],
+        );
+        expect(cartRes.rowCount).toBe(1);
+        expect(cartRes.rows[0].checked_out_at).toBeNull();
+      });
+    } finally {
+      await withDb(async (c) => {
+        await c.query(`DELETE FROM discount_codes WHERE code = $1`, [
+          expiredCode,
+        ]);
+      });
+      await cleanupSeed(localSeed);
+    }
+  });
+
   test("rejects a malformed email and creates no order", async ({
     request,
   }) => {
