@@ -718,6 +718,8 @@ export const LookupOrderByTokenResponse = zod.object({
     })
     .optional(),
   trackingCode: zod.string().nullish(),
+  carrier: zod.string().nullish(),
+  trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
