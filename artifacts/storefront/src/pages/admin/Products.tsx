@@ -176,6 +176,15 @@ function fromForm(f: EditorForm): ProductInput | { error: string } {
   };
 }
 
+function slugify(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function isLow(p: Product) {
   return (p.inventory ?? 0) <= (p.lowStockThreshold ?? 0);
 }
@@ -199,6 +208,7 @@ export default function AdminProducts() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [form, setForm] = useState<EditorForm>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
+  const [slugTouched, setSlugTouched] = useState(false);
 
   const [confirmDelete, setConfirmDelete] = useState<Product | null>(null);
 
@@ -389,6 +399,7 @@ export default function AdminProducts() {
     setEditing(null);
     setForm(EMPTY_FORM);
     setFormError(null);
+    setSlugTouched(false);
     setEditorOpen(true);
   }
 
@@ -396,6 +407,7 @@ export default function AdminProducts() {
     setEditing(p);
     setForm(toForm(p));
     setFormError(null);
+    setSlugTouched(true);
     setEditorOpen(true);
   }
 
@@ -644,9 +656,14 @@ export default function AdminProducts() {
                 <Input
                   id="p-name"
                   value={form.name}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, name: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    const name = e.target.value;
+                    setForm((f) => ({
+                      ...f,
+                      name,
+                      slug: slugTouched ? f.slug : slugify(name),
+                    }));
+                  }}
                   required
                   data-testid="input-product-name"
                 />
@@ -656,9 +673,10 @@ export default function AdminProducts() {
                 <Input
                   id="p-slug"
                   value={form.slug}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, slug: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    setSlugTouched(true);
+                    setForm((f) => ({ ...f, slug: e.target.value }));
+                  }}
                   placeholder="lowercase-with-dashes"
                   required
                   data-testid="input-product-slug"
