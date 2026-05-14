@@ -229,9 +229,23 @@ export default function OrderDetailPage() {
               </div>
             ) : null}
             {order.trackingCode ? (
-              <p className="mt-6 text-sm">
-                Tracking: <code>{order.trackingCode}</code>
-              </p>
+              <div className="mt-6 text-sm" data-testid="order-tracking">
+                <p>
+                  {order.carrier ? `${order.carrier}: ` : "Tracking: "}
+                  <code className="break-all">{order.trackingCode}</code>
+                </p>
+                {order.trackingUrl ? (
+                  <a
+                    href={order.trackingUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-2 inline-block underline"
+                    data-testid="order-tracking-link"
+                  >
+                    Track your package →
+                  </a>
+                ) : null}
+              </div>
             ) : null}
             <Button
               asChild

@@ -1185,6 +1185,8 @@ components:
         currency: { type: string }
         shippingAddress: { $ref: "#/components/schemas/AddressInput" }
         trackingCode: { type: ["string", "null"] }
+        carrier: { type: ["string", "null"] }
+        trackingUrl: { type: ["string", "null"] }
         labelUrl: { type: ["string", "null"] }
         createdAt: { type: string, format: date-time }
     OrderItem:

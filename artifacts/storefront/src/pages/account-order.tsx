@@ -246,13 +246,23 @@ export default function AccountOrderPage() {
               >
                 <h2 className="font-display text-xl">Tracking</h2>
                 {order.trackingCode ? (
-                  <p
-                    className="mt-3 text-sm"
-                    data-testid="order-tracking"
-                  >
-                    Tracking number:{" "}
-                    <code className="break-all">{order.trackingCode}</code>
-                  </p>
+                  <div className="mt-3 text-sm" data-testid="order-tracking">
+                    <p>
+                      {order.carrier ? `${order.carrier}: ` : "Tracking number: "}
+                      <code className="break-all">{order.trackingCode}</code>
+                    </p>
+                    {order.trackingUrl ? (
+                      <a
+                        href={order.trackingUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-block underline"
+                        data-testid="order-tracking-link"
+                      >
+                        Track your package →
+                      </a>
+                    ) : null}
+                  </div>
                 ) : (
                   <p
                     className="mt-3 text-sm"

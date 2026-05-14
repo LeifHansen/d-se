@@ -223,7 +223,23 @@ export default function AccountPage() {
                   </ul>
                   {order.trackingCode ? (
                     <p className="mt-2 text-sm">
-                      Tracking: <code>{order.trackingCode}</code>
+                      {order.carrier ? `${order.carrier}: ` : "Tracking: "}
+                      <code className="break-all">{order.trackingCode}</code>
+                      {order.trackingUrl ? (
+                        <>
+                          {" — "}
+                          <a
+                            href={order.trackingUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="underline"
+                            data-testid="account-order-tracking-link"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            Track package →
+                          </a>
+                        </>
+                      ) : null}
                     </p>
                   ) : null}
                   <p

@@ -26,6 +26,10 @@ export interface Order {
   /** @nullable */
   trackingCode?: string | null;
   /** @nullable */
+  carrier?: string | null;
+  /** @nullable */
+  trackingUrl?: string | null;
+  /** @nullable */
   labelUrl?: string | null;
   createdAt: Date;
 }

@@ -25,7 +25,7 @@ import { loadCart } from "./cart";
 import { computeShippingRates } from "./shipping";
 import { getStripe, isStripeConfigured } from "../lib/stripe";
 import { getUserId, requireAuth } from "../lib/auth";
-import { sendOrderConfirmation } from "../lib/email";
+import { sendOrderConfirmation, buildTrackingUrl } from "../lib/email";
 import { verifyOrderToken } from "../lib/orderToken";
 import {
   validateDiscount,
@@ -81,6 +81,10 @@ async function buildOrderResponse(orderId: number) {
     currency: order.currency,
     shippingAddress: order.shippingAddress ?? undefined,
     trackingCode: order.trackingCode,
+    carrier: order.carrier,
+    trackingUrl: order.trackingCode
+      ? buildTrackingUrl(order.carrier, order.trackingCode)
+      : null,
     labelUrl: order.labelUrl,
     createdAt: order.createdAt,
   };

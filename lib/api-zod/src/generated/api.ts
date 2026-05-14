@@ -562,6 +562,8 @@ export const ListMyOrdersResponseItem = zod.object({
     })
     .optional(),
   trackingCode: zod.string().nullish(),
+  carrier: zod.string().nullish(),
+  trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
@@ -620,6 +622,8 @@ export const GetOrderResponse = zod.object({
     })
     .optional(),
   trackingCode: zod.string().nullish(),
+  carrier: zod.string().nullish(),
+  trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
@@ -667,6 +671,8 @@ export const LookupOrderResponse = zod.object({
     })
     .optional(),
   trackingCode: zod.string().nullish(),
+  carrier: zod.string().nullish(),
+  trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
@@ -820,6 +826,8 @@ export const GetAdminStatsResponse = zod.object({
           })
           .optional(),
         trackingCode: zod.string().nullish(),
+        carrier: zod.string().nullish(),
+        trackingUrl: zod.string().nullish(),
         labelUrl: zod.string().nullish(),
         createdAt: zod.coerce.date(),
       }),
@@ -1006,6 +1014,8 @@ export const ListAdminOrdersResponseItem = zod.object({
     })
     .optional(),
   trackingCode: zod.string().nullish(),
+  carrier: zod.string().nullish(),
+  trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });
@@ -1128,6 +1138,8 @@ export const FulfillOrderResponse = zod.object({
     })
     .optional(),
   trackingCode: zod.string().nullish(),
+  carrier: zod.string().nullish(),
+  trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
 });

@@ -32,6 +32,7 @@ export const ordersTable = pgTable("orders", {
   shippingRateId: text("shipping_rate_id"),
   shipmentId: text("shipment_id"),
   trackingCode: text("tracking_code"),
+  carrier: text("carrier"),
   labelUrl: text("label_url"),
   lookupToken: text("lookup_token").unique(),
   stripeSessionId: text("stripe_session_id"),

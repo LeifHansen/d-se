@@ -657,6 +657,7 @@ router.post(
       .set({
         status: "shipped",
         trackingCode,
+        carrier,
         labelUrl,
         shipmentId,
         updatedAt: new Date(),
