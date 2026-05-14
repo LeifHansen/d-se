@@ -101,6 +101,38 @@ export default function AdminOrders() {
   }
 
   async function handleBulkBuyLabels() {
+    function isTransientError(err: unknown): boolean {
+      if (err instanceof TypeError) return true;
+      const status =
+        err && typeof err === "object" && "status" in err
+          ? (err as { status?: unknown }).status
+          : undefined;
+      if (typeof status !== "number") {
+        return err instanceof Error && err.name !== "ApiError";
+      }
+      if (status === 0) return true;
+      if (status === 408 || status === 425 || status === 429) return true;
+      return status >= 500 && status < 600;
+    }
+
+    async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+      const MAX_ATTEMPTS = 3;
+      const BASE_DELAY_MS = 400;
+      let lastErr: unknown;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+          return await fn();
+        } catch (err) {
+          lastErr = err;
+          if (attempt === MAX_ATTEMPTS || !isTransientError(err)) throw err;
+          const delay =
+            BASE_DELAY_MS * 2 ** (attempt - 1) + Math.random() * 200;
+          await new Promise((r) => setTimeout(r, delay));
+        }
+      }
+      throw lastErr;
+    }
+
     const targets = (data ?? []).filter(
       (o) => checkedIds.has(o.id) && eligibleIds.has(o.id),
     );
@@ -116,17 +148,23 @@ export default function AdminOrders() {
 
     async function processOne(order: (typeof targets)[number]) {
       try {
-        const ratesResp = await getAdminOrderShippingRates(order.id);
+        const ratesResp = await withRetry(() =>
+          getAdminOrderShippingRates(order.id),
+        );
         if (!ratesResp.rates || ratesResp.rates.length === 0) {
           throw new Error("No shipping rates available");
         }
         const cheapest = [...ratesResp.rates].sort(
           (a, b) => a.amountCents - b.amountCents,
         )[0];
-        const updated = await fulfillOrder(order.id, {
-          shippingRateId: cheapest.id,
-          ...(ratesResp.shipmentId ? { shipmentId: ratesResp.shipmentId } : {}),
-        });
+        const updated = await withRetry(() =>
+          fulfillOrder(order.id, {
+            shippingRateId: cheapest.id,
+            ...(ratesResp.shipmentId
+              ? { shipmentId: ratesResp.shipmentId }
+              : {}),
+          }),
+        );
         if (updated.labelUrl) {
           labelOrderIds.push(order.id);
         } else {
