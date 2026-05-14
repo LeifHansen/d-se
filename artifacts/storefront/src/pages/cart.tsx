@@ -9,8 +9,10 @@ import {
   useApplyCartDiscount,
   useRemoveCartDiscount,
   useValidateDiscount,
+  useGetShippingRates,
   getGetCartQueryKey,
 } from "@workspace/api-client-react";
+import type { ShippingRate } from "@workspace/api-client-react";
 import { SiteShell } from "@/components/dose/SiteShell";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
@@ -18,6 +20,54 @@ import { Input } from "@/components/ui/input";
 import { useStoredCartId, formatMoney, setStoredCartId } from "@/lib/cart";
 import { resumeCartFromToken } from "@/hooks/useCart";
 import { ApiError } from "@/lib/api";
+
+const SHIP_ESTIMATE_KEY = "dose-cart-ship-estimate";
+
+type ShipEstimate = {
+  zip: string;
+  country: string;
+  amountCents: number;
+  currency: string;
+  carrier: string;
+  service: string;
+};
+
+function readShipEstimate(): ShipEstimate | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(SHIP_ESTIMATE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ShipEstimate;
+    if (
+      typeof parsed?.zip === "string" &&
+      typeof parsed?.country === "string" &&
+      typeof parsed?.amountCents === "number"
+    ) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeShipEstimate(value: ShipEstimate | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (value) {
+      window.localStorage.setItem(SHIP_ESTIMATE_KEY, JSON.stringify(value));
+    } else {
+      window.localStorage.removeItem(SHIP_ESTIMATE_KEY);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+function cheapestRate(rates: ShippingRate[]): ShippingRate | null {
+  if (rates.length === 0) return null;
+  return rates.reduce((a, b) => (a.amountCents <= b.amountCents ? a : b));
+}
 
 function useResumeFromQuery() {
   const qc = useQueryClient();
@@ -70,8 +120,22 @@ export default function CartPage() {
   const validate = useValidateDiscount();
   const applyDiscount = useApplyCartDiscount();
   const removeDiscount = useRemoveCartDiscount();
+  const shippingRates = useGetShippingRates();
   const [code, setCode] = useState("");
   const [discountErr, setDiscountErr] = useState<string | null>(null);
+
+  const [shipEstimate, setShipEstimate] = useState<ShipEstimate | null>(() =>
+    readShipEstimate(),
+  );
+  const [zip, setZip] = useState<string>(() => readShipEstimate()?.zip ?? "");
+  const [country, setCountry] = useState<string>(
+    () => readShipEstimate()?.country ?? "US",
+  );
+  const [shipErr, setShipErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    writeShipEstimate(shipEstimate);
+  }, [shipEstimate]);
 
   const refetch = () =>
     qc.invalidateQueries({
@@ -326,9 +390,134 @@ export default function CartPage() {
                 ) : null}
                 <div className="flex justify-between">
                   <dt>Shipping</dt>
-                  <dd className="opacity-70">Calculated at checkout</dd>
+                  {shipEstimate ? (
+                    <dd data-testid="summary-shipping-estimate">
+                      {formatMoney(
+                        shipEstimate.amountCents,
+                        shipEstimate.currency,
+                      )}
+                      <span
+                        className="ml-2 text-[11px] uppercase tracking-[0.18em] opacity-60"
+                        data-testid="summary-shipping-estimate-label"
+                      >
+                        est. to {shipEstimate.zip}
+                      </span>
+                    </dd>
+                  ) : (
+                    <dd
+                      className="opacity-70"
+                      data-testid="summary-shipping-placeholder"
+                    >
+                      Calculated at checkout
+                    </dd>
+                  )}
                 </div>
               </dl>
+
+              <form
+                className="mt-4 grid gap-2"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  setShipErr(null);
+                  const trimmedZip = zip.trim();
+                  const trimmedCountry = country.trim().toUpperCase();
+                  if (!trimmedZip || !trimmedCountry) {
+                    setShipErr("Enter a ZIP/postal code and country.");
+                    return;
+                  }
+                  try {
+                    const result = await shippingRates.mutateAsync({
+                      data: {
+                        cartId: data!.id,
+                        address: {
+                          name: "Shipping estimate",
+                          street1: "-",
+                          city: "-",
+                          state: "-",
+                          zip: trimmedZip,
+                          country: trimmedCountry,
+                        },
+                      },
+                    });
+                    const cheapest = cheapestRate(result);
+                    if (!cheapest) {
+                      setShipEstimate(null);
+                      setShipErr("No shipping options available for that area.");
+                      return;
+                    }
+                    setShipEstimate({
+                      zip: trimmedZip,
+                      country: trimmedCountry,
+                      amountCents: cheapest.amountCents,
+                      currency: cheapest.currency,
+                      carrier: cheapest.carrier,
+                      service: cheapest.service,
+                    });
+                  } catch (err) {
+                    setShipEstimate(null);
+                    setShipErr(
+                      err instanceof Error
+                        ? err.message
+                        : "Couldn't fetch a shipping estimate.",
+                    );
+                  }
+                }}
+                data-testid="shipping-estimate-form"
+              >
+                <label
+                  className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                  htmlFor="ship-estimate-zip"
+                >
+                  Estimate shipping
+                </label>
+                <div className="flex gap-2">
+                  <Input
+                    id="ship-estimate-zip"
+                    value={zip}
+                    onChange={(e) => setZip(e.target.value)}
+                    placeholder="ZIP / postal"
+                    data-testid="ship-estimate-zip"
+                    autoComplete="postal-code"
+                  />
+                  <Input
+                    aria-label="Country"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value.toUpperCase())}
+                    placeholder="US"
+                    maxLength={2}
+                    className="w-20"
+                    data-testid="ship-estimate-country"
+                    autoComplete="country"
+                  />
+                  <Button
+                    type="submit"
+                    variant="outline"
+                    disabled={!zip.trim() || shippingRates.isPending}
+                    data-testid="ship-estimate-apply"
+                  >
+                    {shippingRates.isPending ? "…" : "Estimate"}
+                  </Button>
+                </div>
+                {shipEstimate && !shipErr ? (
+                  <p
+                    className="text-xs opacity-70"
+                    data-testid="ship-estimate-detail"
+                  >
+                    Cheapest: {shipEstimate.carrier} · {shipEstimate.service}
+                  </p>
+                ) : null}
+                {shipErr ? (
+                  <p
+                    className="text-xs"
+                    style={{ color: "hsl(0 70% 35%)" }}
+                    role="alert"
+                    data-testid="ship-estimate-error"
+                  >
+                    {shipErr}
+                  </p>
+                ) : null}
+              </form>
+
               <div
                 className="mt-4 flex justify-between border-t pt-4 font-display text-xl"
                 style={{ borderColor: "hsl(40 18% 80%)" }}
@@ -336,7 +525,8 @@ export default function CartPage() {
                 <span>Total</span>
                 <span data-testid="summary-total">
                   {formatMoney(
-                    data!.totalCents ?? data!.subtotalCents,
+                    (data!.totalCents ?? data!.subtotalCents) +
+                      (shipEstimate?.amountCents ?? 0),
                     data!.currency,
                   )}
                 </span>
