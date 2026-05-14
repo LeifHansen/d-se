@@ -211,3 +211,177 @@ test.describe("checkout against real api-server (dev-fallback Stripe)", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Failure-mode coverage for POST /api/checkout against the real api-server.
+// Each case asserts:
+//   1. the HTTP response (status + JSON body), and
+//   2. the resulting database state (no stray orders, cart untouched, etc.).
+//
+// We talk to /api/checkout directly via Playwright's `request` fixture
+// (which goes through the same vite-dev proxy as the browser) instead of
+// driving the UI — the route's failure paths return JSON before any UI is
+// rendered, so a request-level test is both faster and more precise.
+// ---------------------------------------------------------------------------
+
+async function createEmptyCart(unique: string): Promise<string> {
+  const cartId = `cart-e2e-real-empty-${unique}`;
+  await withDb(async (c) => {
+    await c.query(
+      `INSERT INTO carts (id, created_at, updated_at) VALUES ($1, NOW(), NOW())`,
+      [cartId],
+    );
+  });
+  return cartId;
+}
+
+async function cleanupCart(cartId: string): Promise<void> {
+  await withDb(async (c) => {
+    const ordersRes = await c.query<{ id: number }>(
+      `SELECT id FROM orders WHERE cart_id = $1`,
+      [cartId],
+    );
+    for (const row of ordersRes.rows) {
+      await c.query(`DELETE FROM order_items WHERE order_id = $1`, [row.id]);
+      await c.query(`DELETE FROM orders WHERE id = $1`, [row.id]);
+    }
+    await c.query(`DELETE FROM abandoned_carts WHERE cart_id = $1`, [cartId]);
+    await c.query(`DELETE FROM cart_items WHERE cart_id = $1`, [cartId]);
+    await c.query(`DELETE FROM carts WHERE id = $1`, [cartId]);
+  });
+}
+
+async function countOrdersForCart(cartId: string): Promise<number> {
+  return withDb(async (c) => {
+    const r = await c.query<{ n: string }>(
+      `SELECT COUNT(*)::text AS n FROM orders WHERE cart_id = $1`,
+      [cartId],
+    );
+    return Number(r.rows[0].n);
+  });
+}
+
+test.describe("checkout failure paths against real api-server", () => {
+  test("rejects checkout when the cart is empty and creates no order", async ({
+    request,
+  }) => {
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const cartId = await createEmptyCart(unique);
+    try {
+      const res = await request.post("/api/checkout", {
+        data: {
+          cartId,
+          email: "empty-cart@example.com",
+        },
+      });
+      expect(res.status()).toBe(400);
+      const body = (await res.json()) as { error?: string };
+      expect(body.error).toMatch(/empty/i);
+
+      // No orders row for this cart, and the cart itself was not marked
+      // checked-out.
+      expect(await countOrdersForCart(cartId)).toBe(0);
+      await withDb(async (c) => {
+        const cartRes = await c.query<{ checked_out_at: Date | null }>(
+          `SELECT checked_out_at FROM carts WHERE id = $1`,
+          [cartId],
+        );
+        expect(cartRes.rowCount).toBe(1);
+        expect(cartRes.rows[0].checked_out_at).toBeNull();
+      });
+    } finally {
+      await cleanupCart(cartId);
+    }
+  });
+
+  test("checking out the same cart twice creates exactly one order", async ({
+    request,
+  }) => {
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const localSeed = await seedProductAndCart(unique);
+    try {
+      // First checkout: succeeds (dev-fallback).
+      const first = await request.post("/api/checkout", {
+        data: {
+          cartId: localSeed.cartId,
+          email: "double-checkout@example.com",
+        },
+      });
+      expect(first.status()).toBe(200);
+      const firstBody = (await first.json()) as {
+        url: string;
+        orderId: number;
+      };
+      expect(firstBody.orderId).toBeGreaterThan(0);
+      expect(firstBody.url).toMatch(
+        new RegExp(`/checkout/success\\?orderId=${firstBody.orderId}`),
+      );
+
+      // The first call should have emptied cart_items + stamped checked_out_at.
+      await withDb(async (c) => {
+        const items = await c.query(
+          `SELECT 1 FROM cart_items WHERE cart_id = $1`,
+          [localSeed.cartId],
+        );
+        expect(items.rowCount).toBe(0);
+      });
+
+      // Second checkout against the same (now empty) cart must fail with the
+      // empty-cart guard, NOT silently create another order.
+      const second = await request.post("/api/checkout", {
+        data: {
+          cartId: localSeed.cartId,
+          email: "double-checkout@example.com",
+        },
+      });
+      expect(second.status()).toBe(400);
+      const secondBody = (await second.json()) as { error?: string };
+      expect(secondBody.error).toMatch(/empty/i);
+
+      // Exactly one orders row exists for this cart — the first one.
+      expect(await countOrdersForCart(localSeed.cartId)).toBe(1);
+    } finally {
+      await cleanupSeed(localSeed);
+    }
+  });
+
+  test("rejects a malformed email and creates no order", async ({
+    request,
+  }) => {
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const localSeed = await seedProductAndCart(unique);
+    try {
+      const res = await request.post("/api/checkout", {
+        data: {
+          cartId: localSeed.cartId,
+          email: "not-a-valid-email",
+        },
+      });
+      // Zod's .email() rejects this in CreateCheckoutBody before the route
+      // touches the DB.
+      expect(res.status()).toBe(400);
+      const body = (await res.json()) as { error?: string };
+      expect(typeof body.error).toBe("string");
+      expect(body.error!.length).toBeGreaterThan(0);
+
+      // No order row was created, the seeded cart_items survived, and the
+      // cart was not marked checked-out.
+      expect(await countOrdersForCart(localSeed.cartId)).toBe(0);
+      await withDb(async (c) => {
+        const items = await c.query(
+          `SELECT 1 FROM cart_items WHERE cart_id = $1`,
+          [localSeed.cartId],
+        );
+        expect(items.rowCount).toBe(1);
+        const cartRes = await c.query<{ checked_out_at: Date | null }>(
+          `SELECT checked_out_at FROM carts WHERE id = $1`,
+          [localSeed.cartId],
+        );
+        expect(cartRes.rowCount).toBe(1);
+        expect(cartRes.rows[0].checked_out_at).toBeNull();
+      });
+    } finally {
+      await cleanupSeed(localSeed);
+    }
+  });
+});
