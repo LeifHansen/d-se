@@ -1,7 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
-import { resetDb } from "./testDb";
+import { db, resetDb } from "./testDb";
 import { makeApp, seedDiscount, seedProduct } from "./helpers";
+import { ordersTable } from "@workspace/db";
 
 vi.mock("../lib/email", () => ({
   sendOrderConfirmation: vi.fn(async () => {}),
@@ -105,5 +106,147 @@ describe("admin list payloads", () => {
     expect(res.status).toBe(200);
     expect(res.body).toHaveLength(1);
     expect(res.body[0].code).toBe("ADMIN10");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/orders/labels/merge-pdf is the server side of the bulk
+// "Buy cheapest label for selected" flow on the admin Orders page. The bulk
+// e2e covers the frontend contract (one merge call, one PDF download) — this
+// suite covers the server's content-type branching: a PDF labelUrl is
+// passed through page-by-page via pdf-lib, while a PNG labelUrl is embedded
+// onto a fresh 4x6 page. Both branches must end up in the same merged PDF.
+// ---------------------------------------------------------------------------
+describe("POST /admin/orders/labels/merge-pdf", () => {
+  let originalFetch: typeof globalThis.fetch;
+  let pngLabelBytes: Uint8Array;
+  let pdfLabelBytes: Uint8Array;
+
+  beforeEach(async () => {
+    await resetDb();
+    __setAuth("user_admin", ADMIN_USER);
+
+    const { PDFDocument, rgb } = await import("pdf-lib");
+
+    // Build a real one-page PDF that the merger will copyPages() out of.
+    const srcPdf = await PDFDocument.create();
+    const pdfPage = srcPdf.addPage([288, 432]);
+    pdfPage.drawText("PDF LABEL", { x: 24, y: 200, size: 18, color: rgb(0, 0, 0) });
+    pdfLabelBytes = await srcPdf.save();
+
+    // Build a real PNG by embedding a single-pixel PNG into a tiny PDF and
+    // then asking pdf-lib for the original PNG bytes. Since pdf-lib only
+    // emits PDFs, we hand-craft a minimal valid 1x1 PNG instead.
+    pngLabelBytes = Uint8Array.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
+      0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+      0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4, 0x89, 0x00, 0x00, 0x00,
+      0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
+      0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49,
+      0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
+    ]);
+
+    originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = typeof input === "string" ? input : input.toString();
+      if (url.endsWith(".pdf")) {
+        return new Response(pdfLabelBytes, {
+          status: 200,
+          headers: { "content-type": "application/pdf" },
+        });
+      }
+      if (url.endsWith(".png")) {
+        return new Response(pngLabelBytes, {
+          status: 200,
+          headers: { "content-type": "image/png" },
+        });
+      }
+      return new Response("not found", { status: 404 });
+    }) as typeof globalThis.fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  async function seedPaidOrderWithLabel(labelUrl: string): Promise<number> {
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "shipped",
+        subtotalCents: 5_000,
+        totalCents: 5_000,
+        currency: "usd",
+        labelUrl,
+        trackingCode: `TRK-${Math.floor(Math.random() * 1_000_000)}`,
+      })
+      .returning();
+    return order.id;
+  }
+
+  it("merges a mix of PDF + PNG labels into a single PDF (both branches)", async () => {
+    const pdfOrderId = await seedPaidOrderWithLabel("https://labels.test/a.pdf");
+    const pngOrderId = await seedPaidOrderWithLabel("https://labels.test/b.png");
+
+    const res = await request(app)
+      .post("/api/admin/orders/labels/merge-pdf")
+      .send({ orderIds: [pdfOrderId, pngOrderId] })
+      .buffer(true)
+      .parse((response, callback) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (c: Buffer) => chunks.push(c));
+        response.on("end", () => callback(null, Buffer.concat(chunks)));
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.headers["content-type"]).toBe("application/pdf");
+    expect(res.headers["content-disposition"]).toMatch(
+      /attachment; filename="shipping-labels-2\.pdf"/,
+    );
+
+    const out = res.body as Buffer;
+    expect(out.length).toBeGreaterThan(0);
+    expect(out.subarray(0, 4).toString("utf8")).toBe("%PDF");
+
+    // The merged document has at least 2 pages: 1 copied from the source
+    // PDF + 1 freshly created for the embedded PNG.
+    const { PDFDocument } = await import("pdf-lib");
+    const merged = await PDFDocument.load(out);
+    expect(merged.getPageCount()).toBeGreaterThanOrEqual(2);
+  });
+
+  it("returns 404 when none of the requested orders has a labelUrl", async () => {
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "paid",
+        subtotalCents: 5_000,
+        totalCents: 5_000,
+        currency: "usd",
+      })
+      .returning();
+    const res = await request(app)
+      .post("/api/admin/orders/labels/merge-pdf")
+      .send({ orderIds: [order.id] });
+    expect(res.status).toBe(404);
+  });
+
+  it("rejects an empty orderIds list with 400", async () => {
+    const res = await request(app)
+      .post("/api/admin/orders/labels/merge-pdf")
+      .send({ orderIds: [] });
+    expect(res.status).toBe(400);
+  });
+
+  it("returns 502 when fetching one of the labels fails", async () => {
+    const orderId = await seedPaidOrderWithLabel("https://labels.test/x.pdf");
+    globalThis.fetch = (async () =>
+      new Response("boom", { status: 500 })) as typeof globalThis.fetch;
+    const res = await request(app)
+      .post("/api/admin/orders/labels/merge-pdf")
+      .send({ orderIds: [orderId] });
+    expect(res.status).toBe(502);
   });
 });

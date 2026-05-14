@@ -114,8 +114,17 @@ class BulkApi {
   orders: Order[];
   ratesCalls: number[] = [];
   fulfillCalls: Array<{ orderId: number; body: Record<string, unknown> }> = [];
+  mergeCalls: Array<{ orderIds: number[] }> = [];
   failRatesFor = new Set<number>();
+  // Orders for which the rates endpoint returns 200 but with an empty
+  // rates array — this is the "no rates available" branch the storefront
+  // surfaces inline as "No shipping rates available".
+  noRatesFor = new Set<number>();
   failFulfillFor = new Set<number>();
+  // Per-order override for the labelUrl returned by the fulfill stub. Used
+  // to seed a mix of PNG and PDF label URLs so the merge-pdf endpoint
+  // exercises both content branches.
+  labelUrlByOrder = new Map<number, string>();
 
   constructor(orders: Order[]) {
     this.orders = orders;
@@ -126,7 +135,9 @@ class BulkApi {
     if (!o) return null;
     o.status = "shipped";
     o.trackingCode = `TRK-${orderId}`;
-    o.labelUrl = `https://labels.test/order-${orderId}.pdf`;
+    o.labelUrl =
+      this.labelUrlByOrder.get(orderId) ??
+      `https://labels.test/order-${orderId}.pdf`;
     return o;
   }
 }
@@ -134,15 +145,51 @@ class BulkApi {
 async function installBulkMocks(page: Page, api: BulkApi): Promise<void> {
   // Stub the print-window side effect so Playwright doesn't try to drive a
   // popup. Returning null also matches the production guard `if (!win) return`.
+  // Also intercept the merged-PDF download path: the admin Orders page
+  // triggers a download by creating a blob URL and synthesizing an
+  // <a download> click. Playwright's download event does NOT fire for
+  // blob: URLs, so we instead capture the filename + the blob's bytes via
+  // monkey-patched URL.createObjectURL + HTMLAnchorElement.click.
   await page.addInitScript(() => {
-    (window as unknown as { __labelPrintCalls: number }).__labelPrintCalls = 0;
+    const w = window as unknown as {
+      __labelPrintCalls: number;
+      __pdfDownloads: Array<{ filename: string; size: number; head: string }>;
+      __blobByUrl: Map<string, Blob>;
+    };
+    w.__labelPrintCalls = 0;
+    w.__pdfDownloads = [];
+    w.__blobByUrl = new Map();
     const original = window.open;
     window.open = function patchedOpen(...args: unknown[]) {
-      (window as unknown as { __labelPrintCalls: number })
-        .__labelPrintCalls += 1;
+      w.__labelPrintCalls += 1;
       void original;
       return null;
     } as typeof window.open;
+    const origCreate = URL.createObjectURL.bind(URL);
+    URL.createObjectURL = function patchedCreateObjectURL(obj: Blob | MediaSource) {
+      const url = origCreate(obj as Blob);
+      if (obj instanceof Blob) w.__blobByUrl.set(url, obj);
+      return url;
+    } as typeof URL.createObjectURL;
+    const origClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function patchedClick(this: HTMLAnchorElement) {
+      const href = this.getAttribute("href") ?? "";
+      const filename = this.getAttribute("download") ?? "";
+      if (filename && href.startsWith("blob:")) {
+        const blob = w.__blobByUrl.get(href);
+        if (blob) {
+          void blob.arrayBuffer().then((buf) => {
+            const bytes = new Uint8Array(buf);
+            const head = String.fromCharCode(
+              ...Array.from(bytes.slice(0, 8)),
+            );
+            w.__pdfDownloads.push({ filename, size: bytes.byteLength, head });
+          });
+          return;
+        }
+      }
+      origClick.call(this);
+    };
   });
 
   await page.route("**/api/admin/stats", async (route: Route) => {
@@ -207,10 +254,54 @@ async function installBulkMocks(page: Page, api: BulkApi): Promise<void> {
         });
         return;
       }
+      if (api.noRatesFor.has(orderId)) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ shipmentId: `shp_${orderId}`, rates: [] }),
+        });
+        return;
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ shipmentId: `shp_${orderId}`, rates: RATES }),
+      });
+    },
+  );
+
+  await page.route(
+    "**/api/admin/orders/labels/merge-pdf",
+    async (route: Route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+      const body = JSON.parse(route.request().postData() ?? "{}") as {
+        orderIds?: number[];
+      };
+      const orderIds = Array.isArray(body.orderIds) ? body.orderIds : [];
+      api.mergeCalls.push({ orderIds });
+      // Verify the storefront only asks the merge endpoint for orders
+      // that actually came back with a label URL from fulfill — this is
+      // the contract the server-side merger relies on.
+      const targets = api.orders.filter(
+        (o) => orderIds.includes(o.id) && Boolean(o.labelUrl),
+      );
+      // Minimal valid PDF document so the blob the storefront downloads
+      // really is a PDF (asserted via the %PDF- magic header).
+      const pdf = Buffer.from(
+        "%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n",
+        "utf8",
+      );
+      await route.fulfill({
+        status: 200,
+        contentType: "application/pdf",
+        headers: {
+          "Content-Disposition": `attachment; filename="shipping-labels-${targets.length}.pdf"`,
+          "Content-Length": String(pdf.byteLength),
+        },
+        body: pdf,
       });
     },
   );
@@ -397,5 +488,151 @@ test.describe("admin orders — bulk buy cheapest label", () => {
     await expect(page.getByTestId("row-order-7003")).toContainText("shipped");
     await expect(page.getByTestId("row-order-7002")).toContainText("paid");
     await expect(page.getByTestId("checkbox-order-7002")).toBeEnabled();
+  });
+
+  test("downloads a single merged PDF for the whole batch (mixed PNG + PDF labels)", async ({
+    page,
+  }) => {
+    // Three eligible paid orders. The fulfill stub seeds a deliberate mix
+    // of label URL types so the server-side merge endpoint would have to
+    // exercise both its PDF-passthrough branch (for .pdf labels) and its
+    // image-embed branch (for .png labels). The frontend's contract is to
+    // make exactly one merge-pdf call carrying every successfully-labeled
+    // orderId and to download the response as a single attachment.
+    const api = new BulkApi([
+      makeOrder({ id: 8001 }),
+      makeOrder({ id: 8002 }),
+      makeOrder({ id: 8003 }),
+    ]);
+    api.labelUrlByOrder.set(8001, "https://labels.test/order-8001.pdf");
+    api.labelUrlByOrder.set(8002, "https://labels.test/order-8002.png");
+    api.labelUrlByOrder.set(8003, "https://labels.test/order-8003.pdf");
+    await installBulkMocks(page, api);
+
+    await page.goto("/admin/orders");
+
+    await page.getByTestId("checkbox-select-all-paid").check();
+    await expect(page.getByTestId("bulk-actions-bar")).toContainText(
+      "3 orders selected",
+    );
+
+    await page.getByTestId("button-bulk-buy-labels").click();
+
+    await expect.poll(() => api.fulfillCalls.length).toBe(3);
+    await expect.poll(() => api.mergeCalls.length).toBe(1);
+
+    // Exactly one merge call, carrying every fulfilled orderId regardless
+    // of whether its label was a PNG or a PDF.
+    expect(api.mergeCalls).toHaveLength(1);
+    expect(new Set(api.mergeCalls[0].orderIds)).toEqual(
+      new Set([8001, 8002, 8003]),
+    );
+
+    // The frontend turned the merged PDF response into a single download:
+    // one filename matching the production pattern, real %PDF- bytes, and
+    // no per-order downloads sneaking through.
+    await expect
+      .poll(
+        async () =>
+          await page.evaluate(
+            () =>
+              (
+                window as unknown as {
+                  __pdfDownloads?: Array<{ filename: string; head: string }>;
+                }
+              ).__pdfDownloads?.length ?? 0,
+          ),
+      )
+      .toBe(1);
+
+    const downloads = await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __pdfDownloads: Array<{
+              filename: string;
+              size: number;
+              head: string;
+            }>;
+          }
+        ).__pdfDownloads,
+    );
+    expect(downloads).toHaveLength(1);
+    expect(downloads[0].filename).toMatch(
+      /^shipping-labels-3-\d{4}-\d{2}-\d{2}\.pdf$/,
+    );
+    expect(downloads[0].head.startsWith("%PDF-")).toBe(true);
+    expect(downloads[0].size).toBeGreaterThan(0);
+
+    // No bulk-error panel and no rates were re-requested for already-shipped
+    // orders. All three orders flipped to shipped.
+    await expect(page.getByTestId("text-bulk-errors")).toHaveCount(0);
+    await expect(page.getByTestId("row-order-8001")).toContainText("shipped");
+    await expect(page.getByTestId("row-order-8002")).toContainText("shipped");
+    await expect(page.getByTestId("row-order-8003")).toContainText("shipped");
+  });
+
+  test("partial failure still merges + downloads labels for the orders that succeeded", async ({
+    page,
+  }) => {
+    // 9002's rates call returns 200 with an empty rates array — i.e. the
+    // "one order without rates" failure path the task explicitly calls
+    // out. The merge endpoint must still be called for the two orders
+    // that *did* get labels, and 9002 must show up in the inline bulk
+    // errors panel with the storefront's "No shipping rates available"
+    // message rather than a generic HTTP error.
+    const api = new BulkApi([
+      makeOrder({ id: 9001 }),
+      makeOrder({ id: 9002 }),
+      makeOrder({ id: 9003 }),
+    ]);
+    api.labelUrlByOrder.set(9001, "https://labels.test/order-9001.png");
+    api.labelUrlByOrder.set(9003, "https://labels.test/order-9003.pdf");
+    api.noRatesFor.add(9002);
+    await installBulkMocks(page, api);
+
+    await page.goto("/admin/orders");
+
+    await page.getByTestId("checkbox-select-all-paid").check();
+    await page.getByTestId("button-bulk-buy-labels").click();
+
+    await expect.poll(() => api.mergeCalls.length).toBe(1);
+    expect(new Set(api.mergeCalls[0].orderIds)).toEqual(new Set([9001, 9003]));
+    expect(api.mergeCalls[0].orderIds).not.toContain(9002);
+
+    // The PDF download still happened despite the partial failure.
+    await expect
+      .poll(
+        async () =>
+          await page.evaluate(
+            () =>
+              (
+                window as unknown as {
+                  __pdfDownloads?: Array<{ filename: string }>;
+                }
+              ).__pdfDownloads?.length ?? 0,
+          ),
+      )
+      .toBe(1);
+    const downloads = await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __pdfDownloads: Array<{ filename: string }>;
+          }
+        ).__pdfDownloads,
+    );
+    expect(downloads[0].filename).toMatch(
+      /^shipping-labels-2-\d{4}-\d{2}-\d{2}\.pdf$/,
+    );
+
+    // The error panel still calls out the failing order, and uses the
+    // storefront's empty-rates message rather than a generic HTTP error.
+    const errors = page.getByTestId("text-bulk-errors");
+    await expect(errors).toBeVisible();
+    await expect(errors).toContainText("#9002");
+    await expect(errors).toContainText("No shipping rates available");
+    await expect(errors).not.toContainText("#9001");
+    await expect(errors).not.toContainText("#9003");
   });
 });
