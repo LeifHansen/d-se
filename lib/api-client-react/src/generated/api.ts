@@ -2997,6 +2997,95 @@ export const useDeleteBlogPost = <
 };
 
 /**
+ * @summary Fetch any blog post by slug (including unpublished drafts) for admin preview
+ */
+export const getGetAdminBlogPostBySlugUrl = (slug: string) => {
+  return `/api/admin/blog/posts/by-slug/${slug}`;
+};
+
+export const getAdminBlogPostBySlug = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<BlogPost> => {
+  return customFetch<BlogPost>(getGetAdminBlogPostBySlugUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminBlogPostBySlugQueryKey = (slug: string) => {
+  return [`/api/admin/blog/posts/by-slug/${slug}`] as const;
+};
+
+export const getGetAdminBlogPostBySlugQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminBlogPostBySlug>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminBlogPostBySlug>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminBlogPostBySlugQueryKey(slug);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminBlogPostBySlug>>
+  > = ({ signal }) =>
+    getAdminBlogPostBySlug(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminBlogPostBySlug>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminBlogPostBySlugQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminBlogPostBySlug>>
+>;
+export type GetAdminBlogPostBySlugQueryError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Fetch any blog post by slug (including unpublished drafts) for admin preview
+ */
+
+export function useGetAdminBlogPostBySlug<
+  TData = Awaited<ReturnType<typeof getAdminBlogPostBySlug>>,
+  TError = ErrorType<NotFoundResponse>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminBlogPostBySlug>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminBlogPostBySlugQueryOptions(slug, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
  * @summary Validate a discount code against a cart
  */
 export const getValidateDiscountUrl = () => {

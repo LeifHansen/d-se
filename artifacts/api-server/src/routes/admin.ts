@@ -779,6 +779,24 @@ router.post(
   },
 );
 
+router.get("/admin/blog/posts/by-slug/:slug", async (req, res): Promise<void> => {
+  const slug = String(req.params.slug ?? "");
+  if (!slug) {
+    res.status(400).json({ error: "slug is required" });
+    return;
+  }
+  const [row] = await db
+    .select()
+    .from(blogPostsTable)
+    .where(eq(blogPostsTable.slug, slug));
+  if (!row) {
+    res.status(404).json({ error: "Post not found" });
+    return;
+  }
+  res.setHeader("Cache-Control", "no-store");
+  res.json(serializeBlog(row));
+});
+
 router.get("/admin/blog/posts", async (_req, res): Promise<void> => {
   const rows = await db
     .select()

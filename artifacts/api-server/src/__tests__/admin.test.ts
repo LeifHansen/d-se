@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { db, resetDb } from "./testDb";
 import { makeApp, seedDiscount, seedProduct } from "./helpers";
-import { ordersTable } from "@workspace/db";
+import { ordersTable, blogPostsTable } from "@workspace/db";
 
 vi.mock("../lib/email", () => ({
   sendOrderConfirmation: vi.fn(async () => {}),
@@ -253,5 +253,59 @@ describe("POST /admin/orders/labels/merge-pdf", () => {
       .post("/api/admin/orders/labels/merge-pdf")
       .send({ orderIds: [orderId] });
     expect(res.status).toBe(502);
+  });
+});
+
+describe("GET /admin/blog/posts/by-slug/:slug (draft preview)", () => {
+  beforeEach(async () => {
+    await resetDb();
+    __setAuth(null);
+  });
+
+  async function seedDraft() {
+    await db.insert(blogPostsTable).values({
+      slug: "secret-draft",
+      title: "Secret Draft",
+      excerpt: "shh",
+      content: "draft body",
+      published: false,
+    });
+  }
+
+  it("returns 401 when unauthenticated", async () => {
+    await seedDraft();
+    const res = await request(app).get(
+      "/api/admin/blog/posts/by-slug/secret-draft",
+    );
+    expect(res.status).toBe(401);
+  });
+
+  it("returns 403 for a signed-in non-admin", async () => {
+    __setAuth("user_shopper", NON_ADMIN_USER);
+    await seedDraft();
+    const res = await request(app).get(
+      "/api/admin/blog/posts/by-slug/secret-draft",
+    );
+    expect(res.status).toBe(403);
+  });
+
+  it("returns the unpublished post for an admin", async () => {
+    __setAuth("user_admin", ADMIN_USER);
+    await seedDraft();
+    const res = await request(app).get(
+      "/api/admin/blog/posts/by-slug/secret-draft",
+    );
+    expect(res.status).toBe(200);
+    expect(res.body.slug).toBe("secret-draft");
+    expect(res.body.published).toBe(false);
+    expect(res.headers["cache-control"]).toBe("no-store");
+  });
+
+  it("returns 404 when no such post exists", async () => {
+    __setAuth("user_admin", ADMIN_USER);
+    const res = await request(app).get(
+      "/api/admin/blog/posts/by-slug/missing",
+    );
+    expect(res.status).toBe(404);
   });
 });

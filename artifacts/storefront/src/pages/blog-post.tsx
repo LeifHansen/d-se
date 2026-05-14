@@ -17,6 +17,7 @@ import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import { toString as hastToString } from "hast-util-to-string";
 import type { Element as HastElement } from "hast";
 import {
+  useGetAdminBlogPostBySlug,
   useGetBlogPostBySlug,
   useGetProductBySlug,
   useListBlogPosts,
@@ -405,9 +406,28 @@ function TableOfContents({ entries }: { entries: TocEntry[] }) {
 export default function BlogPost() {
   const [, params] = useRoute<{ slug: string }>("/blog/:slug");
   const slug = params?.slug ?? "";
-  const { data: post, isLoading, isError } = useGetBlogPostBySlug(slug, {
-    query: { enabled: !!slug } as never,
+  const {
+    data: publicPost,
+    isLoading: publicLoading,
+    isError: publicError,
+  } = useGetBlogPostBySlug(slug, {
+    query: { enabled: !!slug, retry: false } as never,
   });
+  // Admin preview fallback: when the public endpoint 404s (post is unpublished
+  // or doesn't exist), try the admin endpoint. Clerk session cookies are sent
+  // automatically — non-admins simply get 401/403 and we fall through to the
+  // normal "Post not found" state.
+  const {
+    data: adminPost,
+    isLoading: adminLoading,
+    isError: adminError,
+  } = useGetAdminBlogPostBySlug(slug, {
+    query: { enabled: !!slug && publicError, retry: false } as never,
+  });
+  const post = publicPost ?? adminPost ?? null;
+  const isDraftPreview = !publicPost && !!adminPost;
+  const isLoading = publicLoading || (publicError && !adminError && !adminPost && adminLoading);
+  const isError = !post && (publicError ? adminError || (!adminLoading && !adminPost) : false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -486,6 +506,31 @@ export default function BlogPost() {
         publishedTime={post?.publishedAt ?? undefined}
         author={post?.author ?? undefined}
       />
+      {isDraftPreview ? (
+        <div
+          className="border-b"
+          style={{
+            background: "hsl(42 53% 54%)",
+            borderColor: "hsl(42 53% 44%)",
+            color: "hsl(170 58% 14%)",
+          }}
+          data-testid="blog-draft-banner"
+          role="status"
+        >
+          <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-3 text-xs md:px-10">
+            <span className="font-semibold uppercase tracking-[0.22em]">
+              Draft preview · Not visible to the public
+            </span>
+            <Link
+              href="/admin"
+              className="font-semibold uppercase tracking-[0.22em] underline-offset-4 hover:underline"
+              data-testid="link-admin-from-draft-banner"
+            >
+              Back to admin
+            </Link>
+          </div>
+        </div>
+      ) : null}
       <div className="mx-auto max-w-3xl px-6 pt-8 md:px-10">
         <Link
           href="/blog"

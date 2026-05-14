@@ -1274,6 +1274,29 @@ export const DeleteBlogPostParams = zod.object({
 });
 
 /**
+ * @summary Fetch any blog post by slug (including unpublished drafts) for admin preview
+ */
+export const GetAdminBlogPostBySlugParams = zod.object({
+  slug: zod.coerce.string(),
+});
+
+export const GetAdminBlogPostBySlugResponse = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  title: zod.string(),
+  excerpt: zod.string(),
+  content: zod.string(),
+  coverImage: zod.string().nullish(),
+  author: zod.string().nullish(),
+  tags: zod.array(zod.string()).optional(),
+  seoTitle: zod.string().nullish(),
+  seoDescription: zod.string().nullish(),
+  published: zod.boolean(),
+  publishedAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
+/**
  * @summary Validate a discount code against a cart
  */
 export const ValidateDiscountBody = zod.object({

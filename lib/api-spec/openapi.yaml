@@ -683,6 +683,24 @@ paths:
       responses:
         "204": { description: Deleted }
 
+  /admin/blog/posts/by-slug/{slug}:
+    get:
+      operationId: getAdminBlogPostBySlug
+      tags: [admin]
+      summary: Fetch any blog post by slug (including unpublished drafts) for admin preview
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BlogPost" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   /discounts/validate:
     post:
       operationId: validateDiscount
