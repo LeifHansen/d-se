@@ -19,12 +19,7 @@ run = "pnpm --filter @workspace/storefront run dev"
 
 [services.production]
 build = [ "pnpm", "--filter", "@workspace/storefront", "run", "build" ]
-publicDir = "artifacts/storefront/dist/public"
-serve = "static"
-
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+run = [ "node", "artifacts/storefront/scripts/serve.mjs" ]
 
 [services.env]
 PORT = "18539"
