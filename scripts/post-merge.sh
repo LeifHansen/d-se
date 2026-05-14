@@ -10,6 +10,16 @@ if [ -n "$DATABASE_URL" ]; then
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c \
     "UPDATE orders SET email = lower(btrim(email)) WHERE email IS NOT NULL AND email <> lower(btrim(email));" \
     || echo "Order email normalisation skipped (psql failed)."
+
+  # Mirror the same normalisation onto carts and abandoned_carts so cart and
+  # order email columns share one canonical form (lower + trim). Idempotent —
+  # rows already in canonical form are unaffected.
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c \
+    "UPDATE carts SET email = lower(btrim(email)) WHERE email IS NOT NULL AND email <> lower(btrim(email));" \
+    || echo "Cart email normalisation skipped (psql failed)."
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c \
+    "UPDATE abandoned_carts SET email = lower(btrim(email)) WHERE email IS NOT NULL AND email <> lower(btrim(email));" \
+    || echo "Abandoned-cart email normalisation skipped (psql failed)."
 fi
 
 if [ -n "$DATABASE_URL" ] && [ -n "$PUBLIC_OBJECT_SEARCH_PATHS" ]; then

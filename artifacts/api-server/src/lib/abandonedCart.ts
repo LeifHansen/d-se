@@ -9,6 +9,7 @@ import {
 } from "@workspace/db";
 import { sendAbandonedCartEmail } from "./email";
 import { logger } from "./logger";
+import { normaliseEmail } from "./normaliseEmail";
 
 const FIRST_REMINDER_HOURS = Number(
   process.env.ABANDONED_CART_FIRST_HOURS ?? 4,
@@ -205,6 +206,11 @@ export async function recordAbandonedCart(opts: {
   email: string;
   userId?: string | null;
 }): Promise<void> {
+  // Defence in depth: callers may pass user-supplied email casing/whitespace.
+  // Storing canonical form keeps reminder dedup and any future cart↔order
+  // join keyed on email working with simple equality.
+  const email = normaliseEmail(opts.email);
+  if (!email) return;
   const [existing] = await db
     .select()
     .from(abandonedCartsTable)
@@ -213,7 +219,7 @@ export async function recordAbandonedCart(opts: {
     await db
       .update(abandonedCartsTable)
       .set({
-        email: opts.email,
+        email,
         userId: opts.userId ?? existing.userId,
         updatedAt: new Date(),
       })
@@ -222,7 +228,7 @@ export async function recordAbandonedCart(opts: {
   }
   await db.insert(abandonedCartsTable).values({
     cartId: opts.cartId,
-    email: opts.email,
+    email,
     userId: opts.userId ?? null,
   });
 }

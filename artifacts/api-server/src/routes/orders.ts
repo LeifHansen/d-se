@@ -32,6 +32,7 @@ import {
   ensureStripePromotionCode,
 } from "../lib/discounts";
 import { recordAbandonedCart } from "../lib/abandonedCart";
+import { normaliseEmail } from "../lib/normaliseEmail";
 
 const STRIPE_TAX_ENABLED = process.env.STRIPE_TAX_ENABLED === "1";
 
@@ -50,14 +51,6 @@ function generateLookupToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
-// Normalise email at write time so guest lookups (and any future email-keyed
-// query) can compare with simple equality. Returns null for null/empty input
-// so we don't persist empty strings.
-function normaliseOrderEmail(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const trimmed = raw.trim().toLowerCase();
-  return trimmed.length > 0 ? trimmed : null;
-}
 
 function tokensMatch(a: string, b: string): boolean {
   const ab = Buffer.from(a);
@@ -161,7 +154,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
 
   const totalCents = Math.max(0, subtotalCents - discountCents) + shippingCents;
 
-  const normalisedEmail = normaliseOrderEmail(parsed.data.email);
+  const normalisedEmail = normaliseEmail(parsed.data.email);
 
   // Track an abandoned-cart record now that we have an email.
   if (normalisedEmail) {
@@ -377,7 +370,7 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  // Order emails are normalised at write time (see normaliseOrderEmail), so a
+  // Order emails are normalised at write time (see normaliseEmail), so a
   // simple equality check on row.email would suffice. We still normalise the
   // submitted value here as defence in depth — clients can still send
   // arbitrary casing/whitespace, and historic rows pre-migration may exist.

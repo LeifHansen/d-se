@@ -17,14 +17,7 @@ import { SITE_URL } from "../lib/site-url";
 import { markCartRecovered } from "../lib/abandonedCart";
 import { recordStripeWebhookReceived } from "../lib/metrics";
 import { trackPurchaseServerSide } from "../lib/serverAnalytics";
-
-// Normalise email at write time so guest lookups can compare with simple
-// equality. Mirrors normaliseOrderEmail in routes/orders.ts.
-function normaliseOrderEmail(raw: string | null | undefined): string | null {
-  if (!raw) return null;
-  const trimmed = raw.trim().toLowerCase();
-  return trimmed.length > 0 ? trimmed : null;
-}
+import { normaliseEmail } from "../lib/normaliseEmail";
 
 const router: IRouter = Router();
 
@@ -232,7 +225,7 @@ router.post(
                 : null,
             email:
               order.email ??
-              normaliseOrderEmail(
+              normaliseEmail(
                 session.customer_email ??
                   session.customer_details?.email ??
                   null,
@@ -281,7 +274,7 @@ router.post(
 
         const email =
           order.email ??
-          normaliseOrderEmail(
+          normaliseEmail(
             session.customer_email ??
               session.customer_details?.email ??
               null,
