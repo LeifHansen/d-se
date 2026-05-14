@@ -16,6 +16,7 @@ import {
   CreateCheckoutResponse,
   ListMyOrdersResponse,
   GetOrderParams,
+  GetOrderQueryParams,
   GetOrderResponse,
   LookupOrderBody,
 } from "@workspace/api-zod";
@@ -384,13 +385,18 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
   res.json(GetOrderResponse.parse(order));
 });
 
-router.get("/orders/:id", requireAuth, async (req, res): Promise<void> => {
+router.get("/orders/:id", async (req, res): Promise<void> => {
   const params = GetOrderParams.safeParse(req.params);
   if (!params.success) {
     res.status(400).json({ error: params.error.message });
     return;
   }
-  const userId = getUserId(req)!;
+  const query = GetOrderQueryParams.safeParse(req.query);
+  if (!query.success) {
+    res.status(400).json({ error: query.error.message });
+    return;
+  }
+  const userId = getUserId(req);
   const [row] = await db
     .select()
     .from(ordersTable)
@@ -399,8 +405,17 @@ router.get("/orders/:id", requireAuth, async (req, res): Promise<void> => {
     res.status(404).json({ error: "Order not found" });
     return;
   }
-  if (row.userId !== userId) {
-    // Don't leak existence to non-owners.
+  // Authorize: signed-in owner, OR a guest presenting the originating cart id
+  // / Stripe Checkout session id (the receipt link they were redirected to).
+  // Don't leak existence to anyone else.
+  const ownsOrder = userId !== null && row.userId === userId;
+  const cartIdMatches =
+    !!query.data.cartId && !!row.cartId && row.cartId === query.data.cartId;
+  const sessionIdMatches =
+    !!query.data.sessionId &&
+    !!row.stripeSessionId &&
+    row.stripeSessionId === query.data.sessionId;
+  if (!ownsOrder && !cartIdMatches && !sessionIdMatches) {
     res.status(404).json({ error: "Order not found" });
     return;
   }

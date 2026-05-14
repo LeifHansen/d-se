@@ -310,6 +310,16 @@ paths:
           in: path
           required: true
           schema: { type: integer }
+        - name: cartId
+          in: query
+          required: false
+          description: Guest receipt token. Authorizes a non-signed-in shopper to view the order if it matches the order's originating cartId.
+          schema: { type: string }
+        - name: sessionId
+          in: query
+          required: false
+          description: Stripe Checkout Session id. Authorizes a non-signed-in shopper to view the order if it matches the order's stripeSessionId.
+          schema: { type: string }
       responses:
         "200":
           description: OK

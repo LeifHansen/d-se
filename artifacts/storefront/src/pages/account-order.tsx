@@ -22,9 +22,13 @@ export default function AccountOrderPage() {
   const orderId = Number(params.id);
   const validId = Number.isFinite(orderId) && orderId > 0;
 
-  const { data: order, isLoading, isError, error } = useGetOrder(orderId, {
-    query: { enabled: validId, retry: false } as never,
-  });
+  const { data: order, isLoading, isError, error } = useGetOrder(
+    orderId,
+    undefined,
+    {
+      query: { enabled: validId, retry: false } as never,
+    },
+  );
 
   const unauthenticated =
     isError &&

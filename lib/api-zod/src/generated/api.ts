@@ -571,6 +571,21 @@ export const GetOrderParams = zod.object({
   id: zod.coerce.number(),
 });
 
+export const GetOrderQueryParams = zod.object({
+  cartId: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Guest receipt token. Authorizes a non-signed-in shopper to view the order if it matches the order's originating cartId.",
+    ),
+  sessionId: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Stripe Checkout Session id. Authorizes a non-signed-in shopper to view the order if it matches the order's stripeSessionId.",
+    ),
+});
+
 export const GetOrderResponse = zod.object({
   id: zod.number(),
   status: zod.string(),

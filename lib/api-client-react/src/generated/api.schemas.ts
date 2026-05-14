@@ -534,6 +534,17 @@ export type CreateCheckout200 = {
   orderId: number;
 };
 
+export type GetOrderParams = {
+  /**
+   * Guest receipt token. Authorizes a non-signed-in shopper to view the order if it matches the order's originating cartId.
+   */
+  cartId?: string;
+  /**
+   * Stripe Checkout Session id. Authorizes a non-signed-in shopper to view the order if it matches the order's stripeSessionId.
+   */
+  sessionId?: string;
+};
+
 export type LookupOrderBody = {
   orderId: number;
   email?: string;

@@ -37,6 +37,7 @@ export * from "./forbiddenResponse";
 export * from "./fulfillOrderBody";
 export * from "./getAdminOrderShippingRates200";
 export * from "./getCartParams";
+export * from "./getOrderParams";
 export * from "./getShippingRatesBody";
 export * from "./healthStatus";
 export * from "./healthStatusChecks";
