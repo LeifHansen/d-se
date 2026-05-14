@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { PageLayout } from "@/components/dose/PageLayout";
+import { AdminLayout } from "./AdminLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -83,11 +83,8 @@ export default function AdminNewsletter() {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   return (
-    <PageLayout
-      eyebrow="Admin"
-      title="Newsletter subscribers"
-      testId="page-admin-newsletter"
-    >
+    <AdminLayout title="Newsletter subscribers">
+      <div data-testid="page-admin-newsletter" className="space-y-6">
       <form
         onSubmit={onSearchSubmit}
         className="not-prose flex flex-wrap items-end gap-3"
@@ -225,6 +222,7 @@ export default function AdminNewsletter() {
           </Button>
         </div>
       </div>
-    </PageLayout>
+      </div>
+    </AdminLayout>
   );
 }

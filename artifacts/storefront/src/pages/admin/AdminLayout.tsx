@@ -1,4 +1,5 @@
 import { type ReactNode } from "react";
+import { Helmet } from "react-helmet-async";
 import { Link, useLocation } from "wouter";
 import {
   ClerkLoaded,
@@ -183,6 +184,9 @@ function AdminShell({ children }: { children: ReactNode }) {
       className="min-h-screen w-full bg-background text-foreground"
       data-testid="admin-shell"
     >
+      <Helmet prioritizeSeoTags>
+        <meta name="robots" content="noindex,nofollow" />
+      </Helmet>
       <header className="border-b border-foreground/10">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 md:px-6">
           <Link href="/" className="flex items-center gap-3">
