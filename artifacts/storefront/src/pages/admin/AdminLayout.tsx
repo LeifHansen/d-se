@@ -28,6 +28,13 @@ const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
   | string
   | undefined;
 
+// Dev/test-only escape hatch so Playwright can drive the admin UI without
+// a live Clerk session. Gated on `import.meta.env.DEV` so it can never be
+// activated in production builds, even if the env var leaks.
+const e2eBypass =
+  import.meta.env.DEV &&
+  (import.meta.env.VITE_ADMIN_E2E_BYPASS as string | undefined) === "1";
+
 export function AdminLayout({
   title,
   children,
@@ -36,6 +43,16 @@ export function AdminLayout({
   children: ReactNode;
 }) {
   const [location] = useLocation();
+
+  if (e2eBypass) {
+    return (
+      <AdminShell>
+        <AdminBody title={title} location={location} bypassAuth>
+          {children}
+        </AdminBody>
+      </AdminShell>
+    );
+  }
 
   if (!clerkPublishableKey) {
     return (
@@ -66,57 +83,82 @@ export function AdminLayout({
           </div>
         </SignedOut>
         <SignedIn>
-          <div className="grid gap-8 md:grid-cols-[220px_1fr]">
-            <aside className="md:sticky md:top-24 md:self-start">
-              <nav
-                className="flex flex-row gap-1 overflow-x-auto md:flex-col"
-                aria-label="Admin sections"
-              >
-                {NAV_ITEMS.map((item) => {
-                  const active =
-                    item.href === "/admin"
-                      ? location === "/admin"
-                      : location === item.href ||
-                        location.startsWith(item.href + "/");
-                  const slug =
-                    item.href === "/admin"
-                      ? "dashboard"
-                      : item.href.split("/").pop();
-                  return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        "whitespace-nowrap rounded-md px-3 py-2 text-sm transition-colors",
-                        active
-                          ? "bg-foreground text-background"
-                          : "text-foreground/70 hover:bg-foreground/10 hover:text-foreground",
-                      )}
-                      data-testid={`admin-nav-${slug}`}
-                    >
-                      {item.label}
-                    </Link>
-                  );
-                })}
-              </nav>
-            </aside>
-            <main id="main">
-              <div className="mb-6 flex items-center justify-between gap-4">
-                {title ? (
-                  <h1 className="text-2xl font-semibold tracking-tight">
-                    {title}
-                  </h1>
-                ) : (
-                  <span />
-                )}
-                <AdminUserChip />
-              </div>
-              {children}
-            </main>
-          </div>
+          <AdminBody title={title} location={location}>
+            {children}
+          </AdminBody>
         </SignedIn>
       </ClerkLoaded>
     </AdminShell>
+  );
+}
+
+function AdminBody({
+  title,
+  location,
+  children,
+  bypassAuth = false,
+}: {
+  title?: string;
+  location: string;
+  children: ReactNode;
+  bypassAuth?: boolean;
+}) {
+  return (
+    <div className="grid gap-8 md:grid-cols-[220px_1fr]">
+      <aside className="md:sticky md:top-24 md:self-start">
+        <nav
+          className="flex flex-row gap-1 overflow-x-auto md:flex-col"
+          aria-label="Admin sections"
+        >
+          {NAV_ITEMS.map((item) => {
+            const active =
+              item.href === "/admin"
+                ? location === "/admin"
+                : location === item.href ||
+                  location.startsWith(item.href + "/");
+            const slug =
+              item.href === "/admin"
+                ? "dashboard"
+                : item.href.split("/").pop();
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "whitespace-nowrap rounded-md px-3 py-2 text-sm transition-colors",
+                  active
+                    ? "bg-foreground text-background"
+                    : "text-foreground/70 hover:bg-foreground/10 hover:text-foreground",
+                )}
+                data-testid={`admin-nav-${slug}`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+      <main id="main">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          {title ? (
+            <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+          ) : (
+            <span />
+          )}
+          {bypassAuth ? (
+            <span
+              className="text-xs text-muted-foreground"
+              data-testid="text-admin-email"
+            >
+              e2e@example.com
+            </span>
+          ) : (
+            <AdminUserChip />
+          )}
+        </div>
+        {children}
+      </main>
+    </div>
   );
 }
 
