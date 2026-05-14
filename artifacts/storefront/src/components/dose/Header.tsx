@@ -1,10 +1,22 @@
 import { useEffect, useState } from "react";
 import { Link } from "wouter";
 import { ShoppingBag, User, Menu, X, ChevronDown } from "lucide-react";
+import {
+  ClerkLoaded,
+  SignedIn,
+  SignedOut,
+  SignInButton,
+  SignUpButton,
+  UserButton,
+} from "@clerk/clerk-react";
 import { Logo, Emblem } from "./Logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/hooks/useCart";
+
+const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
+  | string
+  | undefined;
 
 const nav = [
   { label: "Shop", href: "#shop" },
@@ -87,15 +99,55 @@ export function Header() {
 
         {/* Right: account & cart */}
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Account"
-            className="text-current hover:bg-white/5"
-            data-testid="header-account"
-          >
-            <User className="h-4 w-4" />
-          </Button>
+          {clerkPublishableKey ? (
+            <ClerkLoaded>
+              <SignedOut>
+                <SignInButton mode="modal" forceRedirectUrl={typeof window !== "undefined" ? window.location.pathname + window.location.search : undefined}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Sign in"
+                    className="text-current hover:bg-white/5"
+                    data-testid="header-account"
+                  >
+                    <User className="h-4 w-4" />
+                  </Button>
+                </SignInButton>
+                <SignUpButton mode="modal" forceRedirectUrl={typeof window !== "undefined" ? window.location.pathname + window.location.search : undefined}>
+                  <button
+                    type="button"
+                    className="hidden text-[11px] font-semibold uppercase tracking-[0.22em] hover:opacity-70 md:inline"
+                    data-testid="header-signup"
+                  >
+                    Join
+                  </button>
+                </SignUpButton>
+              </SignedOut>
+              <SignedIn>
+                <div data-testid="header-user-button">
+                  <UserButton
+                    afterSignOutUrl={typeof window !== "undefined" ? window.location.pathname : "/"}
+                    appearance={{
+                      elements: {
+                        avatarBox: "h-7 w-7",
+                      },
+                    }}
+                  />
+                </div>
+              </SignedIn>
+            </ClerkLoaded>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Account"
+              className="text-current hover:bg-white/5"
+              data-testid="header-account"
+              disabled
+            >
+              <User className="h-4 w-4" />
+            </Button>
+          )}
           <Link href="/cart">
             <Button
               variant="ghost"
