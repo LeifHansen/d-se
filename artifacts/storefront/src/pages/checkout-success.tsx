@@ -1,24 +1,9 @@
 import { useEffect } from "react";
-import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { PromoBanner } from "@/components/dose/PromoBanner";
-import { Header } from "@/components/dose/Header";
-import { Footer } from "@/components/dose/Footer";
-import { CookieBanner } from "@/components/dose/CookieBanner";
-import { AgeGate } from "@/components/dose/AgeGate";
-import { Button } from "@/components/ui/button";
 import { clearCartId } from "@/lib/cart-id";
-
-const CREAM = "hsl(45 49% 90%)";
-const FOREST = "hsl(170 58% 14%)";
-const GOLD = "hsl(42 53% 54%)";
 
 export default function CheckoutSuccessPage() {
   const qc = useQueryClient();
-  const orderId =
-    typeof window !== "undefined"
-      ? new URLSearchParams(window.location.search).get("orderId")
-      : null;
 
   useEffect(() => {
     // Stripe redirected back after a successful payment. The webhook clears
@@ -33,56 +18,42 @@ export default function CheckoutSuccessPage() {
         return typeof k === "string" && k.includes("/cart");
       },
     });
+
+    // Redirect to the order detail page so guests land on a real summary.
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    const orderId =
+      url.searchParams.get("orderId") ??
+      (() => {
+        try {
+          return window.localStorage.getItem("dose-last-order-id");
+        } catch {
+          return null;
+        }
+      })();
+    let email = "";
+    try {
+      email = window.localStorage.getItem("dose-last-order-email") ?? "";
+    } catch {
+      email = "";
+    }
+    const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+    if (orderId) {
+      const target = email
+        ? `${base}/orders/${orderId}?email=${encodeURIComponent(email)}`
+        : `${base}/orders/${orderId}`;
+      window.location.replace(target);
+    } else {
+      window.location.replace(`${base}/account`);
+    }
   }, [qc]);
 
   return (
     <div
-      className="min-h-screen w-full"
-      style={{ background: CREAM, color: FOREST }}
+      className="min-h-screen w-full bg-background text-foreground"
       data-testid="checkout-success-page"
     >
-      <PromoBanner />
-      <Header />
-      <main id="main">
-        <section className="mx-auto max-w-2xl px-6 py-20 text-center md:px-10 md:py-28">
-          <p
-            className="text-[11px] font-semibold uppercase tracking-[0.22em]"
-            style={{ color: GOLD }}
-          >
-            Order confirmed
-          </p>
-          <h1 className="mt-3 font-display text-4xl leading-tight md:text-5xl">
-            Thank you.
-          </h1>
-          <p className="mt-4 text-base">
-            Your order is in. We'll send a confirmation email with tracking
-            details as soon as it ships.
-          </p>
-          {orderId && (
-            <p
-              className="mt-6 text-[11px] uppercase tracking-[0.22em]"
-              style={{ color: "hsla(170,58%,14%,0.6)" }}
-              data-testid="success-order-id"
-            >
-              Order #{orderId}
-            </p>
-          )}
-          <div className="mt-10 flex justify-center">
-            <Link href="/shop">
-              <Button
-                className="rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
-                style={{ background: FOREST, color: CREAM }}
-                data-testid="link-keep-shopping"
-              >
-                Keep shopping
-              </Button>
-            </Link>
-          </div>
-        </section>
-      </main>
-      <Footer />
-      <CookieBanner />
-      <AgeGate />
+      <p className="p-6 text-sm opacity-60">Loading your order…</p>
     </div>
   );
 }

@@ -83,6 +83,19 @@ export default function CheckoutPage() {
           shippingRateId: rateId,
         },
       });
+      // Remember the guest's email so the order page and email-based lookup
+      // both work without forcing them to type it again.
+      try {
+        window.localStorage.setItem("dose-last-order-email", email);
+        if (result.orderId) {
+          window.localStorage.setItem(
+            "dose-last-order-id",
+            String(result.orderId),
+          );
+        }
+      } catch {
+        /* ignore */
+      }
       if (result.url?.startsWith("http")) {
         window.location.href = result.url;
       } else {

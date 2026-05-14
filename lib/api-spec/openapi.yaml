@@ -317,6 +317,28 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Order" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /orders/lookup:
+    post:
+      operationId: lookupOrder
+      tags: [orders]
+      summary: Look up an order by ID and email (guest checkout)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [orderId, email]
+              properties:
+                orderId: { type: integer }
+                email: { type: string, format: email }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /blog/posts:
     get:

@@ -46,6 +46,7 @@ import type {
   ListAdminReviewsParams,
   ListBlogPostsParams,
   ListProductsParams,
+  LookupOrderBody,
   ModerateReviewBody,
   NewsletterSubscribeBody,
   NewsletterSubscribeResponse,
@@ -1354,6 +1355,92 @@ export function useGetOrder<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Look up an order by ID and email (guest checkout)
+ */
+export const getLookupOrderUrl = () => {
+  return `/api/orders/lookup`;
+};
+
+export const lookupOrder = async (
+  lookupOrderBody: LookupOrderBody,
+  options?: RequestInit,
+): Promise<Order> => {
+  return customFetch<Order>(getLookupOrderUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(lookupOrderBody),
+  });
+};
+
+export const getLookupOrderMutationOptions = <
+  TError = ErrorType<NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof lookupOrder>>,
+    TError,
+    { data: BodyType<LookupOrderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof lookupOrder>>,
+  TError,
+  { data: BodyType<LookupOrderBody> },
+  TContext
+> => {
+  const mutationKey = ["lookupOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof lookupOrder>>,
+    { data: BodyType<LookupOrderBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return lookupOrder(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type LookupOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof lookupOrder>>
+>;
+export type LookupOrderMutationBody = BodyType<LookupOrderBody>;
+export type LookupOrderMutationError = ErrorType<NotFoundResponse>;
+
+/**
+ * @summary Look up an order by ID and email (guest checkout)
+ */
+export const useLookupOrder = <
+  TError = ErrorType<NotFoundResponse>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof lookupOrder>>,
+    TError,
+    { data: BodyType<LookupOrderBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof lookupOrder>>,
+  TError,
+  { data: BodyType<LookupOrderBody> },
+  TContext
+> => {
+  return useMutation(getLookupOrderMutationOptions(options));
+};
 
 /**
  * @summary List published blog posts

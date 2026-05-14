@@ -63,6 +63,7 @@ export async function sendOrderConfirmation(opts: {
   taxCents?: number;
   discountCents?: number;
   discountCode?: string | null;
+  orderUrl?: string | null;
 }): Promise<void> {
   const r = await getResend();
   if (!r) return;
@@ -110,6 +111,9 @@ export async function sendOrderConfirmation(opts: {
   const summary = summaryRows.length
     ? `<table style="margin-top:16px">${summaryRows.join("")}</table>`
     : "";
+  const orderLink = opts.orderUrl
+    ? `<p style="margin-top:24px"><a href="${opts.orderUrl}">View your order details →</a></p>`
+    : "";
   await r.client.emails.send({
     from: `${STORE_NAME} <${r.fromEmail}>`,
     to: opts.to,
@@ -118,7 +122,8 @@ export async function sendOrderConfirmation(opts: {
 <p>Your order #${opts.orderId} has been received.</p>
 <table>${lines}</table>
 ${summary}
-<p><strong>Total: ${fmt(opts.totalCents)}</strong></p>`,
+<p><strong>Total: ${fmt(opts.totalCents)}</strong></p>
+${orderLink}`,
   });
 }
 

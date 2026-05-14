@@ -1,8 +1,11 @@
-import { Link } from "wouter";
+import { useState, type FormEvent } from "react";
+import { Link, useLocation } from "wouter";
 import { useListMyOrders } from "@workspace/api-client-react";
 import { SiteShell } from "@/components/dose/SiteShell";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { formatMoney } from "@/lib/cart";
 
 function formatDate(s: string): string {
@@ -15,6 +18,91 @@ function formatDate(s: string): string {
   } catch {
     return s;
   }
+}
+
+function GuestOrderLookup() {
+  const [, setLocation] = useLocation();
+  const [orderId, setOrderId] = useState("");
+  const [email, setEmail] = useState("");
+  const [err, setErr] = useState<string | null>(null);
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    const id = orderId.trim().replace(/^#/, "");
+    if (!/^\d+$/.test(id)) {
+      setErr("Order number should be digits only.");
+      return;
+    }
+    if (!email.trim()) {
+      setErr("Enter the email used at checkout.");
+      return;
+    }
+    setErr(null);
+    // The order detail page will perform the lookup (and show an error there
+    // if the email doesn't match).
+    setLocation(`/orders/${id}?email=${encodeURIComponent(email.trim())}`);
+  };
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="mt-8 rounded-2xl border bg-card p-6"
+      style={{ borderColor: "hsl(40 18% 80%)" }}
+      data-testid="guest-order-lookup"
+    >
+      <h2 className="font-display text-2xl">Check on a guest order</h2>
+      <p className="mt-1 text-sm" style={{ color: "hsl(170 18% 32%)" }}>
+        Enter the order number from your confirmation email and the email you
+        used at checkout.
+      </p>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="grid gap-2">
+          <Label htmlFor="lookup-order">Order number</Label>
+          <Input
+            id="lookup-order"
+            value={orderId}
+            onChange={(e) => setOrderId(e.target.value)}
+            placeholder="1234"
+            required
+            data-testid="lookup-order-id"
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="lookup-email">Email</Label>
+          <Input
+            id="lookup-email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            data-testid="lookup-order-email"
+          />
+        </div>
+      </div>
+      <Button
+        type="submit"
+        className="mt-4 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
+        style={{
+          background: "hsl(170 58% 14%)",
+          color: "hsl(45 49% 90%)",
+        }}
+        data-testid="lookup-order-submit"
+      >
+        Find my order
+      </Button>
+      {err ? (
+        <p
+          role="alert"
+          className="mt-3 text-xs"
+          style={{ color: "hsl(0 70% 35%)" }}
+          data-testid="lookup-order-error"
+        >
+          {err}
+        </p>
+      ) : null}
+    </form>
+  );
 }
 
 export default function AccountPage() {
@@ -156,6 +244,8 @@ export default function AccountPage() {
             No orders yet.
           </p>
         )}
+
+        <GuestOrderLookup />
       </section>
     </SiteShell>
   );

@@ -46,6 +46,7 @@ export * from "./listAdminOrdersParams";
 export * from "./listAdminReviewsParams";
 export * from "./listBlogPostsParams";
 export * from "./listProductsParams";
+export * from "./lookupOrderBody";
 export * from "./marketingDailyPoint";
 export * from "./marketingStats";
 export * from "./moderateReviewBody";

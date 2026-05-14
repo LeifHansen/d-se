@@ -11,6 +11,7 @@ import {
 } from "@workspace/db";
 import { getStripe, isStripeConfigured } from "../lib/stripe";
 import { sendOrderConfirmation } from "../lib/email";
+import { SITE_URL } from "../lib/site-url";
 import { markCartRecovered } from "../lib/abandonedCart";
 import { recordStripeWebhookReceived } from "../lib/metrics";
 import { trackPurchaseServerSide } from "../lib/serverAnalytics";
@@ -247,6 +248,7 @@ router.post(
                   quantity: i.quantity,
                   priceCents: i.priceCents,
                 })),
+                orderUrl: `${SITE_URL}/orders/${order.id}?email=${encodeURIComponent(email)}`,
               });
             } catch (err) {
               req.log.warn({ err }, "Order email send failed");

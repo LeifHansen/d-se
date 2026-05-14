@@ -16,6 +16,7 @@ import {
   ListMyOrdersResponse,
   GetOrderParams,
   GetOrderResponse,
+  LookupOrderBody,
 } from "@workspace/api-zod";
 import { loadCart } from "./cart";
 import { computeShippingRates } from "./shipping";
@@ -327,6 +328,26 @@ router.get("/orders/me", requireAuth, async (req, res): Promise<void> => {
     orders.map(async (o) => (await buildOrderResponse(o.id))!),
   );
   res.json(ListMyOrdersResponse.parse(enriched));
+});
+
+router.post("/orders/lookup", async (req, res): Promise<void> => {
+  const parsed = LookupOrderBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [row] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, parsed.data.orderId));
+  const submittedEmail = parsed.data.email.trim().toLowerCase();
+  if (!row || !row.email || row.email.trim().toLowerCase() !== submittedEmail) {
+    // Don't leak whether the order exists when the email doesn't match.
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  const order = await buildOrderResponse(row.id);
+  res.json(GetOrderResponse.parse(order));
 });
 
 router.get("/orders/:id", requireAuth, async (req, res): Promise<void> => {

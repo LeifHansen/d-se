@@ -534,6 +534,11 @@ export type CreateCheckout200 = {
   orderId: number;
 };
 
+export type LookupOrderBody = {
+  orderId: number;
+  email: string;
+};
+
 export type ListBlogPostsParams = {
   tag?: string;
   limit?: number;
