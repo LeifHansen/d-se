@@ -41,6 +41,7 @@ const AdminTaxSummary = lazy(() => import("@/pages/admin/AdminTaxSummary"));
 const AdminContactQuarantine = lazy(
   () => import("@/pages/admin/AdminContactQuarantine"),
 );
+const AdminBlog = lazy(() => import("@/pages/admin/AdminBlog"));
 const AdminBlogFormatting = lazy(
   () => import("@/pages/admin/AdminBlogFormatting"),
 );
@@ -98,6 +99,7 @@ function Router() {
           path="/admin/contact-quarantine"
           component={AdminContactQuarantine}
         />
+        <Route path="/admin/blog" component={AdminBlog} />
         <Route
           path="/admin/blog-formatting"
           component={AdminBlogFormatting}

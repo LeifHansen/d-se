@@ -24,6 +24,7 @@ const NAV_ITEMS: { href: string; label: string }[] = [
   { href: "/admin/newsletter", label: "Newsletter" },
   { href: "/admin/tax", label: "Tax summary" },
   { href: "/admin/contact-quarantine", label: "Spam quarantine" },
+  { href: "/admin/blog", label: "Blog" },
   { href: "/admin/blog-formatting", label: "Blog formatting" },
 ];
 
