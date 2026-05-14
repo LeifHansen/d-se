@@ -506,6 +506,146 @@ test.describe("storefront customer journey", () => {
     await expect(page.getByTestId("order-total")).toContainText("$45.00");
   });
 
+  test("/account shows signed-in shopper's order list", async ({ page }) => {
+    const api = new StorefrontApi();
+    await installStorefrontMocks(page, api);
+
+    // Override the default 401 mock with a signed-in response so the account
+    // page renders the order list instead of the guest lookup form.
+    await page.unroute("**/api/orders/me");
+    await page.route("**/api/orders/me", async (route: Route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          {
+            id: 8801,
+            status: "paid",
+            email: "shopper@example.com",
+            items: [
+              {
+                id: 1,
+                productId: PRODUCTS[0].id,
+                productName: PRODUCTS[0].name,
+                productImage: null,
+                quantity: 2,
+                priceCents: PRODUCTS[0].priceCents,
+              },
+            ],
+            subtotalCents: PRODUCTS[0].priceCents * 2,
+            shippingCents: 0,
+            taxCents: 0,
+            discountCents: 0,
+            discountCode: null,
+            totalCents: PRODUCTS[0].priceCents * 2,
+            currency: "usd",
+            trackingCode: "1Z999AA10123456784",
+            trackingUrl: "https://track.example.test/1Z999",
+            carrier: "UPS",
+            labelUrl: null,
+            createdAt: "2026-05-01T12:00:00.000Z",
+          },
+        ]),
+      });
+    });
+
+    await page.goto("/account");
+    await dismissOverlays(page);
+    await page.reload();
+
+    await expect(page.getByTestId("page-account")).toBeVisible();
+    await expect(page.getByTestId("account-orders")).toBeVisible();
+    await expect(page.getByTestId("order-8801")).toContainText("Order #8801");
+    await expect(page.getByTestId("order-8801")).toContainText("Calm Tincture");
+    await expect(page.getByTestId("order-8801")).toContainText("$90.00");
+    await expect(
+      page.getByTestId("account-order-tracking-link"),
+    ).toHaveAttribute("href", "https://track.example.test/1Z999");
+
+    // Guest lookup form is still rendered below the order list as a fallback.
+    await expect(page.getByTestId("guest-order-lookup")).toBeVisible();
+  });
+
+  test("/checkout/success renders the order summary from the session id", async ({
+    page,
+  }) => {
+    const api = new StorefrontApi();
+    await installStorefrontMocks(page, api);
+
+    const ORDER_ID = 9501;
+    await page.route(`**/api/orders/${ORDER_ID}*`, async (route: Route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      const url = new URL(route.request().url());
+      // The success page forwards the Stripe session id as the guest receipt
+      // token; assert it actually lands in the request.
+      expect(url.searchParams.get("sessionId")).toBe("cs_test_success_123");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: ORDER_ID,
+          status: "paid",
+          email: "shopper@example.com",
+          items: [
+            {
+              id: 1,
+              productId: PRODUCTS[0].id,
+              productName: PRODUCTS[0].name,
+              productImage: null,
+              quantity: 2,
+              priceCents: PRODUCTS[0].priceCents,
+            },
+          ],
+          subtotalCents: PRODUCTS[0].priceCents * 2,
+          shippingCents: 599,
+          taxCents: 0,
+          discountCents: 0,
+          discountCode: null,
+          totalCents: PRODUCTS[0].priceCents * 2 + 599,
+          currency: "usd",
+          shippingAddress: {
+            name: "Casey Buyer",
+            street1: "100 Test Lane",
+            city: "Portland",
+            state: "OR",
+            zip: "97201",
+            country: "US",
+          },
+          trackingCode: null,
+          labelUrl: null,
+          createdAt: "2026-05-10T12:00:00.000Z",
+        }),
+      });
+    });
+
+    await page.goto(
+      `/checkout/success?orderId=${ORDER_ID}&session_id=cs_test_success_123`,
+    );
+    await dismissOverlays(page);
+
+    await expect(page.getByTestId("checkout-success-page")).toBeVisible();
+    await expect(page.getByTestId("success-order-id")).toContainText(
+      `Order #${ORDER_ID}`,
+    );
+    await expect(page.getByTestId("success-order-summary")).toBeVisible();
+    await expect(page.getByTestId("success-order-status")).toContainText(
+      "paid",
+    );
+    await expect(page.getByTestId("success-order-items")).toContainText(
+      "Calm Tincture",
+    );
+    await expect(page.getByTestId("success-order-total")).toContainText(
+      "$95.99",
+    );
+    await expect(page.getByTestId("success-order-address")).toContainText(
+      "100 Test Lane",
+    );
+    await expect(page.getByTestId("success-order-email")).toContainText(
+      "shopper@example.com",
+    );
+    await expect(page.getByTestId("success-order-delivery")).toBeVisible();
+  });
+
   test("blog list -> open a post -> back to list", async ({ page }) => {
     const api = new StorefrontApi();
     await installStorefrontMocks(page, api);
