@@ -5,7 +5,7 @@ import { abandonedCartsTable, cartsTable } from "@workspace/db";
 import { seedCart, seedProduct } from "./helpers";
 
 const emailMock = vi.hoisted(() => ({
-  sendAbandonedCartEmail: vi.fn(async () => {}),
+  sendAbandonedCartEmail: vi.fn(async (_arg: unknown) => {}),
 }));
 
 vi.mock("../lib/email", () => ({
@@ -69,7 +69,7 @@ describe("abandoned cart scheduler", () => {
     await runAbandonedCartCheck();
 
     expect(emailMock.sendAbandonedCartEmail).toHaveBeenCalledTimes(1);
-    const firstCallArg = emailMock.sendAbandonedCartEmail.mock.calls[0][0] as {
+    const firstCallArg = emailMock.sendAbandonedCartEmail.mock.calls[0]![0] as {
       to: string;
       reminderNumber: number;
       subtotalCents: number;
@@ -88,7 +88,7 @@ describe("abandoned cart scheduler", () => {
     await ageFirstReminder(cartId, 30);
     await runAbandonedCartCheck();
     expect(emailMock.sendAbandonedCartEmail).toHaveBeenCalledTimes(2);
-    const secondCallArg = emailMock.sendAbandonedCartEmail.mock.calls[1][0] as {
+    const secondCallArg = emailMock.sendAbandonedCartEmail.mock.calls[1]![0] as {
       reminderNumber: number;
     };
     expect(secondCallArg.reminderNumber).toBe(2);

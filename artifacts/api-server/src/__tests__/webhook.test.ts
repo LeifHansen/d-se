@@ -26,8 +26,8 @@ vi.mock("../lib/stripe", () => ({
 }));
 
 const emailMock = vi.hoisted(() => ({
-  sendOrderConfirmation: vi.fn(async () => {}),
-  sendAbandonedCartEmail: vi.fn(async () => {}),
+  sendOrderConfirmation: vi.fn(async (_arg: unknown) => {}),
+  sendAbandonedCartEmail: vi.fn(async (_arg: unknown) => {}),
 }));
 
 vi.mock("../lib/email", () => ({
@@ -178,7 +178,7 @@ describe("POST /api/webhooks/stripe — checkout.session.completed", () => {
     expect(cart.checkedOutAt).not.toBeNull();
 
     expect(emailMock.sendOrderConfirmation).toHaveBeenCalledTimes(1);
-    const emailArg = emailMock.sendOrderConfirmation.mock.calls[0][0] as {
+    const emailArg = emailMock.sendOrderConfirmation.mock.calls[0]![0] as {
       to: string;
       discountCents: number;
       taxCents: number;
