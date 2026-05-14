@@ -274,19 +274,55 @@ export async function removeFromResendAudience(opts: {
   }
 }
 
+export function buildTrackingUrl(
+  carrier: string | null | undefined,
+  trackingCode: string,
+): string | null {
+  if (!trackingCode) return null;
+  const code = encodeURIComponent(trackingCode);
+  const key = (carrier ?? "").toLowerCase().replace(/[^a-z]/g, "");
+  if (!key) return null;
+  if (key.includes("usps")) {
+    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${code}`;
+  }
+  if (key.includes("ups")) {
+    return `https://www.ups.com/track?tracknum=${code}`;
+  }
+  if (key.includes("fedex")) {
+    return `https://www.fedex.com/fedextrack/?trknbr=${code}`;
+  }
+  if (key.includes("dhl")) {
+    return `https://www.dhl.com/en/express/tracking.html?AWB=${code}`;
+  }
+  if (key.includes("canadapost") || key === "canpar") {
+    return `https://www.canadapost-postescanada.ca/track-reperage/en#/search?searchFor=${code}`;
+  }
+  if (key.includes("royalmail")) {
+    return `https://www.royalmail.com/track-your-item#/tracking-results/${code}`;
+  }
+  return null;
+}
+
 export async function sendShipmentEmail(opts: {
   to: string;
   orderId: number;
   trackingCode: string;
   carrier: string;
+  trackingUrl?: string | null;
 }): Promise<void> {
   const r = await getResend();
   if (!r) return;
+  const url =
+    opts.trackingUrl ?? buildTrackingUrl(opts.carrier, opts.trackingCode);
+  const trackingLine = url
+    ? `<p>Tracking: <a href="${url}"><strong>${opts.trackingCode}</strong></a> via ${opts.carrier}</p>
+<p><a href="${url}">Track your package →</a></p>`
+    : `<p>Tracking: <strong>${opts.trackingCode}</strong> via ${opts.carrier}</p>`;
   await r.client.emails.send({
     from: `${STORE_NAME} <${r.fromEmail}>`,
     to: opts.to,
     subject: `Order #${opts.orderId} shipped`,
     html: `<h1>Your order is on its way!</h1>
-<p>Tracking: <strong>${opts.trackingCode}</strong> via ${opts.carrier}</p>`,
+${trackingLine}`,
   });
 }

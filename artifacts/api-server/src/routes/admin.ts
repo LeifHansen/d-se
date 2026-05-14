@@ -608,6 +608,7 @@ router.post(
     let trackingCode: string | null = null;
     let labelUrl: string | null = null;
     let shipmentId: string | null = null;
+    let carrier: string | null = null;
 
     if (isEasyPostConfigured() && order.shippingAddress) {
       try {
@@ -638,6 +639,9 @@ router.post(
         trackingCode = bought.tracking_code ?? null;
         labelUrl = bought.postage_label?.label_url ?? null;
         shipmentId = bought.id ?? epShipmentId ?? null;
+        carrier =
+          (bought as { selected_rate?: { carrier?: string } }).selected_rate
+            ?.carrier ?? null;
       } catch (err) {
         req.log.error({ err }, "EasyPost label purchase failed");
         res.status(502).json({ error: "Failed to buy shipping label" });
@@ -664,7 +668,7 @@ router.post(
           to: order.email,
           orderId: order.id,
           trackingCode,
-          carrier: "Carrier",
+          carrier: carrier ?? "Carrier",
         });
       } catch (err) {
         req.log.warn({ err }, "Shipment email failed");
