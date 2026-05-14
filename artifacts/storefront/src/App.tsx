@@ -12,10 +12,15 @@ import Accessibility from "@/pages/legal/Accessibility";
 import Contact from "@/pages/legal/Contact";
 
 const Home = lazy(() => import("@/pages/home"));
-const NotFound = lazy(() => import("@/pages/not-found"));
-const Cart = lazy(() => import("@/pages/cart"));
-const Product = lazy(() => import("@/pages/product"));
 const Shop = lazy(() => import("@/pages/shop"));
+const Product = lazy(() => import("@/pages/product"));
+const Cart = lazy(() => import("@/pages/cart"));
+const Checkout = lazy(() => import("@/pages/checkout"));
+const Account = lazy(() => import("@/pages/account"));
+const Blog = lazy(() => import("@/pages/blog"));
+const BlogPost = lazy(() => import("@/pages/blog-post"));
+const About = lazy(() => import("@/pages/about"));
+const NotFound = lazy(() => import("@/pages/not-found"));
 const Unsubscribe = lazy(() => import("@/pages/Unsubscribe"));
 const AdminDashboard = lazy(() => import("@/pages/admin/Dashboard"));
 const AdminOrders = lazy(() => import("@/pages/admin/Orders"));
@@ -47,9 +52,14 @@ function Router() {
     <Suspense fallback={null}>
       <Switch>
         <Route path="/" component={Home} />
-        <Route path="/cart" component={Cart} />
         <Route path="/shop" component={Shop} />
         <Route path="/products/:slug" component={Product} />
+        <Route path="/cart" component={Cart} />
+        <Route path="/checkout" component={Checkout} />
+        <Route path="/account" component={Account} />
+        <Route path="/blog" component={Blog} />
+        <Route path="/blog/:slug" component={BlogPost} />
+        <Route path="/about" component={About} />
         <Route path="/privacy" component={Privacy} />
         <Route path="/terms" component={Terms} />
         <Route path="/shipping-policy" component={Shipping} />

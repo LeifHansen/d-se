@@ -11,7 +11,7 @@ import {
   type Product,
 } from "@workspace/api-client-react";
 import { track } from "@/lib/analytics";
-import { formatPrice, getStoredCartId, setStoredCartId, resolveProductImage } from "@/lib/cart";
+import { formatMoney, getStoredCartId, setStoredCartId, resolveProductImage } from "@/lib/cart";
 
 const BADGE_BY_TAG: Array<{ tag: string; label: string }> = [
   { tag: "bestseller", label: "Bestseller" },
@@ -202,7 +202,7 @@ export function ProductSection() {
                       style={{ color: "hsl(42 53% 64%)" }}
                       data-testid={`product-price-${p.slug}`}
                     >
-                      {formatPrice(p.priceCents, p.currency)}
+                      {formatMoney(p.priceCents, p.currency)}
                     </p>
                   </div>
                   {features.length > 0 && (

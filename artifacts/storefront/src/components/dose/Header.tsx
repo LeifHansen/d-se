@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link } from "wouter";
 import { ShoppingBag, User, Menu, X, ChevronDown } from "lucide-react";
+import { Link } from "wouter";
 import {
   ClerkLoaded,
   SignedIn,
@@ -9,28 +9,34 @@ import {
   SignUpButton,
   UserButton,
 } from "@clerk/clerk-react";
+import { useGetCart } from "@workspace/api-client-react";
 import { Logo, Emblem } from "./Logo";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useCart } from "@/hooks/useCart";
+import { useStoredCartId } from "@/lib/cart";
 
 const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
   | string
   | undefined;
 
 const nav = [
-  { label: "Shop", href: "#shop" },
-  { label: "Bundle & Save", href: "#bundles" },
-  { label: "Our Story", href: "#story" },
-  { label: "Journal", href: "#journal" },
+  { label: "Shop", href: "/shop" },
+  { label: "Our Story", href: "/about" },
+  { label: "Journal", href: "/blog" },
+  { label: "Contact", href: "/contact" },
 ];
 
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const cart = useCart();
-  const itemCount =
-    cart.data?.items.reduce((s, i) => s + i.quantity, 0) ?? 0;
+  const cartId = useStoredCartId();
+  const { data: cart } = useGetCart(
+    { cartId: cartId ?? undefined },
+    // queryKey is filled in by the generated hook
+    { query: { enabled: !!cartId } as never },
+  );
+  const cartCount =
+    cart?.items.reduce((sum, it) => sum + it.quantity, 0) ?? 0;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -62,17 +68,14 @@ export function Header() {
         {/* Left: nav */}
         <nav className="hidden items-center gap-8 md:flex">
           {nav.map((item) => (
-            <a
+            <Link
               key={item.label}
               href={item.href}
-              className="group inline-flex items-center gap-1 text-[13px] font-medium tracking-wide transition-opacity hover:opacity-70"
+              className="inline-flex items-center text-[13px] font-medium tracking-wide transition-opacity hover:opacity-70"
               data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
             >
               {item.label}
-              {item.label === "Shop" && (
-                <ChevronDown className="h-3 w-3 transition-transform group-hover:translate-y-0.5" />
-              )}
-            </a>
+            </Link>
           ))}
         </nav>
 
@@ -87,7 +90,7 @@ export function Header() {
         </button>
 
         {/* Center logo */}
-        <a
+        <Link
           href="/"
           className="flex items-center gap-2"
           data-testid="header-logo"
@@ -95,7 +98,7 @@ export function Header() {
         >
           <Emblem className="h-7 w-auto" color="hsl(45 49% 90%)" />
           <Logo variant="wordmark" tone="cream" className="text-lg" />
-        </a>
+        </Link>
 
         {/* Right: account & cart */}
         <div className="flex items-center gap-3">
@@ -138,24 +141,27 @@ export function Header() {
             </ClerkLoaded>
           ) : (
             <Button
+              asChild
               variant="ghost"
               size="icon"
               aria-label="Account"
               className="text-current hover:bg-white/5"
               data-testid="header-account"
-              disabled
             >
-              <User className="h-4 w-4" />
+              <Link href="/account">
+                <User className="h-4 w-4" />
+              </Link>
             </Button>
           )}
-          <Link href="/cart">
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label={`Cart, ${itemCount} item${itemCount === 1 ? "" : "s"}`}
-              className="relative text-current hover:bg-white/5"
-              data-testid="header-cart"
-            >
+          <Button
+            asChild
+            variant="ghost"
+            size="icon"
+            aria-label={`Cart, ${cartCount} item${cartCount === 1 ? "" : "s"}`}
+            className="relative text-current hover:bg-white/5"
+            data-testid="header-cart"
+          >
+            <Link href="/cart">
               <ShoppingBag className="h-4 w-4" />
               <span
                 className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[9px] font-semibold"
@@ -165,10 +171,10 @@ export function Header() {
                 }}
                 data-testid="header-cart-count"
               >
-                {itemCount > 99 ? "99+" : itemCount}
+                {cartCount}
               </span>
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -191,7 +197,7 @@ export function Header() {
           </div>
           <nav className="mt-8 flex flex-col gap-6 px-8">
             {nav.map((item) => (
-              <a
+              <Link
                 key={item.label}
                 href={item.href}
                 onClick={() => setMobileOpen(false)}
@@ -199,7 +205,7 @@ export function Header() {
                 style={{ color: "hsl(45 49% 90%)" }}
               >
                 {item.label}
-              </a>
+              </Link>
             ))}
           </nav>
         </div>

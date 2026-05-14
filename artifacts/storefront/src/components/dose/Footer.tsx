@@ -9,11 +9,11 @@ const cols: { title: string; links: FooterLink[] }[] = [
   {
     title: "Shop",
     links: [
-      { label: "Original Dropper", href: "/#shop" },
-      { label: "Wellness Elixir", href: "/#shop" },
-      { label: "Nightcap", href: "/#shop" },
-      { label: "Bundle & Save", href: "/#bundles" },
-      { label: "Gift Cards", href: "/#shop" },
+      { label: "All Products", href: "/shop" },
+      { label: "Bundle & Save", href: "/shop" },
+      { label: "Gift Cards", href: "/shop" },
+      { label: "Your Cart", href: "/cart" },
+      { label: "Your Account", href: "/account" },
     ],
   },
   {
@@ -21,7 +21,7 @@ const cols: { title: string; links: FooterLink[] }[] = [
     links: [
       { label: "The Ritual", href: "/#ritual" },
       { label: "Lab Reports", href: "/#labs" },
-      { label: "Journal", href: "/#journal" },
+      { label: "Journal", href: "/blog" },
       { label: "FAQ", href: "/#faq" },
       { label: "Dosage Guide", href: "/#ritual" },
     ],
@@ -29,8 +29,8 @@ const cols: { title: string; links: FooterLink[] }[] = [
   {
     title: "Company",
     links: [
-      { label: "Our Story", href: "/#story" },
-      { label: "Sustainability", href: "/#story" },
+      { label: "Our Story", href: "/about" },
+      { label: "Sustainability", href: "/about" },
       { label: "Wholesale", href: "/contact" },
       { label: "Careers", href: "/contact" },
       { label: "Contact", href: "/contact" },

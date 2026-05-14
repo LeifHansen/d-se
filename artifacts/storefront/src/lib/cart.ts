@@ -1,33 +1,50 @@
-const CART_ID_KEY = "dose:cartId";
+import { useEffect, useState } from "react";
+
+const CART_KEY = "dose-cart-id";
+const CART_EVENT = "dose:cart-id-changed";
 
 export function getStoredCartId(): string | null {
   if (typeof window === "undefined") return null;
   try {
-    return window.localStorage.getItem(CART_ID_KEY);
+    return window.localStorage.getItem(CART_KEY);
   } catch {
     return null;
   }
 }
 
-export function setStoredCartId(id: string): void {
+export function setStoredCartId(id: string | null): void {
   if (typeof window === "undefined") return;
   try {
-    window.localStorage.setItem(CART_ID_KEY, id);
+    if (id) {
+      window.localStorage.setItem(CART_KEY, id);
+    } else {
+      window.localStorage.removeItem(CART_KEY);
+    }
+    window.dispatchEvent(new CustomEvent(CART_EVENT));
   } catch {
-    /* ignore quota / privacy errors */
+    // ignore — storage may be unavailable
   }
 }
 
-export function formatPrice(cents: number, currency = "USD"): string {
-  try {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: currency.toUpperCase(),
-      minimumFractionDigits: cents % 100 === 0 ? 0 : 2,
-    }).format(cents / 100);
-  } catch {
-    return `$${(cents / 100).toFixed(2)}`;
-  }
+export function useStoredCartId(): string | null {
+  const [id, setId] = useState<string | null>(() => getStoredCartId());
+  useEffect(() => {
+    const handler = () => setId(getStoredCartId());
+    window.addEventListener(CART_EVENT, handler);
+    window.addEventListener("storage", handler);
+    return () => {
+      window.removeEventListener(CART_EVENT, handler);
+      window.removeEventListener("storage", handler);
+    };
+  }, []);
+  return id;
+}
+
+export function formatMoney(cents: number, currency = "usd"): string {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: currency.toUpperCase(),
+  }).format((cents ?? 0) / 100);
 }
 
 export function resolveProductImage(
