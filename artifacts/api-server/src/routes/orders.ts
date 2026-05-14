@@ -39,6 +39,15 @@ function generateLookupToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
+// Normalise email at write time so guest lookups (and any future email-keyed
+// query) can compare with simple equality. Returns null for null/empty input
+// so we don't persist empty strings.
+function normaliseOrderEmail(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim().toLowerCase();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 function tokensMatch(a: string, b: string): boolean {
   const ab = Buffer.from(a);
   const bb = Buffer.from(b);
@@ -137,17 +146,19 @@ router.post("/checkout", async (req, res): Promise<void> => {
 
   const totalCents = Math.max(0, subtotalCents - discountCents) + shippingCents;
 
+  const normalisedEmail = normaliseOrderEmail(parsed.data.email);
+
   // Track an abandoned-cart record now that we have an email.
-  if (parsed.data.email) {
+  if (normalisedEmail) {
     try {
       await recordAbandonedCart({
         cartId: parsed.data.cartId,
-        email: parsed.data.email,
+        email: normalisedEmail,
         userId,
       });
       await db
         .update(cartsTable)
-        .set({ email: parsed.data.email, updatedAt: new Date() })
+        .set({ email: normalisedEmail, updatedAt: new Date() })
         .where(eq(cartsTable.id, parsed.data.cartId));
     } catch (err) {
       req.log.warn({ err }, "Failed to record abandoned cart");
@@ -158,7 +169,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
     .insert(ordersTable)
     .values({
       userId,
-      email: parsed.data.email ?? null,
+      email: normalisedEmail,
       status: "pending",
       lookupToken: generateLookupToken(),
       subtotalCents,
@@ -252,7 +263,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
-      customer_email: parsed.data.email ?? undefined,
+      customer_email: normalisedEmail ?? undefined,
       // Required for Stripe Tax to determine the correct ship-to jurisdiction
       // for physical goods, and also when the cart hands off without an
       // address (Stripe Checkout collects it for us). The destination drives
@@ -350,6 +361,10 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  // Order emails are normalised at write time (see normaliseOrderEmail), so a
+  // simple equality check on row.email would suffice. We still normalise the
+  // submitted value here as defence in depth — clients can still send
+  // arbitrary casing/whitespace, and historic rows pre-migration may exist.
   const submittedEmail = parsed.data.email?.trim().toLowerCase() ?? null;
   const submittedToken = parsed.data.token?.trim() ?? null;
   if (!submittedEmail && !submittedToken) {
@@ -373,7 +388,7 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
     !authorized &&
     submittedEmail &&
     row.email &&
-    row.email.trim().toLowerCase() === submittedEmail
+    row.email === submittedEmail
   ) {
     authorized = true;
   }

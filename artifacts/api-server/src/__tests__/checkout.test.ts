@@ -116,6 +116,48 @@ describe("POST /api/checkout — Stripe promotion code attachment", () => {
     expect(savedDiscount.stripeCouponId).toBe("coup_test_1");
     expect(savedDiscount.stripePromotionCodeId).toBe("promo_test_1");
   });
+
+  it("normalises the order email (lowercases + trims) at write time", async () => {
+    const product = await seedProduct({ priceCents: 5_000, slug: "p-norm-1" });
+    const cartId = "cart-checkout-norm";
+    await seedCart({ cartId, productId: product.id, quantity: 1 });
+
+    const res = await request(app)
+      .post("/api/checkout")
+      .send({
+        cartId,
+        email: "Buyer.Mixed@Example.COM",
+        shippingRateId: "",
+        address: {
+          name: "Buyer",
+          street1: "1 Main",
+          city: "Town",
+          state: "CA",
+          zip: "90210",
+          country: "US",
+        },
+      });
+
+    expect(res.status).toBe(200);
+    const [order] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, res.body.orderId));
+    expect(order.email).toBe("buyer.mixed@example.com");
+
+    // Stripe customer_email is forwarded in normalised form too.
+    const params = stripeMock.sessionsCreate.mock.calls[0][0] as {
+      customer_email?: string;
+    };
+    expect(params.customer_email).toBe("buyer.mixed@example.com");
+
+    // Lookup with arbitrary casing/whitespace still resolves.
+    const lookup = await request(app)
+      .post("/api/orders/lookup")
+      .send({ orderId: order.id, email: "BUYER.MIXED@example.com" });
+    expect(lookup.status).toBe(200);
+    expect(lookup.body.email).toBe("buyer.mixed@example.com");
+  });
 });
 
 describe("POST /api/checkout — no-address handoff", () => {
