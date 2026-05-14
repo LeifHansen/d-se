@@ -10,7 +10,7 @@
     "seed": "node ./src/scripts/seed-dose.mjs",
     "test": "tsx --tsconfig tsconfig.json tests/purchase-tracking.test.ts",
     "test:vitest": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -b ../../lib/db ../../lib/api-zod && tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@clerk/express": "^2.1.7",
