@@ -38,7 +38,10 @@ export default function AdminOrders() {
     total: number;
   } | null>(null);
   const [bulkErrors, setBulkErrors] = useState<
-    { orderId: number; message: string }[]
+    { orderId: number; message: string; retries?: number }[]
+  >([]);
+  const [bulkRetrySuccesses, setBulkRetrySuccesses] = useState<
+    { orderId: number; retries: number }[]
   >([]);
 
   const params = useMemo<ListAdminOrdersParams>(() => {
@@ -115,7 +118,10 @@ export default function AdminOrders() {
       return status >= 500 && status < 600;
     }
 
-    async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+    async function withRetry<T>(
+      fn: () => Promise<T>,
+      onRetry?: () => void,
+    ): Promise<T> {
       const MAX_ATTEMPTS = 3;
       const BASE_DELAY_MS = 400;
       let lastErr: unknown;
@@ -125,6 +131,7 @@ export default function AdminOrders() {
         } catch (err) {
           lastErr = err;
           if (attempt === MAX_ATTEMPTS || !isTransientError(err)) throw err;
+          onRetry?.();
           const delay =
             BASE_DELAY_MS * 2 ** (attempt - 1) + Math.random() * 200;
           await new Promise((r) => setTimeout(r, delay));
@@ -139,17 +146,24 @@ export default function AdminOrders() {
     if (targets.length === 0) return;
     setBulkRunning(true);
     setBulkErrors([]);
+    setBulkRetrySuccesses([]);
     setBulkProgress({ done: 0, total: targets.length });
     const labelOrderIds: number[] = [];
-    const errors: { orderId: number; message: string }[] = [];
+    const errors: { orderId: number; message: string; retries?: number }[] = [];
+    const retrySuccesses: { orderId: number; retries: number }[] = [];
     const CONCURRENCY = 4;
     let completed = 0;
     let cursor = 0;
 
     async function processOne(order: (typeof targets)[number]) {
+      let retries = 0;
+      const noteRetry = () => {
+        retries += 1;
+      };
       try {
-        const ratesResp = await withRetry(() =>
-          getAdminOrderShippingRates(order.id),
+        const ratesResp = await withRetry(
+          () => getAdminOrderShippingRates(order.id),
+          noteRetry,
         );
         if (!ratesResp.rates || ratesResp.rates.length === 0) {
           throw new Error("No shipping rates available");
@@ -157,26 +171,33 @@ export default function AdminOrders() {
         const cheapest = [...ratesResp.rates].sort(
           (a, b) => a.amountCents - b.amountCents,
         )[0];
-        const updated = await withRetry(() =>
-          fulfillOrder(order.id, {
-            shippingRateId: cheapest.id,
-            ...(ratesResp.shipmentId
-              ? { shipmentId: ratesResp.shipmentId }
-              : {}),
-          }),
+        const updated = await withRetry(
+          () =>
+            fulfillOrder(order.id, {
+              shippingRateId: cheapest.id,
+              ...(ratesResp.shipmentId
+                ? { shipmentId: ratesResp.shipmentId }
+                : {}),
+            }),
+          noteRetry,
         );
         if (updated.labelUrl) {
           labelOrderIds.push(order.id);
+          if (retries > 0) {
+            retrySuccesses.push({ orderId: order.id, retries });
+          }
         } else {
           errors.push({
             orderId: order.id,
             message: "Label purchased but no label URL returned",
+            ...(retries > 0 ? { retries } : {}),
           });
         }
       } catch (err) {
         errors.push({
           orderId: order.id,
           message: err instanceof Error ? err.message : "Failed",
+          ...(retries > 0 ? { retries } : {}),
         });
       }
       completed += 1;
@@ -213,6 +234,7 @@ export default function AdminOrders() {
       }
     }
     setBulkErrors(errors);
+    setBulkRetrySuccesses(retrySuccesses);
     setBulkRunning(false);
     setCheckedIds(new Set());
     await queryClient.invalidateQueries({
@@ -355,6 +377,22 @@ export default function AdminOrders() {
           </button>
         </div>
 
+        {bulkRetrySuccesses.length > 0 ? (
+          <div
+            className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300"
+            data-testid="text-bulk-retry-successes"
+          >
+            <p className="font-medium">
+              {bulkRetrySuccesses.length} order
+              {bulkRetrySuccesses.length === 1 ? "" : "s"} succeeded after
+              retry (carrier was flaky):{" "}
+              {bulkRetrySuccesses
+                .map((r) => `#${r.orderId} (${r.retries}×)`)
+                .join(", ")}
+            </p>
+          </div>
+        ) : null}
+
         {bulkErrors.length > 0 ? (
           <div
             className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive"
@@ -368,6 +406,9 @@ export default function AdminOrders() {
               {bulkErrors.map((e) => (
                 <li key={e.orderId}>
                   #{e.orderId}: {e.message}
+                  {e.retries && e.retries > 0
+                    ? ` (retried ${e.retries} time${e.retries === 1 ? "" : "s"} before failing)`
+                    : ""}
                 </li>
               ))}
             </ul>
