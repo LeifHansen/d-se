@@ -1504,6 +1504,17 @@ export const GetAdminOrderLinkResponse = zod.object({
   active: zod.boolean(),
   issuedAt: zod.coerce.date().nullish(),
   lastUsedAt: zod.coerce.date().nullish(),
+  lastChannel: zod
+    .union([
+      zod.literal("token"),
+      zod.literal("lookup"),
+      zod.literal("signed_in"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe(
+      "How the customer most recently reached their order page — via the emailed magic link (token), the email + order id lookup form (lookup), or by signing in to their account (signed_in).",
+    ),
 });
 
 /**
@@ -1518,6 +1529,17 @@ export const RotateAdminOrderLinkResponse = zod.object({
   active: zod.boolean(),
   issuedAt: zod.coerce.date().nullish(),
   lastUsedAt: zod.coerce.date().nullish(),
+  lastChannel: zod
+    .union([
+      zod.literal("token"),
+      zod.literal("lookup"),
+      zod.literal("signed_in"),
+      zod.literal(null),
+    ])
+    .nullish()
+    .describe(
+      "How the customer most recently reached their order page — via the emailed magic link (token), the email + order id lookup form (lookup), or by signing in to their account (signed_in).",
+    ),
 });
 
 export const ListAdminBlogPostsResponseItem = zod.object({

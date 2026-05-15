@@ -5,6 +5,7 @@
  * E-commerce storefront API
  * OpenAPI spec version: 0.1.0
  */
+import type { AdminOrderLinkLastChannel } from "./adminOrderLinkLastChannel";
 
 export interface AdminOrderLink {
   orderId: number;
@@ -13,4 +14,9 @@ export interface AdminOrderLink {
   issuedAt?: Date | null;
   /** @nullable */
   lastUsedAt?: Date | null;
+  /**
+   * How the customer most recently reached their order page — via the emailed magic link (token), the email + order id lookup form (lookup), or by signing in to their account (signed_in).
+   * @nullable
+   */
+  lastChannel?: AdminOrderLinkLastChannel;
 }

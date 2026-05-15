@@ -48,6 +48,7 @@ export const ordersTable = pgTable(
     lookupToken: text("lookup_token"),
     lookupTokenIssuedAt: timestamp("lookup_token_issued_at"),
     lookupTokenLastUsedAt: timestamp("lookup_token_last_used_at"),
+    lookupTokenLastChannel: text("lookup_token_last_channel"),
     analyticsEventId: text("analytics_event_id"),
     analyticsClientId: text("analytics_client_id"),
     analyticsFbp: text("analytics_fbp"),

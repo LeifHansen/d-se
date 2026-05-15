@@ -238,6 +238,20 @@ export interface ReorderResponse {
   skipped: ReorderResponseSkippedItem[];
 }
 
+/**
+ * How the customer most recently reached their order page — via the emailed magic link (token), the email + order id lookup form (lookup), or by signing in to their account (signed_in).
+ * @nullable
+ */
+export type AdminOrderLinkLastChannel =
+  | (typeof AdminOrderLinkLastChannel)[keyof typeof AdminOrderLinkLastChannel]
+  | null;
+
+export const AdminOrderLinkLastChannel = {
+  token: "token",
+  lookup: "lookup",
+  signed_in: "signed_in",
+} as const;
+
 export interface AdminOrderLink {
   orderId: number;
   active: boolean;
@@ -245,6 +259,11 @@ export interface AdminOrderLink {
   issuedAt?: string | null;
   /** @nullable */
   lastUsedAt?: string | null;
+  /**
+   * How the customer most recently reached their order page — via the emailed magic link (token), the email + order id lookup form (lookup), or by signing in to their account (signed_in).
+   * @nullable
+   */
+  lastChannel?: AdminOrderLinkLastChannel;
 }
 
 export interface BlogPost {

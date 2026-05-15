@@ -589,6 +589,13 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
     return;
   }
   await clearLookupFailures(clientIp, parsed.data.orderId);
+  await db
+    .update(ordersTable)
+    .set({
+      lookupTokenLastUsedAt: new Date(),
+      lookupTokenLastChannel: "lookup",
+    })
+    .where(eq(ordersTable.id, row.id));
   const order = await buildOrderResponse(row.id);
   res.json(GetOrderResponse.parse(order));
 });
@@ -633,7 +640,10 @@ router.post("/orders/by-token", async (req, res): Promise<void> => {
   // staff can answer "I never got my order" questions with confidence.
   await db
     .update(ordersTable)
-    .set({ lookupTokenLastUsedAt: new Date() })
+    .set({
+      lookupTokenLastUsedAt: new Date(),
+      lookupTokenLastChannel: "token",
+    })
     .where(eq(ordersTable.id, row.id));
   const order = await buildOrderResponse(row.id);
   res.json(GetOrderResponse.parse(order));
@@ -824,6 +834,20 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
   if (!ownsOrder && !cartIdMatches && !sessionIdMatches) {
     res.status(404).json({ error: "Order not found" });
     return;
+  }
+  // Only count signed-in owner views as a "signed_in" channel access. Guest
+  // receipt-link visits (cartId / Stripe sessionId) aren't a separately
+  // useful signal here — the cart/session id is itself a magic link, so it
+  // would muddy the "did the customer find their way back?" answer support
+  // staff are looking for.
+  if (ownsOrder) {
+    await db
+      .update(ordersTable)
+      .set({
+        lookupTokenLastUsedAt: new Date(),
+        lookupTokenLastChannel: "signed_in",
+      })
+      .where(eq(ordersTable.id, params.data.id));
   }
   const order = await buildOrderResponse(params.data.id);
   res.json(GetOrderResponse.parse(order));

@@ -1049,12 +1049,22 @@ function serializeOrderLink(row: {
   lookupToken: string | null;
   lookupTokenIssuedAt: Date | null;
   lookupTokenLastUsedAt: Date | null;
+  lookupTokenLastChannel: string | null;
 }) {
+  // Only surface known channel values — guard against legacy or stray rows
+  // so the admin UI never has to deal with an unexpected string.
+  const KNOWN_CHANNELS = ["token", "lookup", "signed_in"] as const;
+  const lastChannel =
+    row.lookupTokenLastChannel &&
+    (KNOWN_CHANNELS as readonly string[]).includes(row.lookupTokenLastChannel)
+      ? (row.lookupTokenLastChannel as (typeof KNOWN_CHANNELS)[number])
+      : null;
   return {
     orderId: row.id,
     active: Boolean(row.lookupToken),
     issuedAt: row.lookupTokenIssuedAt,
     lastUsedAt: row.lookupTokenLastUsedAt,
+    lastChannel,
   };
 }
 
@@ -1072,6 +1082,7 @@ router.get(
         lookupToken: ordersTable.lookupToken,
         lookupTokenIssuedAt: ordersTable.lookupTokenIssuedAt,
         lookupTokenLastUsedAt: ordersTable.lookupTokenLastUsedAt,
+        lookupTokenLastChannel: ordersTable.lookupTokenLastChannel,
       })
       .from(ordersTable)
       .where(eq(ordersTable.id, idNum));
@@ -1103,6 +1114,7 @@ router.delete(
         lookupToken: ordersTable.lookupToken,
         lookupTokenIssuedAt: ordersTable.lookupTokenIssuedAt,
         lookupTokenLastUsedAt: ordersTable.lookupTokenLastUsedAt,
+        lookupTokenLastChannel: ordersTable.lookupTokenLastChannel,
       });
     if (!row) {
       res.status(404).json({ error: "Order not found" });

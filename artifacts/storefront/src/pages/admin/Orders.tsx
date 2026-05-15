@@ -17,7 +17,7 @@ import {
   type ShippingRate,
 } from "@workspace/api-client-react";
 import { AdminLayout } from "./AdminLayout";
-import { formatCurrency, formatDateTime } from "./utils";
+import { formatCurrency, formatDateTime, formatOrderLinkChannel } from "./utils";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -904,6 +904,12 @@ function OrderLinkPanel({ orderId }: { orderId: number }) {
               <dt className="text-muted-foreground">Last opened</dt>
               <dd data-testid="text-order-link-last-used-at">
                 {data.lastUsedAt ? formatDateTime(data.lastUsedAt) : "Never"}
+              </dd>
+            </div>
+            <div className="flex justify-between gap-2">
+              <dt className="text-muted-foreground">Via</dt>
+              <dd data-testid="text-order-link-last-channel">
+                {formatOrderLinkChannel(data.lastChannel)}
               </dd>
             </div>
           </dl>

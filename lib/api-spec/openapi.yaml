@@ -1671,6 +1671,10 @@ components:
         active: { type: boolean }
         issuedAt: { type: ["string", "null"], format: date-time }
         lastUsedAt: { type: ["string", "null"], format: date-time }
+        lastChannel:
+          type: ["string", "null"]
+          enum: [token, lookup, signed_in, null]
+          description: How the customer most recently reached their order page — via the emailed magic link (token), the email + order id lookup form (lookup), or by signing in to their account (signed_in).
 
     BlogPost:
       type: object
