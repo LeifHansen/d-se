@@ -469,6 +469,132 @@ test.describe("admin dashboard", () => {
     expect(statsRequests.at(-1)).toContain("marketingRange=7");
   });
 
+  test("marketing trend deltas show signed labels, tones, and refresh per range", async ({
+    page,
+  }) => {
+    const api = new AdminApi();
+    await installAdminMocks(page, api);
+
+    type DeltaPayload = {
+      subscribers: { current: number; prior: number };
+      orders: { current: number; prior: number };
+      revenueCents: { current: number; prior: number };
+    };
+    // Cases:
+    //   7d  → positive change   (+25% subs, +20% orders, +29% revenue)
+    //   30d → negative change   (-25% subs, -25% orders, -25% revenue)
+    //   90d → zero prior        ("New vs prior 90d", tone=up)
+    // Then we mutate payloadsByRange[7] and click 7d again to exercise the
+    // unchanged / no-change cases (0% neutral and "No change vs prior 7d").
+    const payloadsByRange: Record<number, DeltaPayload> = {
+      7: {
+        subscribers: { current: 25, prior: 20 },
+        orders: { current: 12, prior: 10 },
+        revenueCents: { current: 64500, prior: 50000 },
+      },
+      30: {
+        subscribers: { current: 60, prior: 80 },
+        orders: { current: 30, prior: 40 },
+        revenueCents: { current: 300000, prior: 400000 },
+      },
+      90: {
+        subscribers: { current: 50, prior: 0 },
+        orders: { current: 174, prior: 0 },
+        revenueCents: { current: 920000, prior: 0 },
+      },
+    };
+
+    await page.route("**/api/admin/stats**", async (route) => {
+      const url = new URL(route.request().url());
+      const range = Number(url.searchParams.get("marketingRange") ?? "7");
+      const p = payloadsByRange[range] ?? payloadsByRange[7];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          totalOrders: 142,
+          ordersToday: 3,
+          revenueCentsToday: 9900,
+          ordersThisMonth: 27,
+          revenueCentsThisMonth: 142500,
+          pendingFulfillment: 2,
+          lowStock: 1,
+          totalProducts: api.products.length,
+          webhookHealthy: true,
+          webhookLastReceivedAt: "2026-05-14T09:00:00.000Z",
+          recentOrders: api.orders.slice(0, 2),
+          marketing: {
+            newsletterSubscribers: 1280,
+            rangeDays: range,
+            subscribersInRange: p.subscribers.current,
+            ordersInRange: p.orders.current,
+            revenueCentsInRange: p.revenueCents.current,
+            priorSubscribersInRange: p.subscribers.prior,
+            priorOrdersInRange: p.orders.prior,
+            priorRevenueCentsInRange: p.revenueCents.prior,
+            ga4Url: "https://analytics.google.com/example",
+            subscribersDaily: [],
+            ordersDaily: [],
+            revenueCentsDaily: [],
+          },
+        }),
+      });
+    });
+
+    await page.goto("/admin");
+    await expect(page.getByTestId("admin-shell")).toBeVisible({
+      timeout: 15_000,
+    });
+
+    const subsDelta = page.getByTestId("marketing-subscribers-delta");
+    const ordersDelta = page.getByTestId("marketing-orders-delta");
+    const revenueDelta = page.getByTestId("marketing-revenue-delta");
+
+    // 7d → positive deltas, tone=up
+    await expect(subsDelta).toHaveText("+25% vs prior 7d", { timeout: 15_000 });
+    await expect(subsDelta).toHaveAttribute("data-tone", "up");
+    await expect(ordersDelta).toHaveText("+20% vs prior 7d");
+    await expect(ordersDelta).toHaveAttribute("data-tone", "up");
+    await expect(revenueDelta).toHaveText("+29% vs prior 7d");
+    await expect(revenueDelta).toHaveAttribute("data-tone", "up");
+
+    // 30d → negative deltas, tone=down
+    await page.getByTestId("marketing-range-30d").click();
+    await expect(subsDelta).toHaveText("-25% vs prior 30d");
+    await expect(subsDelta).toHaveAttribute("data-tone", "down");
+    await expect(ordersDelta).toHaveText("-25% vs prior 30d");
+    await expect(ordersDelta).toHaveAttribute("data-tone", "down");
+    await expect(revenueDelta).toHaveText("-25% vs prior 30d");
+    await expect(revenueDelta).toHaveAttribute("data-tone", "down");
+
+    // 90d → zero-prior with current > 0 → "New vs prior 90d", tone=up
+    await page.getByTestId("marketing-range-90d").click();
+    await expect(subsDelta).toHaveText("New vs prior 90d");
+    await expect(subsDelta).toHaveAttribute("data-tone", "up");
+    await expect(ordersDelta).toHaveText("New vs prior 90d");
+    await expect(ordersDelta).toHaveAttribute("data-tone", "up");
+    await expect(revenueDelta).toHaveText("New vs prior 90d");
+    await expect(revenueDelta).toHaveAttribute("data-tone", "up");
+
+    // Mutate the 7d payload to exercise the unchanged / no-change cases.
+    //   subscribers: 0 vs 0 → "No change vs prior 7d"
+    //   orders:      10 vs 10 → "0% vs prior 7d" (neutral)
+    //   revenue:     50000 vs 50000 → "0% vs prior 7d" (neutral)
+    payloadsByRange[7] = {
+      subscribers: { current: 0, prior: 0 },
+      orders: { current: 10, prior: 10 },
+      revenueCents: { current: 50000, prior: 50000 },
+    };
+
+    await page.getByTestId("marketing-range-7d").click();
+    await expect(subsDelta).toHaveText("No change vs prior 7d");
+    await expect(subsDelta).toHaveAttribute("data-tone", "neutral");
+    await expect(ordersDelta).toHaveText("0% vs prior 7d");
+    await expect(ordersDelta).toHaveAttribute("data-tone", "neutral");
+    await expect(revenueDelta).toHaveText("0% vs prior 7d");
+    await expect(revenueDelta).toHaveAttribute("data-tone", "neutral");
+  });
+
   test("hides stale-webhook warning when webhook is healthy", async ({
     page,
   }) => {
