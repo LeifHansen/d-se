@@ -1,6 +1,23 @@
 #!/bin/bash
 set -e
 pnpm install --frozen-lockfile
+
+if [ -n "$DATABASE_URL" ]; then
+  # One-shot cleanup: null out any pre-existing empty/whitespace-only email
+  # rows on orders/carts so the email-canonical CHECK constraint added by the
+  # subsequent `pnpm --filter db push` doesn't fail on rollout. Abandoned
+  # carts have a NOT NULL email — drop any junk rows there. Idempotent.
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c \
+    "UPDATE orders SET email = NULL WHERE email IS NOT NULL AND length(btrim(email)) = 0;" \
+    || echo "Order empty-email cleanup skipped (psql failed)."
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c \
+    "UPDATE carts SET email = NULL WHERE email IS NOT NULL AND length(btrim(email)) = 0;" \
+    || echo "Cart empty-email cleanup skipped (psql failed)."
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c \
+    "DELETE FROM abandoned_carts WHERE length(btrim(email)) = 0;" \
+    || echo "Abandoned-cart empty-email cleanup skipped (psql failed)."
+fi
+
 pnpm --filter db push
 
 if [ -n "$DATABASE_URL" ]; then

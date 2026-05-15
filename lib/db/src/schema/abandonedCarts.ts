@@ -1,9 +1,11 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   serial,
   text,
   timestamp,
   index,
+  check,
 } from "drizzle-orm/pg-core";
 import { cartsTable } from "./carts";
 
@@ -26,6 +28,10 @@ export const abandonedCartsTable = pgTable(
   (t) => [
     index("abandoned_carts_cart_idx").on(t.cartId),
     index("abandoned_carts_email_idx").on(t.email),
+    check(
+      "abandoned_carts_email_canonical_check",
+      sql`length(${t.email}) > 0 AND ${t.email} = lower(btrim(${t.email}))`,
+    ),
   ],
 );
 

@@ -1,22 +1,33 @@
+import { sql } from "drizzle-orm";
 import {
   pgTable,
   serial,
   text,
   integer,
   timestamp,
+  check,
 } from "drizzle-orm/pg-core";
 import { productsTable } from "./products";
 
-export const cartsTable = pgTable("carts", {
-  id: text("id").primaryKey(),
-  userId: text("user_id"),
-  email: text("email"),
-  discountCodeId: integer("discount_code_id"),
-  discountCode: text("discount_code"),
-  checkedOutAt: timestamp("checked_out_at"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+export const cartsTable = pgTable(
+  "carts",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id"),
+    email: text("email"),
+    discountCodeId: integer("discount_code_id"),
+    discountCode: text("discount_code"),
+    checkedOutAt: timestamp("checked_out_at"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      "carts_email_canonical_check",
+      sql`${t.email} IS NULL OR (length(${t.email}) > 0 AND ${t.email} = lower(btrim(${t.email})))`,
+    ),
+  ],
+);
 
 export const cartItemsTable = pgTable("cart_items", {
   id: serial("id").primaryKey(),
