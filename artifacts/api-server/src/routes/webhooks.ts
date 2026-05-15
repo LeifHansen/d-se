@@ -12,7 +12,11 @@ import {
   stripeProcessedEventsTable,
 } from "@workspace/db";
 import { getStripe, isStripeConfigured } from "../lib/stripe";
-import { sendOrderConfirmation } from "../lib/email";
+import {
+  sendOrderConfirmation,
+  sendDeliveryEmail,
+  buildTrackingUrl,
+} from "../lib/email";
 import { signOrderToken } from "../lib/orderToken";
 import { SITE_URL } from "../lib/site-url";
 import { markCartRecovered } from "../lib/abandonedCart";
@@ -574,30 +578,110 @@ router.post(
 
     const currentRank = STATUS_RANK[order.status] ?? 0;
     const nextRank = STATUS_RANK[nextStatus] ?? 0;
-    if (nextRank <= currentRank) {
-      // Either no change or carrier rewound (e.g. delivered → in_transit
-      // bounce). Keep the more advanced status.
-      res.json({ received: true, unchanged: true });
-      return;
+
+    // The "effective" terminal status the order should be in after this
+    // event. We never go backwards (carrier rewinds), so when the new event
+    // is at or below the current rank we keep the existing status. We still
+    // fall through below so a delivered order with a previously-failed email
+    // send can be retried from a later tracker.updated event.
+    const effectiveStatus = nextRank > currentRank ? nextStatus : order.status;
+
+    let statusChanged = false;
+    if (nextRank > currentRank) {
+      const transitioned = await db
+        .update(ordersTable)
+        .set({ status: nextStatus, updatedAt: new Date() })
+        .where(
+          and(
+            eq(ordersTable.id, order.id),
+            eq(ordersTable.status, order.status),
+          ),
+        )
+        .returning({ id: ordersTable.id });
+      statusChanged = transitioned.length > 0;
+      if (statusChanged) {
+        req.log.info(
+          {
+            orderId: order.id,
+            from: order.status,
+            to: nextStatus,
+            trackerStatus,
+            trackingCode,
+          },
+          "Order status updated from EasyPost tracker event",
+        );
+      }
     }
 
-    await db
-      .update(ordersTable)
-      .set({ status: nextStatus, updatedAt: new Date() })
-      .where(
-        and(eq(ordersTable.id, order.id), eq(ordersTable.status, order.status)),
-      );
-
-    req.log.info(
-      {
-        orderId: order.id,
-        from: order.status,
-        to: nextStatus,
-        trackerStatus,
-        trackingCode,
-      },
-      "Order status updated from EasyPost tracker event",
-    );
+    // Delivery notification email — sent once per order. We only attempt a
+    // send when the *incoming* event itself reports `delivered` (so an
+    // earlier-status event like `in_transit` arriving late for an already-
+    // delivered order doesn't trigger a notification). The send is claimed
+    // atomically by setting `delivered_email_sent_at` only when it's still
+    // NULL, so a transient send failure that resets the column can be
+    // recovered by a subsequent EasyPost retry, while concurrent retries
+    // lose the race and don't double-send.
+    if (
+      nextStatus === "delivered" &&
+      effectiveStatus === "delivered" &&
+      order.email
+    ) {
+      try {
+        const claimed = await db
+          .update(ordersTable)
+          .set({ deliveredEmailSentAt: new Date() })
+          .where(
+            and(
+              eq(ordersTable.id, order.id),
+              eq(ordersTable.status, "delivered"),
+              sql`${ordersTable.deliveredEmailSentAt} IS NULL`,
+            ),
+          )
+          .returning({ id: ordersTable.id });
+        if (claimed.length > 0) {
+          const email = order.email;
+          const lookupToken =
+            order.lookupToken ?? signOrderToken({ orderId: order.id, email });
+          if (!order.lookupToken) {
+            await db
+              .update(ordersTable)
+              .set({
+                lookupToken,
+                lookupTokenIssuedAt: new Date(),
+                lookupTokenLastUsedAt: null,
+              })
+              .where(eq(ordersTable.id, order.id));
+          }
+          try {
+            await sendDeliveryEmail({
+              to: email,
+              orderId: order.id,
+              trackingCode: order.trackingCode,
+              carrier: order.carrier,
+              trackingUrl: order.trackingCode
+                ? buildTrackingUrl(order.carrier, order.trackingCode)
+                : null,
+              orderUrl: `${SITE_URL}/orders/${order.id}?token=${encodeURIComponent(
+                lookupToken,
+              )}`,
+            });
+          } catch (err) {
+            // Roll back the claim so a future tracker.updated retry can
+            // re-attempt the send.
+            await db
+              .update(ordersTable)
+              .set({ deliveredEmailSentAt: null })
+              .where(eq(ordersTable.id, order.id));
+            req.log.warn({ err, orderId: order.id }, "Delivery email failed");
+          }
+        }
+      } catch (err) {
+        req.log.warn(
+          { err, orderId: order.id },
+          "Delivery email claim failed",
+        );
+      }
+    }
 
     res.json({ received: true, orderId: order.id, status: nextStatus });
   },

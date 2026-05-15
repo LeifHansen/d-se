@@ -393,6 +393,44 @@ ${trackingLine}`,
   });
 }
 
+export async function sendDeliveryEmail(opts: {
+  to: string;
+  orderId: number;
+  trackingCode?: string | null;
+  carrier?: string | null;
+  trackingUrl?: string | null;
+  orderUrl?: string | null;
+}): Promise<void> {
+  const r = await getResend();
+  if (!r) return;
+  const url =
+    opts.trackingUrl ??
+    (opts.trackingCode
+      ? buildTrackingUrl(opts.carrier, opts.trackingCode)
+      : null);
+  const trackingLine = opts.trackingCode
+    ? url
+      ? `<p>Tracking: <a href="${url}"><strong>${opts.trackingCode}</strong></a>${
+          opts.carrier ? ` via ${opts.carrier}` : ""
+        }</p>`
+      : `<p>Tracking: <strong>${opts.trackingCode}</strong>${
+          opts.carrier ? ` via ${opts.carrier}` : ""
+        }</p>`
+    : "";
+  const orderLink = opts.orderUrl
+    ? `<p style="margin-top:24px"><a href="${opts.orderUrl}">View your order details →</a></p>`
+    : "";
+  await r.client.emails.send({
+    from: `${STORE_NAME} <${r.fromEmail}>`,
+    to: opts.to,
+    subject: `Order #${opts.orderId} delivered`,
+    html: `<h1>Your order has been delivered!</h1>
+<p>Order #${opts.orderId} has arrived. We hope you enjoy it.</p>
+${trackingLine}
+${orderLink}`,
+  });
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

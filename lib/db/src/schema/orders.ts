@@ -55,6 +55,7 @@ export const ordersTable = pgTable(
     analyticsClientIp: text("analytics_client_ip"),
     analyticsUserAgent: text("analytics_user_agent"),
     purchaseTrackedAt: timestamp("purchase_tracked_at"),
+    deliveredEmailSentAt: timestamp("delivered_email_sent_at"),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },

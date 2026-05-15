@@ -28,13 +28,17 @@ vi.mock("../lib/stripe", () => ({
 const emailMock = vi.hoisted(() => ({
   sendOrderConfirmation: vi.fn(async (_arg: unknown) => {}),
   sendAbandonedCartEmail: vi.fn(async (_arg: unknown) => {}),
+  sendDeliveryEmail: vi.fn(async (_arg: unknown) => {}),
 }));
 
 vi.mock("../lib/email", () => ({
   sendOrderConfirmation: emailMock.sendOrderConfirmation,
   sendAbandonedCartEmail: emailMock.sendAbandonedCartEmail,
+  sendDeliveryEmail: emailMock.sendDeliveryEmail,
   sendLowStockDigest: vi.fn(async () => {}),
   sendWelcomeEmail: vi.fn(async () => {}),
+  buildTrackingUrl: (carrier: string | null, code: string | null) =>
+    code ? `https://track.example/${carrier ?? ""}/${code}` : null,
   STORE_NAME: "Test",
 }));
 
@@ -108,6 +112,7 @@ describe("POST /api/webhooks/stripe — checkout.session.completed", () => {
     await resetDb();
     stripeMock.constructEvent.mockReset();
     emailMock.sendOrderConfirmation.mockClear();
+    emailMock.sendDeliveryEmail.mockClear();
   });
 
   it("records discount/tax cents, increments redemptions, sends email, marks cart recovered", async () => {
@@ -251,6 +256,139 @@ describe("POST /api/webhooks/stripe — checkout.session.completed", () => {
       .from(ordersTable)
       .where(eq(ordersTable.id, order.id));
     expect(updated.status).toBe("delivered");
+    expect(updated.deliveredEmailSentAt).not.toBeNull();
+    expect(emailMock.sendDeliveryEmail).toHaveBeenCalledTimes(1);
+    const arg = emailMock.sendDeliveryEmail.mock.calls[0]![0] as {
+      to: string;
+      orderId: number;
+      trackingCode?: string | null;
+      carrier?: string | null;
+      orderUrl?: string | null;
+    };
+    expect(arg.to).toBe("buyer@example.com");
+    expect(arg.orderId).toBe(order.id);
+    expect(arg.trackingCode).toBe("TRK-EP-1");
+    expect(arg.carrier).toBe("USPS");
+    expect(arg.orderUrl).toContain(`/orders/${order.id}?token=`);
+  });
+
+  it("EasyPost tracker.updated → delivered is idempotent across redeliveries", async () => {
+    const product = await seedProduct({ priceCents: 5_000, inventory: 10 });
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "shipped",
+        subtotalCents: 5_000,
+        shippingCents: 0,
+        taxCents: 0,
+        discountCents: 0,
+        totalCents: 5_000,
+        currency: "usd",
+        trackingCode: "TRK-EP-IDEMP",
+        carrier: "USPS",
+      })
+      .returning();
+    await db.insert(orderItemsTable).values({
+      orderId: order.id,
+      productId: product.id,
+      productName: "Test Product",
+      productImage: null,
+      quantity: 1,
+      priceCents: 5_000,
+    });
+
+    const body = {
+      description: "tracker.updated",
+      result: {
+        object: "Tracker",
+        tracking_code: "TRK-EP-IDEMP",
+        status: "delivered",
+        carrier: "USPS",
+      },
+    };
+
+    const r1 = await request(app)
+      .post("/api/webhooks/easypost")
+      .set("content-type", "application/json")
+      .send(body);
+    expect(r1.status).toBe(200);
+
+    const r2 = await request(app)
+      .post("/api/webhooks/easypost")
+      .set("content-type", "application/json")
+      .send(body);
+    expect(r2.status).toBe(200);
+
+    expect(emailMock.sendDeliveryEmail).toHaveBeenCalledTimes(1);
+  });
+
+  it("EasyPost tracker.updated → delivered retries the email send after a transient failure", async () => {
+    const product = await seedProduct({ priceCents: 5_000, inventory: 10 });
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "shipped",
+        subtotalCents: 5_000,
+        shippingCents: 0,
+        taxCents: 0,
+        discountCents: 0,
+        totalCents: 5_000,
+        currency: "usd",
+        trackingCode: "TRK-EP-RETRY",
+        carrier: "USPS",
+      })
+      .returning();
+    await db.insert(orderItemsTable).values({
+      orderId: order.id,
+      productId: product.id,
+      productName: "Test Product",
+      productImage: null,
+      quantity: 1,
+      priceCents: 5_000,
+    });
+
+    const body = {
+      description: "tracker.updated",
+      result: {
+        object: "Tracker",
+        tracking_code: "TRK-EP-RETRY",
+        status: "delivered",
+        carrier: "USPS",
+      },
+    };
+
+    emailMock.sendDeliveryEmail.mockImplementationOnce(async () => {
+      throw new Error("transient mail outage");
+    });
+
+    const r1 = await request(app)
+      .post("/api/webhooks/easypost")
+      .set("content-type", "application/json")
+      .send(body);
+    expect(r1.status).toBe(200);
+
+    const [afterFail] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, order.id));
+    expect(afterFail.status).toBe("delivered");
+    // Claim was rolled back so a redelivery can retry.
+    expect(afterFail.deliveredEmailSentAt).toBeNull();
+
+    const r2 = await request(app)
+      .post("/api/webhooks/easypost")
+      .set("content-type", "application/json")
+      .send(body);
+    expect(r2.status).toBe(200);
+
+    expect(emailMock.sendDeliveryEmail).toHaveBeenCalledTimes(2);
+    const [afterRetry] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, order.id));
+    expect(afterRetry.deliveredEmailSentAt).not.toBeNull();
   });
 
   it("EasyPost tracker.updated → in_transit does not move a delivered order backward", async () => {
