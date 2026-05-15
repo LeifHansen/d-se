@@ -8,6 +8,7 @@ import {
 import type { Order } from "@workspace/api-client-react";
 import { SiteShell } from "@/components/dose/SiteShell";
 import { OrderTracking } from "@/components/dose/OrderTracking";
+import { OrderStatusBadge } from "@/components/dose/OrderStatusBadge";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -170,9 +171,15 @@ export default function OrderDetailPage() {
             {order ? "Thank you." : `Order #${params.id}`}
           </h1>
           {order ? (
-            <p className="mt-3 text-sm opacity-80">
-              Order #{order.id} · {formatDate(order.createdAt)} · {order.status}
-            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-sm opacity-90">
+              <span>
+                Order #{order.id} · {formatDate(order.createdAt)}
+              </span>
+              <OrderStatusBadge
+                status={order.status}
+                testId="order-status-badge-hero"
+              />
+            </div>
           ) : null}
         </div>
       </section>
@@ -266,13 +273,12 @@ export default function OrderDetailPage() {
             ) : null}
             <div className="mt-6">
               <h2 className="font-display text-xl">Tracking</h2>
-              <p
-                className="mt-1 text-xs uppercase tracking-[0.18em]"
-                style={{ color: "hsl(170 18% 32%)" }}
-                data-testid="order-shipment-status"
-              >
-                Status: {order.status}
-              </p>
+              <div className="mt-2" data-testid="order-shipment-status">
+                <OrderStatusBadge
+                  status={order.status}
+                  testId="order-status-badge"
+                />
+              </div>
               <OrderTracking order={order} variant="inline" />
               {!order.trackingCode ? (
                 <p

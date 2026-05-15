@@ -217,7 +217,9 @@ test.describe("/account and /account/orders/:id", () => {
 
     await expect(page.getByTestId("page-account-order")).toBeVisible();
     await expect(page.getByTestId("order-summary")).toBeVisible();
-    await expect(page.getByTestId("order-status")).toContainText("paid");
+    await expect(page.getByTestId("order-status-badge")).toContainText(
+      "Preparing",
+    );
     await expect(page.getByTestId("order-total")).toContainText("$95.99");
     await expect(page.getByTestId("order-shipping-address")).toContainText(
       "Casey Buyer",

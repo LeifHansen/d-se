@@ -12,6 +12,7 @@ import {
   type Order,
 } from "@workspace/api-client-react";
 import { SiteShell } from "@/components/dose/SiteShell";
+import { OrderStatusBadge } from "@/components/dose/OrderStatusBadge";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -190,8 +191,14 @@ function OrderRow({ order }: { order: Order }) {
               className="text-xs uppercase tracking-[0.18em]"
               style={{ color: "hsl(170 18% 32%)" }}
             >
-              {formatDate(String(order.createdAt))} · {order.status}
+              {formatDate(String(order.createdAt))}
             </p>
+            <div className="mt-2">
+              <OrderStatusBadge
+                status={order.status}
+                testId={`order-${order.id}-status-badge`}
+              />
+            </div>
           </div>
           <p className="font-display text-lg">
             {formatMoney(order.totalCents, order.currency)}

@@ -7,6 +7,7 @@ import {
 } from "@workspace/api-client-react";
 import { SiteShell } from "@/components/dose/SiteShell";
 import { OrderTracking } from "@/components/dose/OrderTracking";
+import { OrderStatusBadge } from "@/components/dose/OrderStatusBadge";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
 import {
@@ -204,13 +205,12 @@ export default function AccountOrderPage() {
                   >
                     Placed {formatDate(order.createdAt)}
                   </p>
-                  <p
-                    className="mt-1 text-xs uppercase tracking-[0.18em]"
-                    style={{ color: "hsl(170 18% 32%)" }}
-                    data-testid="order-status"
-                  >
-                    Status: {order.status}
-                  </p>
+                  <div className="mt-2" data-testid="order-status">
+                    <OrderStatusBadge
+                      status={order.status}
+                      testId="order-status-badge"
+                    />
+                  </div>
                 </div>
                 <p className="font-display text-2xl" data-testid="order-total">
                   {formatMoney(order.totalCents, order.currency)}
