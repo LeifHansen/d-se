@@ -412,3 +412,129 @@ describe("POST /admin/orders/:id/fulfill (EasyPost configured)", () => {
     expect(arg.orderId).toBe(order.id);
   });
 });
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/orders/:id/shipping-rates — when EasyPost is configured,
+// the live branch must map shipment.rates into our shape (carrier, service,
+// amountCents from parseFloat(rate)*100, lowercased currency, deliveryDays).
+// ---------------------------------------------------------------------------
+describe("POST /admin/orders/:id/shipping-rates (EasyPost configured)", () => {
+  beforeEach(async () => {
+    await resetDb();
+    __setAuth("user_admin", ADMIN_USER);
+    easypostState.configured = true;
+    easypostState.createImpl.mockReset();
+  });
+
+  afterEach(() => {
+    easypostState.configured = false;
+  });
+
+  it("maps EasyPost rates into the response shape", async () => {
+    easypostState.createImpl.mockResolvedValue({
+      id: "shp_rates_abc",
+      rates: [
+        {
+          id: "rate_usps_priority",
+          carrier: "USPS",
+          service: "Priority",
+          rate: "7.45",
+          currency: "USD",
+          delivery_days: 3,
+        },
+        {
+          id: "rate_ups_ground",
+          carrier: "UPS",
+          service: "Ground",
+          rate: "12.99",
+          currency: "usd",
+          delivery_days: null,
+        },
+        {
+          id: "rate_dhl_express",
+          carrier: "DHL",
+          service: "Express",
+          rate: "25.50",
+          currency: "CAD",
+          delivery_days: 2,
+        },
+      ],
+    });
+
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "paid",
+        subtotalCents: 5_000,
+        totalCents: 5_000,
+        currency: "usd",
+        shippingAddress: {
+          name: "Jane Buyer",
+          street1: "123 Main St",
+          street2: null,
+          city: "Brooklyn",
+          state: "NY",
+          zip: "11201",
+          country: "US",
+          phone: null,
+        },
+      })
+      .returning();
+
+    const res = await request(app)
+      .post(`/api/admin/orders/${order.id}/shipping-rates`)
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.shipmentId).toBe("shp_rates_abc");
+    expect(res.body.rates).toEqual([
+      {
+        id: "rate_usps_priority",
+        carrier: "USPS",
+        service: "Priority",
+        amountCents: 745,
+        currency: "usd",
+        deliveryDays: 3,
+      },
+      {
+        id: "rate_ups_ground",
+        carrier: "UPS",
+        service: "Ground",
+        amountCents: 1299,
+        currency: "usd",
+        deliveryDays: null,
+      },
+      {
+        id: "rate_dhl_express",
+        carrier: "DHL",
+        service: "Express",
+        amountCents: 2550,
+        currency: "cad",
+        deliveryDays: 2,
+      },
+    ]);
+    expect(easypostState.createImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns 400 when the order has no shipping address", async () => {
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "paid",
+        subtotalCents: 5_000,
+        totalCents: 5_000,
+        currency: "usd",
+        shippingAddress: null,
+      })
+      .returning();
+
+    const res = await request(app)
+      .post(`/api/admin/orders/${order.id}/shipping-rates`)
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(easypostState.createImpl).not.toHaveBeenCalled();
+  });
+});
