@@ -3,6 +3,7 @@ import request from "supertest";
 import { db, resetDb } from "./testDb";
 import { makeApp, seedDiscount, seedProduct } from "./helpers";
 import { ordersTable, blogPostsTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 
 vi.mock("../lib/email", () => ({
   sendOrderConfirmation: vi.fn(async () => {}),
@@ -511,6 +512,48 @@ describe("POST /admin/orders/:id/fulfill (EasyPost configured)", () => {
     expect(arg.to).toBe("buyer@example.com");
     expect(arg.orderId).toBe(order.id);
   });
+
+  it("returns 500 and skips the shipment email when EasyPost buy fails", async () => {
+    easypostState.buyImpl.mockRejectedValue(new Error("EasyPost down"));
+
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "paid",
+        subtotalCents: 5_000,
+        totalCents: 5_000,
+        currency: "usd",
+        shippingAddress: {
+          name: "Jane Buyer",
+          street1: "123 Main St",
+          street2: null,
+          city: "Brooklyn",
+          state: "NY",
+          zip: "11201",
+          country: "US",
+          phone: null,
+        },
+      })
+      .returning();
+
+    const res = await request(app)
+      .post(`/api/admin/orders/${order.id}/fulfill`)
+      .send({ shipmentId: "shp_existing", shippingRateId: "rate_x" });
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "Failed to buy shipping label" });
+    expect(easypostState.buyImpl).toHaveBeenCalledTimes(1);
+    expect(sendShipmentEmailMock).not.toHaveBeenCalled();
+
+    const [after] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, order.id));
+    expect(after.status).toBe("paid");
+    expect(after.trackingCode).toBeNull();
+    expect(after.labelUrl).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -636,6 +679,39 @@ describe("POST /admin/orders/:id/shipping-rates (EasyPost configured)", () => {
 
     expect(res.status).toBe(400);
     expect(easypostState.createImpl).not.toHaveBeenCalled();
+  });
+
+  it("returns 500 when EasyPost shipment.create rejects", async () => {
+    easypostState.createImpl.mockRejectedValue(new Error("EasyPost outage"));
+
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "paid",
+        subtotalCents: 5_000,
+        totalCents: 5_000,
+        currency: "usd",
+        shippingAddress: {
+          name: "Jane Buyer",
+          street1: "123 Main St",
+          street2: null,
+          city: "Brooklyn",
+          state: "NY",
+          zip: "11201",
+          country: "US",
+          phone: null,
+        },
+      })
+      .returning();
+
+    const res = await request(app)
+      .post(`/api/admin/orders/${order.id}/shipping-rates`)
+      .send({});
+
+    expect(res.status).toBe(500);
+    expect(res.body).toEqual({ error: "Failed to fetch shipping rates" });
+    expect(easypostState.createImpl).toHaveBeenCalledTimes(1);
   });
 });
 

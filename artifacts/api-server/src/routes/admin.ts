@@ -1007,7 +1007,7 @@ router.post(
             ?.carrier ?? null;
       } catch (err) {
         req.log.error({ err }, "EasyPost label purchase failed");
-        res.status(502).json({ error: "Failed to buy shipping label" });
+        res.status(500).json({ error: "Failed to buy shipping label" });
         return;
       }
     } else {
