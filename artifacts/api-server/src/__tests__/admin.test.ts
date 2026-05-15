@@ -337,6 +337,92 @@ describe("GET /admin/blog/posts/by-slug/:slug (draft preview)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Customers + merge-into-customer — admins can consolidate every guest order
+// placed under an email onto a single customer record from the per-email view.
+// ---------------------------------------------------------------------------
+describe("admin customers + merge-into-customer", () => {
+  beforeEach(async () => {
+    await resetDb();
+    __setAuth("user_admin", ADMIN_USER);
+  });
+
+  it("creates, lists, and merges every order for an email into a customer", async () => {
+    await db.insert(ordersTable).values([
+      {
+        email: "buyer@example.com",
+        status: "paid",
+        subtotalCents: 1000,
+        totalCents: 1000,
+        currency: "usd",
+      },
+      {
+        email: "buyer@example.com",
+        status: "paid",
+        subtotalCents: 2000,
+        totalCents: 2000,
+        currency: "usd",
+      },
+      {
+        email: "other@example.com",
+        status: "paid",
+        subtotalCents: 5000,
+        totalCents: 5000,
+        currency: "usd",
+      },
+    ]);
+
+    const created = await request(app)
+      .post("/api/admin/customers")
+      .send({ email: "Buyer@Example.com", name: "Jane Buyer" });
+    expect(created.status).toBe(201);
+    expect(created.body.email).toBe("buyer@example.com");
+    expect(created.body.name).toBe("Jane Buyer");
+    expect(created.body.orderCount).toBe(0);
+    const customerId = created.body.id as number;
+
+    const dupe = await request(app)
+      .post("/api/admin/customers")
+      .send({ email: "buyer@example.com" });
+    expect(dupe.status).toBe(409);
+
+    const merge = await request(app)
+      .post("/api/admin/orders/merge-into-customer")
+      .send({ email: "buyer@example.com", customerId });
+    expect(merge.status).toBe(200);
+    expect(merge.body.mergedCount).toBe(2);
+    expect(merge.body.customer.id).toBe(customerId);
+    expect(merge.body.customer.orderCount).toBe(2);
+
+    const byEmail = await request(app).get(
+      "/api/admin/orders/by-email/buyer%40example.com",
+    );
+    expect(byEmail.status).toBe(200);
+    expect(byEmail.body.orders).toHaveLength(2);
+    for (const o of byEmail.body.orders as Array<{ customerId: number }>) {
+      expect(o.customerId).toBe(customerId);
+    }
+
+    const otherByEmail = await request(app).get(
+      "/api/admin/orders/by-email/other%40example.com",
+    );
+    expect(otherByEmail.body.orders[0].customerId).toBeNull();
+
+    const list = await request(app).get("/api/admin/customers?search=buyer");
+    expect(list.status).toBe(200);
+    expect(list.body).toHaveLength(1);
+    expect(list.body[0].id).toBe(customerId);
+    expect(list.body[0].orderCount).toBe(2);
+  });
+
+  it("rejects merging into a missing customer", async () => {
+    const res = await request(app)
+      .post("/api/admin/orders/merge-into-customer")
+      .send({ email: "buyer@example.com", customerId: 99999 });
+    expect(res.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // POST /api/admin/orders/:id/fulfill — when EasyPost is configured, the real
 // carrier from the bought shipment's selected_rate must be forwarded into the
 // shipment email so customers see "USPS"/"UPS"/"FedEx" instead of the

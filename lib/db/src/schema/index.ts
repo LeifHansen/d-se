@@ -14,3 +14,4 @@ export * from "./newsletterRateLimits";
 export * from "./newsletterQuarantine";
 export * from "./orderLookupFailures";
 export * from "./userProfiles";
+export * from "./customers";

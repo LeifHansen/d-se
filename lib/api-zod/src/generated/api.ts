@@ -636,6 +636,7 @@ export const ListMyOrdersResponseItem = zod.object({
   carrier: zod.string().nullish(),
   trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
+  customerId: zod.number().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListMyOrdersResponse = zod.array(ListMyOrdersResponseItem);
@@ -704,6 +705,7 @@ export const GetOrderResponse = zod.object({
   carrier: zod.string().nullish(),
   trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
+  customerId: zod.number().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -760,6 +762,7 @@ export const LookupOrderResponse = zod.object({
   carrier: zod.string().nullish(),
   trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
+  customerId: zod.number().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -815,6 +818,7 @@ export const LookupOrderByTokenResponse = zod.object({
   carrier: zod.string().nullish(),
   trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
+  customerId: zod.number().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -1021,6 +1025,7 @@ export const GetAdminStatsResponse = zod.object({
         carrier: zod.string().nullish(),
         trackingUrl: zod.string().nullish(),
         labelUrl: zod.string().nullish(),
+        customerId: zod.number().nullish(),
         createdAt: zod.coerce.date(),
       }),
     )
@@ -1242,6 +1247,7 @@ export const ListAdminOrdersResponseItem = zod.object({
   carrier: zod.string().nullish(),
   trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
+  customerId: zod.number().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListAdminOrdersResponse = zod.array(ListAdminOrdersResponseItem);
@@ -1301,9 +1307,57 @@ export const ListAdminOrdersByEmailResponse = zod.object({
       carrier: zod.string().nullish(),
       trackingUrl: zod.string().nullish(),
       labelUrl: zod.string().nullish(),
+      customerId: zod.number().nullish(),
       createdAt: zod.coerce.date(),
     }),
   ),
+});
+
+/**
+ * @summary List or search saved customer records
+ */
+export const ListAdminCustomersQueryParams = zod.object({
+  search: zod.coerce.string().optional(),
+});
+
+export const ListAdminCustomersResponseItem = zod.object({
+  id: zod.number(),
+  email: zod.string(),
+  name: zod.string().nullish(),
+  orderCount: zod.number().optional(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAdminCustomersResponse = zod.array(
+  ListAdminCustomersResponseItem,
+);
+
+/**
+ * @summary Create a new customer record
+ */
+
+export const CreateAdminCustomerBody = zod.object({
+  email: zod.string().min(1),
+  name: zod.string().nullish(),
+});
+
+/**
+ * @summary Reassign every order placed under an email to a single customer record
+ */
+
+export const MergeOrdersIntoCustomerBody = zod.object({
+  email: zod.string().min(1),
+  customerId: zod.number(),
+});
+
+export const MergeOrdersIntoCustomerResponse = zod.object({
+  customer: zod.object({
+    id: zod.number(),
+    email: zod.string(),
+    name: zod.string().nullish(),
+    orderCount: zod.number().optional(),
+    createdAt: zod.coerce.date(),
+  }),
+  mergedCount: zod.number(),
 });
 
 export const bulkUpdateInventoryBodyUpdatesItemInventoryMin = 0;
@@ -1434,6 +1488,7 @@ export const FulfillOrderResponse = zod.object({
   carrier: zod.string().nullish(),
   trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
+  customerId: zod.number().nullish(),
   createdAt: zod.coerce.date(),
 });
 

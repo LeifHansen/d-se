@@ -44,6 +44,7 @@ export const ordersTable = pgTable(
     discountCode: text("discount_code"),
     discountCents: integer("discount_cents").notNull().default(0),
     cartId: text("cart_id"),
+    customerId: integer("customer_id"),
     lookupToken: text("lookup_token"),
     lookupTokenIssuedAt: timestamp("lookup_token_issued_at"),
     lookupTokenLastUsedAt: timestamp("lookup_token_last_used_at"),

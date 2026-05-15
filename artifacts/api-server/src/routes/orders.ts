@@ -206,6 +206,7 @@ async function buildOrderResponse(orderId: number) {
       ? buildTrackingUrl(order.carrier, order.trackingCode)
       : null,
     labelUrl: order.labelUrl,
+    customerId: order.customerId,
     createdAt: order.createdAt,
   };
 }

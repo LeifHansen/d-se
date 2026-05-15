@@ -36,6 +36,8 @@ import type {
   Cart,
   CreateCheckout200,
   CreateCheckoutBody,
+  Customer,
+  CustomerInput,
   DiscountCode,
   DiscountCodeInput,
   DiscountValidation,
@@ -49,6 +51,7 @@ import type {
   GetOrderParams,
   GetShippingRatesBody,
   HealthStatus,
+  ListAdminCustomersParams,
   ListAdminNewsletterSubscribersParams,
   ListAdminOrdersByEmail200,
   ListAdminOrdersParams,
@@ -59,6 +62,8 @@ import type {
   LookupOrderBody,
   LookupOrderByTokenBody,
   MergeOrderLabelsPdfBody,
+  MergeOrdersIntoCustomerInput,
+  MergeOrdersIntoCustomerResponse,
   ModerateReviewBody,
   NewsletterSubscribeBody,
   NewsletterSubscribeResponse,
@@ -2733,6 +2738,279 @@ export function useListAdminOrdersByEmail<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary List or search saved customer records
+ */
+export const getListAdminCustomersUrl = (params?: ListAdminCustomersParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/customers?${stringifiedParams}`
+    : `/api/admin/customers`;
+};
+
+export const listAdminCustomers = async (
+  params?: ListAdminCustomersParams,
+  options?: RequestInit,
+): Promise<Customer[]> => {
+  return customFetch<Customer[]>(getListAdminCustomersUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminCustomersQueryKey = (
+  params?: ListAdminCustomersParams,
+) => {
+  return [`/api/admin/customers`, ...(params ? [params] : [])] as const;
+};
+
+export const getListAdminCustomersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminCustomers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminCustomersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminCustomers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminCustomersQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminCustomers>>
+  > = ({ signal }) => listAdminCustomers(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminCustomers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminCustomersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminCustomers>>
+>;
+export type ListAdminCustomersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List or search saved customer records
+ */
+
+export function useListAdminCustomers<
+  TData = Awaited<ReturnType<typeof listAdminCustomers>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListAdminCustomersParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminCustomers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminCustomersQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create a new customer record
+ */
+export const getCreateAdminCustomerUrl = () => {
+  return `/api/admin/customers`;
+};
+
+export const createAdminCustomer = async (
+  customerInput: CustomerInput,
+  options?: RequestInit,
+): Promise<Customer> => {
+  return customFetch<Customer>(getCreateAdminCustomerUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(customerInput),
+  });
+};
+
+export const getCreateAdminCustomerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdminCustomer>>,
+    TError,
+    { data: BodyType<CustomerInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createAdminCustomer>>,
+  TError,
+  { data: BodyType<CustomerInput> },
+  TContext
+> => {
+  const mutationKey = ["createAdminCustomer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createAdminCustomer>>,
+    { data: BodyType<CustomerInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createAdminCustomer(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateAdminCustomerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createAdminCustomer>>
+>;
+export type CreateAdminCustomerMutationBody = BodyType<CustomerInput>;
+export type CreateAdminCustomerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create a new customer record
+ */
+export const useCreateAdminCustomer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createAdminCustomer>>,
+    TError,
+    { data: BodyType<CustomerInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createAdminCustomer>>,
+  TError,
+  { data: BodyType<CustomerInput> },
+  TContext
+> => {
+  return useMutation(getCreateAdminCustomerMutationOptions(options));
+};
+
+/**
+ * @summary Reassign every order placed under an email to a single customer record
+ */
+export const getMergeOrdersIntoCustomerUrl = () => {
+  return `/api/admin/orders/merge-into-customer`;
+};
+
+export const mergeOrdersIntoCustomer = async (
+  mergeOrdersIntoCustomerInput: MergeOrdersIntoCustomerInput,
+  options?: RequestInit,
+): Promise<MergeOrdersIntoCustomerResponse> => {
+  return customFetch<MergeOrdersIntoCustomerResponse>(
+    getMergeOrdersIntoCustomerUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(mergeOrdersIntoCustomerInput),
+    },
+  );
+};
+
+export const getMergeOrdersIntoCustomerMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof mergeOrdersIntoCustomer>>,
+    TError,
+    { data: BodyType<MergeOrdersIntoCustomerInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof mergeOrdersIntoCustomer>>,
+  TError,
+  { data: BodyType<MergeOrdersIntoCustomerInput> },
+  TContext
+> => {
+  const mutationKey = ["mergeOrdersIntoCustomer"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof mergeOrdersIntoCustomer>>,
+    { data: BodyType<MergeOrdersIntoCustomerInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return mergeOrdersIntoCustomer(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MergeOrdersIntoCustomerMutationResult = NonNullable<
+  Awaited<ReturnType<typeof mergeOrdersIntoCustomer>>
+>;
+export type MergeOrdersIntoCustomerMutationBody =
+  BodyType<MergeOrdersIntoCustomerInput>;
+export type MergeOrdersIntoCustomerMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Reassign every order placed under an email to a single customer record
+ */
+export const useMergeOrdersIntoCustomer = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof mergeOrdersIntoCustomer>>,
+    TError,
+    { data: BodyType<MergeOrdersIntoCustomerInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof mergeOrdersIntoCustomer>>,
+  TError,
+  { data: BodyType<MergeOrdersIntoCustomerInput> },
+  TContext
+> => {
+  return useMutation(getMergeOrdersIntoCustomerMutationOptions(options));
+};
 
 export const getBulkUpdateInventoryUrl = () => {
   return `/api/admin/products/inventory/bulk`;

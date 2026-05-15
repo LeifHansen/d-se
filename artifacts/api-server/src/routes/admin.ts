@@ -13,6 +13,7 @@ import {
   newsletterSubscribersTable,
   contactQuarantineTable,
   newsletterQuarantineTable,
+  customersTable,
 } from "@workspace/db";
 import {
   CreateProductBody,
@@ -60,6 +61,11 @@ import {
   MarkAdminNewsletterQuarantineLegitResponse,
   ListAdminSpamQuarantineResponse,
   GetAdminOrderLinkResponse,
+  ListAdminCustomersQueryParams,
+  ListAdminCustomersResponse,
+  CreateAdminCustomerBody,
+  MergeOrdersIntoCustomerBody,
+  MergeOrdersIntoCustomerResponse,
 } from "@workspace/api-zod";
 import { requireAdmin, getUserId } from "../lib/auth";
 import { buildOrderResponse } from "./orders";
@@ -678,6 +684,127 @@ router.get(
     );
     res.json(
       ListAdminOrdersByEmailResponse.parse({ email: normalized, orders }),
+    );
+  },
+);
+
+async function getCustomerOrderCounts(
+  customerIds: number[],
+): Promise<Map<number, number>> {
+  if (customerIds.length === 0) return new Map();
+  const rows = (await db
+    .select({
+      customerId: ordersTable.customerId,
+      count: count(),
+    })
+    .from(ordersTable)
+    .where(inArray(ordersTable.customerId, customerIds))
+    .groupBy(ordersTable.customerId)) as Array<{
+    customerId: number | null;
+    count: number;
+  }>;
+  const m = new Map<number, number>();
+  for (const r of rows) {
+    if (r.customerId != null) m.set(r.customerId, Number(r.count));
+  }
+  return m;
+}
+
+function serializeCustomer(
+  c: typeof customersTable.$inferSelect,
+  orderCount: number,
+) {
+  return {
+    id: c.id,
+    email: c.email,
+    name: c.name,
+    orderCount,
+    createdAt: c.createdAt,
+  };
+}
+
+router.get("/admin/customers", async (req, res): Promise<void> => {
+  const parsed = ListAdminCustomersQueryParams.safeParse(req.query);
+  const search = parsed.success ? parsed.data.search?.trim() ?? "" : "";
+  const rows = search
+    ? await db
+        .select()
+        .from(customersTable)
+        .where(ilike(customersTable.email, `%${search.toLowerCase()}%`))
+        .orderBy(desc(customersTable.createdAt))
+        .limit(50)
+    : await db
+        .select()
+        .from(customersTable)
+        .orderBy(desc(customersTable.createdAt))
+        .limit(50);
+  const counts = await getCustomerOrderCounts(rows.map((r) => r.id));
+  res.json(
+    ListAdminCustomersResponse.parse(
+      rows.map((r) => serializeCustomer(r, counts.get(r.id) ?? 0)),
+    ),
+  );
+});
+
+router.post("/admin/customers", async (req, res): Promise<void> => {
+  const parsed = CreateAdminCustomerBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const email = parsed.data.email.trim().toLowerCase();
+  if (!email) {
+    res.status(400).json({ error: "email is required" });
+    return;
+  }
+  const name = parsed.data.name?.trim() || null;
+  const [existing] = await db
+    .select()
+    .from(customersTable)
+    .where(eq(customersTable.email, email));
+  if (existing) {
+    res.status(409).json({ error: "A customer with that email already exists" });
+    return;
+  }
+  const [row] = await db
+    .insert(customersTable)
+    .values({ email, name })
+    .returning();
+  res.status(201).json(serializeCustomer(row, 0));
+});
+
+router.post(
+  "/admin/orders/merge-into-customer",
+  async (req, res): Promise<void> => {
+    const parsed = MergeOrdersIntoCustomerBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const email = parsed.data.email.trim().toLowerCase();
+    if (!email) {
+      res.status(400).json({ error: "email is required" });
+      return;
+    }
+    const [customer] = await db
+      .select()
+      .from(customersTable)
+      .where(eq(customersTable.id, parsed.data.customerId));
+    if (!customer) {
+      res.status(404).json({ error: "Customer not found" });
+      return;
+    }
+    const updated = await db
+      .update(ordersTable)
+      .set({ customerId: customer.id, updatedAt: new Date() })
+      .where(eq(ordersTable.email, email))
+      .returning({ id: ordersTable.id });
+    const counts = await getCustomerOrderCounts([customer.id]);
+    res.json(
+      MergeOrdersIntoCustomerResponse.parse({
+        customer: serializeCustomer(customer, counts.get(customer.id) ?? 0),
+        mergedCount: updated.length,
+      }),
     );
   },
 );

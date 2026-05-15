@@ -31,5 +31,7 @@ export interface Order {
   trackingUrl?: string | null;
   /** @nullable */
   labelUrl?: string | null;
+  /** @nullable */
+  customerId?: number | null;
   createdAt: Date;
 }

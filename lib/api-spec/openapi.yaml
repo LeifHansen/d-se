@@ -640,6 +640,54 @@ paths:
                   orders:
                     type: array
                     items: { $ref: "#/components/schemas/Order" }
+  /admin/customers:
+    get:
+      operationId: listAdminCustomers
+      tags: [admin]
+      summary: List or search saved customer records
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Customer" }
+    post:
+      operationId: createAdminCustomer
+      tags: [admin]
+      summary: Create a new customer record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CustomerInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Customer" }
+  /admin/orders/merge-into-customer:
+    post:
+      operationId: mergeOrdersIntoCustomer
+      tags: [admin]
+      summary: Reassign every order placed under an email to a single customer record
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MergeOrdersIntoCustomerInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MergeOrdersIntoCustomerResponse" }
   /admin/products/inventory/bulk:
     post:
       operationId: bulkUpdateInventory
@@ -1503,6 +1551,7 @@ components:
         carrier: { type: ["string", "null"] }
         trackingUrl: { type: ["string", "null"] }
         labelUrl: { type: ["string", "null"] }
+        customerId: { type: ["integer", "null"] }
         createdAt: { type: string, format: date-time }
     LookupOrderBody:
       type: object
@@ -1515,6 +1564,33 @@ components:
       required: [token]
       properties:
         token: { type: string }
+    Customer:
+      type: object
+      required: [id, email, createdAt]
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        name: { type: ["string", "null"] }
+        orderCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+    CustomerInput:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string, minLength: 1 }
+        name: { type: ["string", "null"] }
+    MergeOrdersIntoCustomerInput:
+      type: object
+      required: [email, customerId]
+      properties:
+        email: { type: string, minLength: 1 }
+        customerId: { type: integer }
+    MergeOrdersIntoCustomerResponse:
+      type: object
+      required: [customer, mergedCount]
+      properties:
+        customer: { $ref: "#/components/schemas/Customer" }
+        mergedCount: { type: integer }
     OrderItem:
       type: object
       required: [id, productId, productName, quantity, priceCents, available]

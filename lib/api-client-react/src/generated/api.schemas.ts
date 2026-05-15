@@ -176,6 +176,8 @@ export interface Order {
   trackingUrl?: string | null;
   /** @nullable */
   labelUrl?: string | null;
+  /** @nullable */
+  customerId?: number | null;
   createdAt: string;
 }
 
@@ -186,6 +188,33 @@ export interface LookupOrderBody {
 
 export interface LookupOrderByTokenBody {
   token: string;
+}
+
+export interface Customer {
+  id: number;
+  email: string;
+  /** @nullable */
+  name?: string | null;
+  orderCount?: number;
+  createdAt: string;
+}
+
+export interface CustomerInput {
+  /** @minLength 1 */
+  email: string;
+  /** @nullable */
+  name?: string | null;
+}
+
+export interface MergeOrdersIntoCustomerInput {
+  /** @minLength 1 */
+  email: string;
+  customerId: number;
+}
+
+export interface MergeOrdersIntoCustomerResponse {
+  customer: Customer;
+  mergedCount: number;
 }
 
 export type ReorderResponseSkippedItemReason =
@@ -738,6 +767,10 @@ export type ListAdminOrdersParams = {
 export type ListAdminOrdersByEmail200 = {
   email: string;
   orders: Order[];
+};
+
+export type ListAdminCustomersParams = {
+  search?: string;
 };
 
 export type GetAdminOrderShippingRates200 = {
