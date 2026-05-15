@@ -726,6 +726,95 @@ test.describe("admin orders — bulk buy cheapest label", () => {
     await expect(page.getByTestId("row-order-1102")).toContainText("shipped");
   });
 
+  test("retry-success path still downloads the merged labels PDF for the whole batch", async ({
+    page,
+  }) => {
+    // Two eligible orders. #1301's fulfill endpoint returns a transient
+    // 503 on its first attempt and succeeds on the retry; #1302 sails
+    // through on the first attempt. The retry-success path must:
+    //   - end with both orders shipped (the recovered one included)
+    //   - still trigger exactly one merge-pdf download covering both
+    //     fulfilled orders (the retry must not lose #1301's labelUrl
+    //     from the merge call)
+    //   - render the green retry-success banner naming #1301
+    const api = new BulkApi([
+      makeOrder({ id: 1301 }),
+      makeOrder({ id: 1302 }),
+    ]);
+    api.flakyFulfillFor.set(1301, 1);
+    await installBulkMocks(page, api);
+
+    await page.goto("/admin/orders");
+
+    await page.getByTestId("checkbox-select-all-paid").check();
+    await page.getByTestId("button-bulk-buy-labels").click();
+
+    // Both orders eventually fulfill — #1301 only after a single retry on
+    // its fulfill call. The retry burns a real backoff delay, so give the
+    // poll some slack.
+    await expect.poll(() => api.fulfillCalls.length, { timeout: 10_000 }).toBe(
+      3,
+    );
+    // Two fulfill calls hit the endpoint for #1301 (the failed one + the
+    // successful retry); one for #1302. Confirms withRetry actually
+    // re-hit the fulfill endpoint.
+    expect(api.fulfillCalls.filter((c) => c.orderId === 1301)).toHaveLength(2);
+    expect(api.fulfillCalls.filter((c) => c.orderId === 1302)).toHaveLength(1);
+
+    // Exactly one merge call, carrying both fulfilled orderIds — the
+    // retried order's labelUrl must not have been dropped from the batch.
+    await expect.poll(() => api.mergeCalls.length, { timeout: 10_000 }).toBe(1);
+    expect(new Set(api.mergeCalls[0].orderIds)).toEqual(new Set([1301, 1302]));
+
+    // The merged PDF was downloaded as a single attachment with the
+    // production filename pattern and real %PDF- bytes.
+    await expect
+      .poll(
+        async () =>
+          await page.evaluate(
+            () =>
+              (
+                window as unknown as {
+                  __pdfDownloads?: Array<{ filename: string }>;
+                }
+              ).__pdfDownloads?.length ?? 0,
+          ),
+      )
+      .toBe(1);
+    const downloads = await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __pdfDownloads: Array<{
+              filename: string;
+              size: number;
+              head: string;
+            }>;
+          }
+        ).__pdfDownloads,
+    );
+    expect(downloads).toHaveLength(1);
+    expect(downloads[0].filename).toMatch(
+      /^shipping-labels-2-\d{4}-\d{2}-\d{2}\.pdf$/,
+    );
+    expect(downloads[0].head.startsWith("%PDF-")).toBe(true);
+
+    // The retry-success banner appears with the recovered order's id and
+    // "1×" suffix, and does not name the order that succeeded first try.
+    const banner = page.getByTestId("text-bulk-retry-successes");
+    await expect(banner).toBeVisible();
+    await expect(banner).toContainText("1 order succeeded after retry");
+    await expect(banner).toContainText("#1301");
+    await expect(banner).toContainText("(1×)");
+    await expect(banner).not.toContainText("#1302");
+
+    // No bulk-error panel for a run that recovered cleanly, and both rows
+    // flipped to shipped.
+    await expect(page.getByTestId("text-bulk-errors")).toHaveCount(0);
+    await expect(page.getByTestId("row-order-1301")).toContainText("shipped");
+    await expect(page.getByTestId("row-order-1302")).toContainText("shipped");
+  });
+
   test("when every retry attempt fails transiently, the error entry includes the retry count", async ({
     page,
   }) => {
