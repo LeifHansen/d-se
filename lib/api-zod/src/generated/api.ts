@@ -540,6 +540,14 @@ export const ListMyOrdersResponseItem = zod.object({
       productImage: zod.string().nullish(),
       quantity: zod.number(),
       priceCents: zod.number(),
+      available: zod.boolean(),
+      unavailableReason: zod
+        .union([
+          zod.literal("unavailable"),
+          zod.literal("out_of_stock"),
+          zod.literal(null),
+        ])
+        .nullish(),
     }),
   ),
   subtotalCents: zod.number(),
@@ -600,6 +608,14 @@ export const GetOrderResponse = zod.object({
       productImage: zod.string().nullish(),
       quantity: zod.number(),
       priceCents: zod.number(),
+      available: zod.boolean(),
+      unavailableReason: zod
+        .union([
+          zod.literal("unavailable"),
+          zod.literal("out_of_stock"),
+          zod.literal(null),
+        ])
+        .nullish(),
     }),
   ),
   subtotalCents: zod.number(),
@@ -648,6 +664,14 @@ export const LookupOrderResponse = zod.object({
       productImage: zod.string().nullish(),
       quantity: zod.number(),
       priceCents: zod.number(),
+      available: zod.boolean(),
+      unavailableReason: zod
+        .union([
+          zod.literal("unavailable"),
+          zod.literal("out_of_stock"),
+          zod.literal(null),
+        ])
+        .nullish(),
     }),
   ),
   subtotalCents: zod.number(),
@@ -695,6 +719,14 @@ export const LookupOrderByTokenResponse = zod.object({
       productImage: zod.string().nullish(),
       quantity: zod.number(),
       priceCents: zod.number(),
+      available: zod.boolean(),
+      unavailableReason: zod
+        .union([
+          zod.literal("unavailable"),
+          zod.literal("out_of_stock"),
+          zod.literal(null),
+        ])
+        .nullish(),
     }),
   ),
   subtotalCents: zod.number(),
@@ -876,6 +908,14 @@ export const GetAdminStatsResponse = zod.object({
             productImage: zod.string().nullish(),
             quantity: zod.number(),
             priceCents: zod.number(),
+            available: zod.boolean(),
+            unavailableReason: zod
+              .union([
+                zod.literal("unavailable"),
+                zod.literal("out_of_stock"),
+                zod.literal(null),
+              ])
+              .nullish(),
           }),
         ),
         subtotalCents: zod.number(),
@@ -1089,6 +1129,14 @@ export const ListAdminOrdersResponseItem = zod.object({
       productImage: zod.string().nullish(),
       quantity: zod.number(),
       priceCents: zod.number(),
+      available: zod.boolean(),
+      unavailableReason: zod
+        .union([
+          zod.literal("unavailable"),
+          zod.literal("out_of_stock"),
+          zod.literal(null),
+        ])
+        .nullish(),
     }),
   ),
   subtotalCents: zod.number(),
@@ -1140,6 +1188,14 @@ export const ListAdminOrdersByEmailResponse = zod.object({
           productImage: zod.string().nullish(),
           quantity: zod.number(),
           priceCents: zod.number(),
+          available: zod.boolean(),
+          unavailableReason: zod
+            .union([
+              zod.literal("unavailable"),
+              zod.literal("out_of_stock"),
+              zod.literal(null),
+            ])
+            .nullish(),
         }),
       ),
       subtotalCents: zod.number(),
@@ -1265,6 +1321,14 @@ export const FulfillOrderResponse = zod.object({
       productImage: zod.string().nullish(),
       quantity: zod.number(),
       priceCents: zod.number(),
+      available: zod.boolean(),
+      unavailableReason: zod
+        .union([
+          zod.literal("unavailable"),
+          zod.literal("out_of_stock"),
+          zod.literal(null),
+        ])
+        .nullish(),
     }),
   ),
   subtotalCents: zod.number(),

@@ -1312,7 +1312,7 @@ components:
         createdAt: { type: string, format: date-time }
     OrderItem:
       type: object
-      required: [id, productId, productName, quantity, priceCents]
+      required: [id, productId, productName, quantity, priceCents, available]
       properties:
         id: { type: integer }
         productId: { type: integer }
@@ -1320,6 +1320,10 @@ components:
         productImage: { type: ["string", "null"] }
         quantity: { type: integer }
         priceCents: { type: integer }
+        available: { type: boolean }
+        unavailableReason:
+          type: ["string", "null"]
+          enum: [unavailable, out_of_stock, null]
 
     ReorderResponse:
       type: object

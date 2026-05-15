@@ -100,11 +100,32 @@ async function buildOrderResponse(orderId: number) {
     .select()
     .from(orderItemsTable)
     .where(eq(orderItemsTable.orderId, orderId));
+  // Annotate each line item with current availability so the storefront can
+  // surface "Unavailable" / "Out of stock" inline (and disable Reorder when
+  // nothing is purchasable). Mirrors the logic in POST /orders/:id/reorder.
+  const enrichedItems = await Promise.all(
+    items.map(async (it) => {
+      const [product] = await db
+        .select()
+        .from(productsTable)
+        .where(eq(productsTable.id, it.productId));
+      let available = true;
+      let unavailableReason: "unavailable" | "out_of_stock" | null = null;
+      if (!product || !product.published) {
+        available = false;
+        unavailableReason = "unavailable";
+      } else if (product.inventory < it.quantity) {
+        available = false;
+        unavailableReason = "out_of_stock";
+      }
+      return { ...it, available, unavailableReason };
+    }),
+  );
   return {
     id: order.id,
     status: order.status,
     email: order.email,
-    items,
+    items: enrichedItems,
     subtotalCents: order.subtotalCents,
     shippingCents: order.shippingCents,
     taxCents: order.taxCents,

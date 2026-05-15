@@ -46,6 +46,11 @@ export default function AccountOrderPage() {
   const { toast } = useToast();
   const reorderMutation = useReorder();
 
+  const availableItemCount =
+    order?.items.filter((it) => it.available).length ?? 0;
+  const nothingPurchasable =
+    !!order && order.items.length > 0 && availableItemCount === 0;
+
   const handleReorder = () => {
     if (!validId) return;
     reorderMutation.mutate(
@@ -208,7 +213,9 @@ export default function AccountOrderPage() {
                   type="button"
                   onClick={handleReorder}
                   disabled={
-                    reorderMutation.isPending || order.items.length === 0
+                    reorderMutation.isPending ||
+                    order.items.length === 0 ||
+                    nothingPurchasable
                   }
                   className="rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
                   style={{
@@ -222,8 +229,11 @@ export default function AccountOrderPage() {
                 <span
                   className="text-xs"
                   style={{ color: "hsl(170 18% 32%)" }}
+                  data-testid="reorder-hint"
                 >
-                  Adds the same items to your current cart.
+                  {nothingPurchasable
+                    ? "None of these items are available right now."
+                    : "Adds the same items to your current cart."}
                 </span>
               </div>
             </div>
@@ -242,10 +252,27 @@ export default function AccountOrderPage() {
                   <li
                     key={it.id}
                     className="flex items-center justify-between gap-4 py-3 text-sm"
+                    data-testid={`order-item-${it.id}`}
                   >
-                    <span>
-                      {it.productName}{" "}
-                      <span className="opacity-70">× {it.quantity}</span>
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span>
+                        {it.productName}{" "}
+                        <span className="opacity-70">× {it.quantity}</span>
+                      </span>
+                      {!it.available ? (
+                        <span
+                          className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                          style={{
+                            background: "hsl(40 50% 88%)",
+                            color: "hsl(0 55% 30%)",
+                          }}
+                          data-testid={`order-item-${it.id}-availability`}
+                        >
+                          {it.unavailableReason === "out_of_stock"
+                            ? "Out of stock"
+                            : "Unavailable"}
+                        </span>
+                      ) : null}
                     </span>
                     <span>
                       {formatMoney(it.priceCents * it.quantity, order.currency)}

@@ -68,6 +68,7 @@ export * from "./newsletterUnsubscribeResponse";
 export * from "./notFoundResponse";
 export * from "./order";
 export * from "./orderItem";
+export * from "./orderItemUnavailableReason";
 export * from "./product";
 export * from "./productInput";
 export * from "./removeCartDiscountParams";

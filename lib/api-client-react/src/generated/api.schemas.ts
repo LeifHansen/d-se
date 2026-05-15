@@ -124,6 +124,18 @@ export interface ShippingRate {
   deliveryDays: number | null;
 }
 
+/**
+ * @nullable
+ */
+export type OrderItemUnavailableReason =
+  | (typeof OrderItemUnavailableReason)[keyof typeof OrderItemUnavailableReason]
+  | null;
+
+export const OrderItemUnavailableReason = {
+  unavailable: "unavailable",
+  out_of_stock: "out_of_stock",
+} as const;
+
 export interface OrderItem {
   id: number;
   productId: number;
@@ -132,6 +144,9 @@ export interface OrderItem {
   productImage?: string | null;
   quantity: number;
   priceCents: number;
+  available: boolean;
+  /** @nullable */
+  unavailableReason?: OrderItemUnavailableReason;
 }
 
 export interface Order {

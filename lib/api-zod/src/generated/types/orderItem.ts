@@ -5,6 +5,7 @@
  * E-commerce storefront API
  * OpenAPI spec version: 0.1.0
  */
+import type { OrderItemUnavailableReason } from "./orderItemUnavailableReason";
 
 export interface OrderItem {
   id: number;
@@ -14,4 +15,7 @@ export interface OrderItem {
   productImage?: string | null;
   quantity: number;
   priceCents: number;
+  available: boolean;
+  /** @nullable */
+  unavailableReason?: OrderItemUnavailableReason;
 }
