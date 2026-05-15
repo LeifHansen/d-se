@@ -4,8 +4,8 @@ import { Image } from "@/components/dose/Image";
 import { SiteShell } from "@/components/dose/SiteShell";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
-import goldEmblem from "@/assets/brand/Untitled-9.jpg?picture";
-import bottleClose from "@/assets/brand/Untitled-11_copy.jpg?picture";
+import storyVisual from "@/assets/brand/bottle-marble-glass.png?picture";
+import bottleClose from "@/assets/brand/bottle-label-detail.jpg?picture";
 
 export default function About() {
   return (
@@ -48,8 +48,8 @@ export default function About() {
           <div className="md:col-span-5">
             <div className="aspect-[4/5] w-full overflow-hidden rounded-3xl shadow-2xl">
               <Image
-                picture={goldEmblem}
-                alt="DŌSE gold emblem on deep teal"
+                picture={storyVisual}
+                alt="DŌSE bottle on a marble table beside a glass of water"
                 className="h-full w-full object-cover"
                 pictureClassName="block h-full w-full"
                 sizes="(min-width: 768px) 40vw, 90vw"

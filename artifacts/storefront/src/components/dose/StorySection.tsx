@@ -1,6 +1,6 @@
 import { Emblem } from "./Logo";
 import { Image } from "./Image";
-import goldEmblem from "@/assets/brand/Untitled-9.jpg?picture";
+import storyFeature from "@/assets/brand/bottle-bar-lifestyle.png?picture";
 
 export function StorySection() {
   return (
@@ -14,8 +14,8 @@ export function StorySection() {
         <div className="md:col-span-5">
           <div className="aspect-[4/5] w-full overflow-hidden rounded-3xl shadow-xl">
             <Image
-              picture={goldEmblem}
-              alt="DŌSE gold emblem on deep teal"
+              picture={storyFeature}
+              alt="DŌSE bottle in a candlelit bar setting"
               className="h-full w-full object-cover"
               pictureClassName="block h-full w-full"
               sizes="(min-width: 768px) 40vw, 90vw"

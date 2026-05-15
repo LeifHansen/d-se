@@ -1,10 +1,10 @@
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Image } from "./Image";
-import bottleClose from "@/assets/brand/Untitled-11_copy.jpg?picture";
-import packaging from "@/assets/brand/Untitled-10.jpg?picture";
+import bottleClose from "@/assets/brand/bottle-droplet.png?picture";
+import packaging from "@/assets/brand/bottle-moody-interior.png?picture";
 import bottleTransparent from "@/assets/brand/bottle-hero-transparent.png";
-import goldEmblem from "@/assets/brand/Untitled-9.jpg";
+import goldEmblem from "@/assets/brand/bottle-studio-angle.jpg";
 
 export function Hero() {
   return (

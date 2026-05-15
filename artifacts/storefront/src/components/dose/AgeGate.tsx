@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Logo } from "./Logo";
 import { Button } from "@/components/ui/button";
 import { Image } from "./Image";
-import productBoxes from "@/assets/brand/bottle-hero.jpg?picture";
+import productBoxes from "@/assets/brand/bottle-bar-lifestyle.png?picture";
 
 const STORAGE_KEY = "dose-age-confirmed";
 
@@ -146,7 +146,7 @@ export function AgeGate() {
         <div className="hidden md:block">
           <Image
             picture={productBoxes}
-            alt="DŌSE wellness elixir packaging"
+            alt="DŌSE bottle in a candlelit bar setting"
             className="h-full w-full object-cover"
             pictureClassName="block h-full w-full"
             sizes="(min-width: 768px) 45vw, 90vw"
