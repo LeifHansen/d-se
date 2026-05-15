@@ -25,10 +25,24 @@ const easypostState = vi.hoisted(() => ({
     postage_label: { label_url: "https://labels.test/default.pdf" },
     selected_rate: { carrier: "Carrier" },
   })),
-  createImpl: vi.fn(async (_input: unknown) => ({
-    id: "shp_created",
-    rates: [],
-  })),
+  createImpl: vi.fn(
+    async (
+      _input: unknown,
+    ): Promise<{
+      id: string;
+      rates: Array<{
+        id: string;
+        carrier: string;
+        service: string;
+        rate: string;
+        currency?: string;
+        delivery_days?: number | null;
+      }>;
+    }> => ({
+      id: "shp_created",
+      rates: [],
+    }),
+  ),
 }));
 
 vi.mock("../lib/easypost", () => ({
@@ -621,6 +635,69 @@ describe("POST /admin/orders/:id/shipping-rates (EasyPost configured)", () => {
       .send({});
 
     expect(res.status).toBe(400);
+    expect(easypostState.createImpl).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/orders/:id/shipping-rates — when EasyPost is NOT configured,
+// the handler must return a hardcoded flat-rate fallback (Standard $6.95 /
+// Express $15.95) so the admin Fulfill modal still works in local/dev envs.
+// ---------------------------------------------------------------------------
+describe("POST /admin/orders/:id/shipping-rates (EasyPost not configured)", () => {
+  beforeEach(async () => {
+    await resetDb();
+    __setAuth("user_admin", ADMIN_USER);
+    easypostState.configured = false;
+    easypostState.createImpl.mockReset();
+  });
+
+  it("returns the flat-rate fallback without calling EasyPost", async () => {
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "paid",
+        subtotalCents: 5_000,
+        totalCents: 5_000,
+        currency: "usd",
+        shippingAddress: {
+          name: "Jane Buyer",
+          street1: "123 Main St",
+          street2: null,
+          city: "Brooklyn",
+          state: "NY",
+          zip: "11201",
+          country: "US",
+          phone: null,
+        },
+      })
+      .returning();
+
+    const res = await request(app)
+      .post(`/api/admin/orders/${order.id}/shipping-rates`)
+      .send({});
+
+    expect(res.status).toBe(200);
+    expect(res.body.shipmentId).toBeNull();
+    expect(res.body.rates).toEqual([
+      {
+        id: "flat-standard",
+        carrier: "Standard",
+        service: "Ground (5-7 days)",
+        amountCents: 695,
+        currency: "usd",
+        deliveryDays: 6,
+      },
+      {
+        id: "flat-express",
+        carrier: "Express",
+        service: "Express (2-3 days)",
+        amountCents: 1595,
+        currency: "usd",
+        deliveryDays: 3,
+      },
+    ]);
     expect(easypostState.createImpl).not.toHaveBeenCalled();
   });
 });
