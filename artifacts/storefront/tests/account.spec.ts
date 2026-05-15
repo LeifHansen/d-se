@@ -628,6 +628,254 @@ test.describe("/account and /account/orders/:id", () => {
     ).toBeVisible();
   });
 
+  test("signed-in shopper edits the saved address and the next /checkout pre-fills from it", async ({
+    page,
+  }) => {
+    const INITIAL_ADDRESS: OrderAddress = {
+      name: "Casey Buyer",
+      street1: "100 Test Lane",
+      city: "Portland",
+      state: "OR",
+      zip: "97201",
+      country: "US",
+    };
+    const EDITED_ADDRESS = {
+      name: "Casey Updated",
+      street1: "777 Edited Street",
+      street2: "Apt 4B",
+      city: "Seattle",
+      state: "WA",
+      zip: "98101",
+      country: "US",
+      phone: "5555551212",
+    };
+
+    let saved: typeof EDITED_ADDRESS | OrderAddress = INITIAL_ADDRESS;
+    const putCalls: Array<typeof EDITED_ADDRESS> = [];
+
+    await mockSignedIn(page, []);
+
+    // Seed the stored cart id so /checkout fetches the (mocked) cart instead
+    // of rendering the empty-bag fallback.
+    await page.addInitScript(() => {
+      try {
+        window.localStorage.setItem("dose-cart-id", "cart-prefill");
+        window.localStorage.setItem("dose-age-confirmed", "yes");
+        window.localStorage.setItem("dose-cookies-decision", "accept");
+      } catch {
+        /* ignore */
+      }
+    });
+
+    // /checkout fires shipping rate requests once the address is filled in.
+    // Stub them so the page settles quickly without 500s on the dev server.
+    await page.route("**/api/shipping/rates", async (route: Route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      });
+    });
+
+    await page.route("**/api/me/saved-address", async (route: Route) => {
+      const method = route.request().method();
+      if (method === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ address: saved }),
+        });
+        return;
+      }
+      if (method === "PUT") {
+        const body = JSON.parse(route.request().postData() ?? "{}") as {
+          address: typeof EDITED_ADDRESS;
+        };
+        saved = body.address;
+        putCalls.push(body.address);
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ address: saved }),
+        });
+        return;
+      }
+      await route.fallback();
+    });
+
+    // /checkout needs a non-empty cart to render the form.
+    await page.route("**/api/cart*", async (route: Route) => {
+      if (route.request().method() !== "GET") {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: "cart-prefill",
+          currency: "usd",
+          items: [
+            {
+              id: 1,
+              productId: 101,
+              quantity: 1,
+              lineTotalCents: 4200,
+              product: {
+                id: 101,
+                slug: "calm-tincture",
+                name: "Calm Tincture",
+                priceCents: 4200,
+                currency: "usd",
+                images: [],
+                inventory: 12,
+                lowStockThreshold: 0,
+              },
+            },
+          ],
+          subtotalCents: 4200,
+          discountCode: null,
+          discountCents: 0,
+          totalCents: 4200,
+        }),
+      });
+    });
+
+    await page.goto("/account");
+    await dismissOverlays(page);
+    await page.reload();
+
+    // Existing saved address renders.
+    const display = page.getByTestId("saved-address-display");
+    await expect(display).toBeVisible();
+    await expect(display).toContainText(INITIAL_ADDRESS.name);
+
+    // Edit and save.
+    await page.getByTestId("saved-address-edit").click();
+    const form = page.getByTestId("saved-address-form");
+    await expect(form).toBeVisible();
+    await form.getByTestId("saved-address-name").fill(EDITED_ADDRESS.name);
+    await form.getByTestId("saved-address-street1").fill(EDITED_ADDRESS.street1);
+    await form.getByTestId("saved-address-street2").fill(EDITED_ADDRESS.street2);
+    await form.getByTestId("saved-address-city").fill(EDITED_ADDRESS.city);
+    await form.getByTestId("saved-address-state").fill(EDITED_ADDRESS.state);
+    await form.getByTestId("saved-address-zip").fill(EDITED_ADDRESS.zip);
+    await form.getByTestId("saved-address-country").fill(EDITED_ADDRESS.country);
+    await page.getByTestId("saved-address-save").click();
+
+    // The display reflects the edited values once the mutation resolves.
+    await expect(display).toBeVisible();
+    await expect(display).toContainText(EDITED_ADDRESS.name);
+    await expect(display).toContainText(EDITED_ADDRESS.street1);
+    await expect(display).toContainText(EDITED_ADDRESS.city);
+    await expect(display).toContainText(EDITED_ADDRESS.zip);
+    expect(putCalls).toHaveLength(1);
+    expect(putCalls[0].name).toBe(EDITED_ADDRESS.name);
+
+    // /checkout pre-fills from the just-saved address.
+    await page.goto("/checkout");
+    await expect(page.getByTestId("page-checkout")).toBeVisible();
+    await expect(
+      page.getByTestId("checkout-address-prefilled"),
+    ).toBeVisible();
+    await expect(page.getByTestId("checkout-name")).toHaveValue(
+      EDITED_ADDRESS.name,
+    );
+    await expect(page.getByTestId("checkout-street1")).toHaveValue(
+      EDITED_ADDRESS.street1,
+    );
+    await expect(page.getByTestId("checkout-city")).toHaveValue(
+      EDITED_ADDRESS.city,
+    );
+    await expect(page.getByTestId("checkout-state")).toHaveValue(
+      EDITED_ADDRESS.state,
+    );
+    await expect(page.getByTestId("checkout-zip")).toHaveValue(
+      EDITED_ADDRESS.zip,
+    );
+  });
+
+  test("signed-in shopper with no saved address sees the empty state and can add one", async ({
+    page,
+  }) => {
+    const NEW_ADDRESS = {
+      name: "Brand New",
+      street1: "1 First Avenue",
+      street2: "",
+      city: "Austin",
+      state: "TX",
+      zip: "73301",
+      country: "US",
+      phone: "",
+    };
+
+    let saved: typeof NEW_ADDRESS | null = null;
+    const putCalls: Array<typeof NEW_ADDRESS> = [];
+
+    await mockSignedIn(page, []);
+
+    await page.route("**/api/me/saved-address", async (route: Route) => {
+      const method = route.request().method();
+      if (method === "GET") {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ address: saved }),
+        });
+        return;
+      }
+      if (method === "PUT") {
+        const body = JSON.parse(route.request().postData() ?? "{}") as {
+          address: typeof NEW_ADDRESS;
+        };
+        saved = body.address;
+        putCalls.push(body.address);
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ address: saved }),
+        });
+        return;
+      }
+      await route.fallback();
+    });
+
+    await page.goto("/account");
+    await dismissOverlays(page);
+    await page.reload();
+
+    // Empty state and "Add address" affordance are both visible.
+    await expect(page.getByTestId("saved-address-empty")).toBeVisible();
+    const addBtn = page.getByTestId("saved-address-edit");
+    await expect(addBtn).toBeVisible();
+    await expect(addBtn).toContainText(/Add address/i);
+
+    await addBtn.click();
+    const form = page.getByTestId("saved-address-form");
+    await expect(form).toBeVisible();
+    await form.getByTestId("saved-address-name").fill(NEW_ADDRESS.name);
+    await form.getByTestId("saved-address-street1").fill(NEW_ADDRESS.street1);
+    await form.getByTestId("saved-address-city").fill(NEW_ADDRESS.city);
+    await form.getByTestId("saved-address-state").fill(NEW_ADDRESS.state);
+    await form.getByTestId("saved-address-zip").fill(NEW_ADDRESS.zip);
+    await form.getByTestId("saved-address-country").fill(NEW_ADDRESS.country);
+    await page.getByTestId("saved-address-save").click();
+
+    // After saving, the display renders the just-added address and the empty
+    // state is gone.
+    const display = page.getByTestId("saved-address-display");
+    await expect(display).toBeVisible();
+    await expect(display).toContainText(NEW_ADDRESS.name);
+    await expect(display).toContainText(NEW_ADDRESS.street1);
+    await expect(page.getByTestId("saved-address-empty")).toHaveCount(0);
+    expect(putCalls).toHaveLength(1);
+    expect(putCalls[0].name).toBe(NEW_ADDRESS.name);
+  });
+
   test("signed-in shopper requesting another user's order id sees a not-found state", async ({
     page,
   }) => {
