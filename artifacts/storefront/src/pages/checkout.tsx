@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -186,20 +186,70 @@ export default function CheckoutPage() {
     (e: React.ChangeEvent<HTMLInputElement>) =>
       setAddress((a) => ({ ...a, [key]: e.target.value }));
 
+  // Track the most recent rate request so out-of-order responses (e.g. from
+  // the auto-fetch firing while the shopper is still editing) don't clobber
+  // the current state with stale rates.
+  const rateRequestRef = useRef(0);
   const fetchRates = async () => {
     if (!cart?.id) return;
+    const requestId = ++rateRequestRef.current;
     try {
       const result = await shipping.mutateAsync({
         data: { cartId: cart.id, address },
       });
+      if (requestId !== rateRequestRef.current) return;
       setRates(result);
     } catch (err) {
+      if (requestId !== rateRequestRef.current) return;
       setRates([]);
       setSubmitErr(
         err instanceof Error ? err.message : "Couldn't fetch shipping rates",
       );
     }
   };
+
+  const addressIsComplete = useMemo(
+    () =>
+      address.name.trim() !== "" &&
+      address.street1.trim() !== "" &&
+      address.city.trim() !== "" &&
+      address.state.trim() !== "" &&
+      address.zip.trim() !== "" &&
+      address.country.trim() !== "",
+    [address],
+  );
+
+  // Auto-fetch shipping rates (debounced) once required address fields are
+  // filled. Reset rates whenever the address changes so the shopper isn't
+  // shown stale options. The manual Calculate button stays as a fallback.
+  const addressKey = useMemo(
+    () =>
+      JSON.stringify({
+        name: address.name.trim(),
+        street1: address.street1.trim(),
+        street2: (address.street2 ?? "").trim(),
+        city: address.city.trim(),
+        state: address.state.trim(),
+        zip: address.zip.trim(),
+        country: address.country.trim(),
+      }),
+    [address],
+  );
+
+  useEffect(() => {
+    setRates(null);
+    setRateId("");
+  }, [addressKey]);
+
+  useEffect(() => {
+    if (!cart?.id) return;
+    if (!addressIsComplete) return;
+    const handle = window.setTimeout(() => {
+      void fetchRates();
+    }, 600);
+    return () => window.clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addressKey, cart?.id, addressIsComplete]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -438,8 +488,13 @@ export default function CheckoutPage() {
                   <p
                     className="text-sm"
                     style={{ color: "hsl(170 18% 32%)" }}
+                    data-testid="checkout-rates-hint"
                   >
-                    Enter your address and click calculate.
+                    {shipping.isPending
+                      ? "Fetching shipping options…"
+                      : addressIsComplete
+                        ? "Fetching shipping options…"
+                        : "Fill in your address to see shipping options."}
                   </p>
                 ) : rates.length === 0 ? (
                   <p
