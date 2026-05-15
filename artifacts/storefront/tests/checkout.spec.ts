@@ -288,6 +288,179 @@ test.describe("cart → Stripe checkout handoff", () => {
     expect(calls[0].address?.zip).toBe("90210");
   });
 
+  test("returning to /checkout after a guest order pre-fills the saved address", async ({
+    page,
+  }) => {
+    const calls: CheckoutCall[] = [];
+    // We don't actually care about the post-checkout navigation here — only
+    // that the address gets persisted before the redirect. Use about:blank
+    // so we don't depend on the (separately-tested) Stripe-stub flow.
+    const redirectUrl = "about:blank";
+    await installCheckoutMocks(page, { redirectUrl, calls });
+    // No signed-in user — keep /api/orders/me from leaking a server address
+    // into the localStorage prefill we're trying to verify.
+    await page.route("**/api/orders/me", async (route: Route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "unauthorized" }),
+      });
+    });
+    await seedCartId(page);
+
+    // 1) Place one order so the address gets persisted to localStorage.
+    await page.goto("/checkout");
+    await expect(page.getByTestId("page-checkout")).toBeVisible();
+    // Fresh visit — no prior address yet, so the prefill banner/button must
+    // be absent.
+    await expect(
+      page.getByTestId("checkout-address-prefilled"),
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId("checkout-use-different-address"),
+    ).toHaveCount(0);
+
+    await page.getByTestId("checkout-email").fill("buyer@example.com");
+    await page.getByTestId("checkout-name").fill("Test Buyer");
+    await page.getByTestId("checkout-street1").fill("1 Main St");
+    await page.getByTestId("checkout-city").fill("Town");
+    await page.getByTestId("checkout-state").fill("CA");
+    await page.getByTestId("checkout-zip").fill("90210");
+
+    await page.getByTestId("checkout-calc-shipping").click();
+    await expect(page.locator(`input[value="${RATE_ID}"]`)).toBeChecked();
+
+    // Submit and wait for the /api/checkout call to complete; we don't care
+    // where the redirect lands, only that the address landed in
+    // localStorage before navigation.
+    await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes("/api/checkout") &&
+          r.request().method() === "POST",
+      ),
+      page.getByTestId("checkout-submit").click(),
+    ]);
+    await page.waitForFunction(
+      () => window.localStorage.getItem("dose-saved-address") !== null,
+    );
+
+    const saved = await page.evaluate(() =>
+      window.localStorage.getItem("dose-saved-address"),
+    );
+    expect(saved).toBeTruthy();
+    expect(JSON.parse(saved!)).toMatchObject({
+      name: "Test Buyer",
+      street1: "1 Main St",
+      city: "Town",
+      state: "CA",
+      zip: "90210",
+    });
+
+    // 2) Return to /checkout with a fresh cart and assert the form is
+    // pre-filled from localStorage.
+    await page.goto("/checkout");
+    await expect(page.getByTestId("page-checkout")).toBeVisible();
+
+    await expect(
+      page.getByTestId("checkout-address-prefilled"),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("checkout-use-different-address"),
+    ).toBeVisible();
+
+    await expect(page.getByTestId("checkout-name")).toHaveValue("Test Buyer");
+    await expect(page.getByTestId("checkout-street1")).toHaveValue(
+      "1 Main St",
+    );
+    await expect(page.getByTestId("checkout-city")).toHaveValue("Town");
+    await expect(page.getByTestId("checkout-state")).toHaveValue("CA");
+    await expect(page.getByTestId("checkout-zip")).toHaveValue("90210");
+    // Email is also remembered from the previous order.
+    await expect(page.getByTestId("checkout-email")).toHaveValue(
+      "buyer@example.com",
+    );
+  });
+
+  test('"Use a different address" clears the form and hides the prefill affordances', async ({
+    page,
+  }) => {
+    await installCheckoutMocks(page, {
+      redirectUrl: "about:blank",
+      calls: [],
+    });
+    await page.route("**/api/orders/me", async (route: Route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "unauthorized" }),
+      });
+    });
+
+    // Seed a previously-saved address so the form starts pre-filled.
+    await page.addInitScript(
+      ([cartKey, cartValue, ageKey, ageValue, addrKey, addrValue]) => {
+        try {
+          window.localStorage.setItem(cartKey, cartValue);
+          window.localStorage.setItem(ageKey, ageValue);
+          window.localStorage.setItem("dose-cookies-decision", "accept");
+          window.localStorage.setItem(addrKey, addrValue);
+        } catch {
+          // ignore
+        }
+      },
+      [
+        STORED_CART_KEY,
+        CART_ID,
+        AGE_CONFIRMED_KEY,
+        "yes",
+        "dose-saved-address",
+        JSON.stringify({
+          name: "Returning Buyer",
+          street1: "42 Old Lane",
+          street2: "",
+          city: "Oldtown",
+          state: "NY",
+          zip: "10001",
+          country: "US",
+          phone: "",
+        }),
+      ],
+    );
+
+    await page.goto("/checkout");
+    await expect(page.getByTestId("page-checkout")).toBeVisible();
+
+    // Pre-fill banner + "use a different address" button are both visible.
+    await expect(
+      page.getByTestId("checkout-address-prefilled"),
+    ).toBeVisible();
+    const useDifferent = page.getByTestId("checkout-use-different-address");
+    await expect(useDifferent).toBeVisible();
+
+    await expect(page.getByTestId("checkout-name")).toHaveValue(
+      "Returning Buyer",
+    );
+    await expect(page.getByTestId("checkout-zip")).toHaveValue("10001");
+
+    await useDifferent.click();
+
+    // Both affordances disappear once the form is cleared.
+    await expect(
+      page.getByTestId("checkout-address-prefilled"),
+    ).toHaveCount(0);
+    await expect(
+      page.getByTestId("checkout-use-different-address"),
+    ).toHaveCount(0);
+
+    // Form fields are reset to empty.
+    await expect(page.getByTestId("checkout-name")).toHaveValue("");
+    await expect(page.getByTestId("checkout-street1")).toHaveValue("");
+    await expect(page.getByTestId("checkout-city")).toHaveValue("");
+    await expect(page.getByTestId("checkout-state")).toHaveValue("");
+    await expect(page.getByTestId("checkout-zip")).toHaveValue("");
+  });
+
   test("/checkout/success clears the stored cart id before redirecting", async ({
     page,
   }) => {
