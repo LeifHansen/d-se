@@ -189,6 +189,34 @@ export class ObjectStorageService {
     return normalizedPath;
   }
 
+  /**
+   * Delete an uploaded object entity by its served URL
+   * (`/api/storage/objects/<id>`) or normalized path (`/objects/<id>`).
+   * Returns true if a delete was attempted, false if the URL does not
+   * point at a managed object (e.g. external `http(s)://` URL).
+   * Throws if the underlying delete fails for reasons other than the
+   * object already being gone.
+   */
+  async deleteObjectEntityByUrl(url: string): Promise<boolean> {
+    const SERVED_PREFIX = "/api/storage/objects/";
+    let objectPath: string | null = null;
+    if (url.startsWith(SERVED_PREFIX)) {
+      objectPath = `/objects/${url.slice(SERVED_PREFIX.length)}`;
+    } else if (url.startsWith("/objects/")) {
+      objectPath = url;
+    } else {
+      return false;
+    }
+    try {
+      const file = await this.getObjectEntityFile(objectPath);
+      await file.delete({ ignoreNotFound: true });
+    } catch (err) {
+      if (err instanceof ObjectNotFoundError) return true;
+      throw err;
+    }
+    return true;
+  }
+
   async canAccessObjectEntity({
     userId,
     objectFile,

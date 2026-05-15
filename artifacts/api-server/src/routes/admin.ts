@@ -98,6 +98,28 @@ async function finalizeProductImages(
   return Promise.all(images.map((raw) => publishUploadedImage(raw, ownerId, log)));
 }
 
+/**
+ * Best-effort delete of uploaded product images that are no longer
+ * referenced. Only URLs served by us (`/api/storage/objects/<id>`) are
+ * touched; external `http(s)://…` URLs are left alone. Failures are
+ * logged but never thrown so they cannot break the surrounding
+ * product save/delete flow.
+ */
+async function deleteOrphanedProductImages(
+  urls: string[],
+  log: { error: (obj: unknown, msg?: string) => void },
+): Promise<void> {
+  await Promise.all(
+    urls.map(async (url) => {
+      try {
+        await objectStorageService.deleteObjectEntityByUrl(url);
+      } catch (err) {
+        log.error({ err, url }, "Failed to delete uploaded product image");
+      }
+    }),
+  );
+}
+
 import {
   getEasyPost,
   isEasyPostConfigured,
@@ -513,6 +535,10 @@ router.patch("/admin/products/:id", async (req, res): Promise<void> => {
     return;
   }
   const ownerId = getUserId(req) ?? "admin";
+  const [existing] = await db
+    .select()
+    .from(productsTable)
+    .where(eq(productsTable.id, params.data.id));
   const images = await finalizeProductImages(
     body.data.images ?? [],
     ownerId,
@@ -546,6 +572,14 @@ router.patch("/admin/products/:id", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Product not found" });
     return;
   }
+  if (existing) {
+    const before = (existing.images ?? []) as string[];
+    const after = new Set(images);
+    const removed = before.filter((url) => !after.has(url));
+    if (removed.length > 0) {
+      await deleteOrphanedProductImages(removed, req.log);
+    }
+  }
   res.json(UpdateProductResponse.parse(serializeProduct(row)));
 });
 
@@ -555,7 +589,17 @@ router.delete("/admin/products/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
+  const [existing] = await db
+    .select()
+    .from(productsTable)
+    .where(eq(productsTable.id, params.data.id));
   await db.delete(productsTable).where(eq(productsTable.id, params.data.id));
+  if (existing) {
+    const images = (existing.images ?? []) as string[];
+    if (images.length > 0) {
+      await deleteOrphanedProductImages(images, req.log);
+    }
+  }
   res.sendStatus(204);
 });
 
