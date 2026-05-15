@@ -10,6 +10,7 @@ import {
   useRemoveCartDiscount,
   useValidateDiscount,
   useGetShippingRates,
+  locateShipping,
   getGetCartQueryKey,
 } from "@workspace/api-client-react";
 import type { ShippingRate } from "@workspace/api-client-react";
@@ -67,6 +68,29 @@ function writeShipEstimate(value: ShipEstimate | null): void {
 function cheapestRate(rates: ShippingRate[]): ShippingRate | null {
   if (rates.length === 0) return null;
   return rates.reduce((a, b) => (a.amountCents <= b.amountCents ? a : b));
+}
+
+const SAVED_ADDRESS_KEY = "dose-saved-address";
+
+function readSavedAddressLocation(): { zip: string; country: string } | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(SAVED_ADDRESS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      zip?: unknown;
+      country?: unknown;
+    };
+    const zip = typeof parsed?.zip === "string" ? parsed.zip.trim() : "";
+    const country =
+      typeof parsed?.country === "string"
+        ? parsed.country.trim().toUpperCase()
+        : "";
+    if (!zip || !country) return null;
+    return { zip, country };
+  } catch {
+    return null;
+  }
 }
 
 function useResumeFromQuery() {
@@ -127,15 +151,96 @@ export default function CartPage() {
   const [shipEstimate, setShipEstimate] = useState<ShipEstimate | null>(() =>
     readShipEstimate(),
   );
-  const [zip, setZip] = useState<string>(() => readShipEstimate()?.zip ?? "");
+  const initialPrefill =
+    readShipEstimate() ?? readSavedAddressLocation() ?? null;
+  const [zip, setZip] = useState<string>(() => initialPrefill?.zip ?? "");
   const [country, setCountry] = useState<string>(
-    () => readShipEstimate()?.country ?? "US",
+    () => initialPrefill?.country ?? "US",
   );
   const [shipErr, setShipErr] = useState<string | null>(null);
 
   useEffect(() => {
     writeShipEstimate(shipEstimate);
   }, [shipEstimate]);
+
+  // Auto-fill the estimate from a low-friction signal the first time we have
+  // a cart on screen and no estimate yet. Tries the shopper's saved checkout
+  // address first, then falls back to a server-side IP geolocation lookup.
+  // The user can still edit/clear the inputs and re-submit at any time.
+  const cartReadyId =
+    cartId && data && data.items.length > 0 ? data.id : null;
+  useEffect(() => {
+    if (!cartReadyId) return;
+    if (shipEstimate) return;
+    if (shippingRates.isPending) return;
+
+    let cancelled = false;
+
+    async function resolveLocation(): Promise<{
+      zip: string;
+      country: string;
+      source: "saved" | "ip";
+    } | null> {
+      const saved = readSavedAddressLocation();
+      if (saved) return { ...saved, source: "saved" };
+      try {
+        const res = await locateShipping();
+        if (cancelled) return null;
+        if (res?.zip && res?.country) {
+          return {
+            zip: res.zip,
+            country: res.country.toUpperCase(),
+            source: "ip",
+          };
+        }
+      } catch {
+        // ignore — fall back to manual entry
+      }
+      return null;
+    }
+
+    (async () => {
+      const loc = await resolveLocation();
+      if (cancelled || !loc) return;
+      setZip((cur) => (cur ? cur : loc.zip));
+      setCountry((cur) =>
+        cur && cur !== "US" ? cur : loc.country || cur || "US",
+      );
+      try {
+        const result = await shippingRates.mutateAsync({
+          data: {
+            cartId: cartReadyId,
+            address: {
+              name: "Shipping estimate",
+              street1: "-",
+              city: "-",
+              state: "-",
+              zip: loc.zip,
+              country: loc.country,
+            },
+          },
+        });
+        if (cancelled) return;
+        const cheapest = cheapestRate(result);
+        if (!cheapest) return;
+        setShipEstimate({
+          zip: loc.zip,
+          country: loc.country,
+          amountCents: cheapest.amountCents,
+          currency: cheapest.currency,
+          carrier: cheapest.carrier,
+          service: cheapest.service,
+        });
+      } catch {
+        // Silent — the manual form is still available as a fallback.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartReadyId]);
 
   const refetch = () =>
     qc.invalidateQueries({

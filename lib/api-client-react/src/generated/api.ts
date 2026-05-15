@@ -55,6 +55,7 @@ import type {
   ListAdminReviewsParams,
   ListBlogPostsParams,
   ListProductsParams,
+  LocateShipping200,
   LookupOrderBody,
   LookupOrderByTokenBody,
   MergeOrderLabelsPdfBody,
@@ -1040,6 +1041,85 @@ export function useResumeCart<
   },
 ): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getResumeCartQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Returns a low-friction location signal (ZIP and ISO country code) derived
+from the request IP, used to pre-fill the in-cart shipping estimate.
+Always responds 200; fields are null when no signal is available.
+
+ * @summary Best-effort guess of the shopper's ZIP/country from their IP
+ */
+export const getLocateShippingUrl = () => {
+  return `/api/shipping/locate`;
+};
+
+export const locateShipping = async (
+  options?: RequestInit,
+): Promise<LocateShipping200> => {
+  return customFetch<LocateShipping200>(getLocateShippingUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getLocateShippingQueryKey = () => {
+  return [`/api/shipping/locate`] as const;
+};
+
+export const getLocateShippingQueryOptions = <
+  TData = Awaited<ReturnType<typeof locateShipping>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof locateShipping>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getLocateShippingQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof locateShipping>>> = ({
+    signal,
+  }) => locateShipping({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof locateShipping>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type LocateShippingQueryResult = NonNullable<
+  Awaited<ReturnType<typeof locateShipping>>
+>;
+export type LocateShippingQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Best-effort guess of the shopper's ZIP/country from their IP
+ */
+
+export function useLocateShipping<
+  TData = Awaited<ReturnType<typeof locateShipping>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof locateShipping>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getLocateShippingQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

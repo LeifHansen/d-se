@@ -230,6 +230,27 @@ paths:
               schema: { $ref: "#/components/schemas/Cart" }
         "403": { $ref: "#/components/responses/Forbidden" }
 
+  /shipping/locate:
+    get:
+      operationId: locateShipping
+      tags: [shipping]
+      summary: Best-effort guess of the shopper's ZIP/country from their IP
+      description: |
+        Returns a low-friction location signal (ZIP and ISO country code) derived
+        from the request IP, used to pre-fill the in-cart shipping estimate.
+        Always responds 200; fields are null when no signal is available.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [zip, country]
+                properties:
+                  zip: { type: ["string", "null"] }
+                  country: { type: ["string", "null"] }
+
   /shipping/rates:
     post:
       operationId: getShippingRates

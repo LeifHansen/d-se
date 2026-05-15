@@ -633,6 +633,13 @@ export type ResumeCartParams = {
   token: string;
 };
 
+export type LocateShipping200 = {
+  /** @nullable */
+  zip: string | null;
+  /** @nullable */
+  country: string | null;
+};
+
 export type GetShippingRatesBody = {
   cartId: string;
   address: AddressInput;

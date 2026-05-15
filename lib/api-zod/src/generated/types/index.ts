@@ -57,6 +57,7 @@ export * from "./listAdminOrdersParams";
 export * from "./listAdminReviewsParams";
 export * from "./listBlogPostsParams";
 export * from "./listProductsParams";
+export * from "./locateShipping200";
 export * from "./lookupOrderBody";
 export * from "./lookupOrderByTokenBody";
 export * from "./marketingDailyPoint";

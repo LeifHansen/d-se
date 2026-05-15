@@ -468,6 +468,18 @@ export const ResumeCartResponse = zod.object({
 });
 
 /**
+ * Returns a low-friction location signal (ZIP and ISO country code) derived
+from the request IP, used to pre-fill the in-cart shipping estimate.
+Always responds 200; fields are null when no signal is available.
+
+ * @summary Best-effort guess of the shopper's ZIP/country from their IP
+ */
+export const LocateShippingResponse = zod.object({
+  zip: zod.string().nullable(),
+  country: zod.string().nullable(),
+});
+
+/**
  * @summary Get live shipping rates from EasyPost
  */
 export const GetShippingRatesBody = zod.object({
