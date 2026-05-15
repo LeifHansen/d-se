@@ -11,6 +11,7 @@ import {
   getGetCartQueryKey,
   useGetMySavedAddress,
   useUpdateMySavedAddress,
+  ApiError,
 } from "@workspace/api-client-react";
 import type {
   AddressInput,
@@ -160,6 +161,24 @@ export default function CheckoutPage() {
   const [rateId, setRateId] = useState<string>("");
   const [submitErr, setSubmitErr] = useState<string | null>(null);
 
+  type ServerStockIssue = {
+    productId: number;
+    productName: string;
+    requested: number;
+    available: number;
+    kind: "out_of_stock" | "insufficient_stock";
+  };
+  const [serverStockIssues, setServerStockIssues] = useState<
+    ServerStockIssue[] | null
+  >(null);
+  const serverStockByProductId = useMemo(() => {
+    const m = new Map<number, ServerStockIssue>();
+    for (const issue of serverStockIssues ?? []) {
+      m.set(issue.productId, issue);
+    }
+    return m;
+  }, [serverStockIssues]);
+
   type StockIssue = {
     id: number;
     name: string;
@@ -274,6 +293,7 @@ export default function CheckoutPage() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitErr(null);
+    setServerStockIssues(null);
     if (!cart?.id) return;
     if (!rateId) {
       setSubmitErr("Please calculate shipping first.");
@@ -325,6 +345,28 @@ export default function CheckoutPage() {
         window.location.href = result.url;
       }
     } catch (err) {
+      if (
+        err instanceof ApiError &&
+        err.status === 409 &&
+        err.data &&
+        typeof err.data === "object" &&
+        (err.data as { code?: string }).code === "stock_unavailable"
+      ) {
+        const data = err.data as {
+          error?: string;
+          issues?: ServerStockIssue[];
+        };
+        const issues = Array.isArray(data.issues) ? data.issues : [];
+        setServerStockIssues(issues);
+        setSubmitErr(
+          data.error ??
+            "Some items in your bag are no longer available. Update your bag before paying.",
+        );
+        // Re-fetch the cart so the per-line stock warnings reflect the
+        // server's current inventory.
+        invalidateCart();
+        return;
+      }
       setSubmitErr(
         err instanceof Error ? err.message : "Couldn't start checkout",
       );
@@ -593,11 +635,27 @@ export default function CheckoutPage() {
                 const outOfStock = inv <= 0;
                 const lowStock =
                   !outOfStock && !oversold && lowThreshold > 0 && inv <= lowThreshold;
+                const serverIssue = serverStockByProductId.get(it.productId);
+                const flagged = !!serverIssue || outOfStock || oversold;
                 return (
                   <li
                     key={it.id}
-                    className="flex flex-col gap-1"
+                    className={
+                      "flex flex-col gap-1 " +
+                      (flagged
+                        ? "-mx-2 rounded-md border px-2 py-2"
+                        : "")
+                    }
+                    style={
+                      flagged
+                        ? {
+                            borderColor: "hsl(0 70% 35%)",
+                            background: "hsl(0 80% 97%)",
+                          }
+                        : undefined
+                    }
                     data-testid={`checkout-line-${it.id}`}
+                    data-stock-flagged={flagged ? "true" : undefined}
                   >
                     <div className="flex justify-between gap-2">
                       <span>
@@ -729,7 +787,51 @@ export default function CheckoutPage() {
                   : "Some items in your bag aren't available in the quantity you selected. Update your bag before paying."}
               </p>
             ) : null}
-            {submitErr ? (
+            {serverStockIssues && serverStockIssues.length > 0 ? (
+              <div
+                role="alert"
+                className="mt-3 rounded-md border p-3 text-xs"
+                style={{
+                  borderColor: "hsl(0 70% 35%)",
+                  background: "hsl(0 80% 97%)",
+                  color: "hsl(0 70% 25%)",
+                }}
+                data-testid="checkout-stock-unavailable"
+              >
+                <p className="font-semibold uppercase tracking-[0.18em]">
+                  {serverStockIssues.length === 1
+                    ? "An item just sold out"
+                    : "Some items just sold out"}
+                </p>
+                <ul className="mt-2 list-disc space-y-1 pl-4">
+                  {serverStockIssues.map((issue) => (
+                    <li
+                      key={issue.productId}
+                      data-testid={`checkout-server-issue-${issue.productId}`}
+                    >
+                      {issue.kind === "out_of_stock"
+                        ? `${issue.productName} is now out of stock.`
+                        : `${issue.productName}: only ${issue.available} left (you have ${issue.requested} in your bag).`}
+                    </li>
+                  ))}
+                </ul>
+                <Button
+                  asChild
+                  className="mt-3 rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em]"
+                  style={{
+                    background: "hsl(170 58% 14%)",
+                    color: "hsl(45 49% 90%)",
+                  }}
+                >
+                  <Link
+                    href="/cart"
+                    data-testid="checkout-update-bag-link"
+                  >
+                    Update your bag
+                  </Link>
+                </Button>
+              </div>
+            ) : submitErr ? (
               <p
                 role="alert"
                 className="mt-3 text-xs"
