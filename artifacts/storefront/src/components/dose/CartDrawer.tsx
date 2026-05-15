@@ -153,21 +153,53 @@ export function CartDrawer({
                           {formatMoney(it.product.priceCents, cart.currency)} each
                         </p>
                         {outOfStock ? (
-                          <p
-                            className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
-                            style={{ background: "hsl(0 70% 35%)", color: CREAM }}
-                            data-testid={`cart-drawer-stock-${it.id}`}
-                          >
-                            Out of stock
-                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <p
+                              className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                              style={{ background: "hsl(0 70% 35%)", color: CREAM }}
+                              data-testid={`cart-drawer-stock-${it.id}`}
+                            >
+                              Out of stock
+                            </p>
+                            <button
+                              type="button"
+                              className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] underline underline-offset-2"
+                              style={{ color: FOREST }}
+                              onClick={() =>
+                                remove.mutate({
+                                  itemId: it.id,
+                                  params: { cartId },
+                                })
+                              }
+                              data-testid={`cart-drawer-remove-oos-${it.id}`}
+                            >
+                              Remove
+                            </button>
+                          </div>
                         ) : oversold ? (
-                          <p
-                            className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
-                            style={{ background: "hsl(0 70% 35%)", color: CREAM }}
-                            data-testid={`cart-drawer-stock-${it.id}`}
-                          >
-                            Only {inv} left
-                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <p
+                              className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                              style={{ background: "hsl(0 70% 35%)", color: CREAM }}
+                              data-testid={`cart-drawer-stock-${it.id}`}
+                            >
+                              Only {inv} left
+                            </p>
+                            <button
+                              type="button"
+                              className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em] underline underline-offset-2"
+                              style={{ color: FOREST }}
+                              onClick={() =>
+                                update.mutate({
+                                  itemId: it.id,
+                                  data: { cartId, quantity: inv },
+                                })
+                              }
+                              data-testid={`cart-drawer-update-to-${it.id}`}
+                            >
+                              Update to {inv}
+                            </button>
+                          </div>
                         ) : lowStock ? (
                           <p
                             className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]"

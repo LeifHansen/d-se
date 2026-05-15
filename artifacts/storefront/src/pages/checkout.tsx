@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useGetCart,
   useGetShippingRates,
   useCreateCheckout,
   useListMyOrders,
+  useUpdateCartItem,
+  useRemoveCartItem,
+  getGetCartQueryKey,
 } from "@workspace/api-client-react";
 import type {
   AddressInput,
@@ -81,10 +85,19 @@ function addressIsBlank(a: AddressInput): boolean {
 
 export default function CheckoutPage() {
   const cartId = useStoredCartId();
-  const { data: cart, isLoading: cartLoading } = useGetCart(
-    { cartId: cartId ?? undefined },
-    { query: { enabled: !!cartId } as never },
-  );
+  const cartParams = { cartId: cartId ?? undefined };
+  const { data: cart, isLoading: cartLoading } = useGetCart(cartParams, {
+    query: { enabled: !!cartId } as never,
+  });
+  const qc = useQueryClient();
+  const invalidateCart = () =>
+    qc.invalidateQueries({ queryKey: getGetCartQueryKey(cartParams) });
+  const updateItem = useUpdateCartItem({
+    mutation: { onSuccess: () => invalidateCart() },
+  });
+  const removeItem = useRemoveCartItem({
+    mutation: { onSuccess: () => invalidateCart() },
+  });
   const shipping = useGetShippingRates();
   const checkout = useCreateCheckout();
 
@@ -515,21 +528,57 @@ export default function CheckoutPage() {
                       </span>
                     </div>
                     {outOfStock ? (
-                      <p
-                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
-                        style={{ color: "hsl(0 70% 35%)" }}
-                        data-testid={`checkout-stock-${it.id}`}
-                      >
-                        Out of stock
-                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p
+                          className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                          style={{ color: "hsl(0 70% 35%)" }}
+                          data-testid={`checkout-stock-${it.id}`}
+                        >
+                          Out of stock
+                        </p>
+                        {cartId ? (
+                          <button
+                            type="button"
+                            className="text-[11px] font-semibold uppercase tracking-[0.18em] underline underline-offset-2"
+                            style={{ color: "hsl(170 58% 14%)" }}
+                            onClick={() =>
+                              removeItem.mutate({
+                                itemId: it.id,
+                                params: { cartId },
+                              })
+                            }
+                            data-testid={`checkout-remove-oos-${it.id}`}
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
                     ) : oversold ? (
-                      <p
-                        className="text-[11px] font-semibold uppercase tracking-[0.18em]"
-                        style={{ color: "hsl(0 70% 35%)" }}
-                        data-testid={`checkout-stock-${it.id}`}
-                      >
-                        Only {inv} left — please reduce quantity
-                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p
+                          className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                          style={{ color: "hsl(0 70% 35%)" }}
+                          data-testid={`checkout-stock-${it.id}`}
+                        >
+                          Only {inv} left — please reduce quantity
+                        </p>
+                        {cartId ? (
+                          <button
+                            type="button"
+                            className="text-[11px] font-semibold uppercase tracking-[0.18em] underline underline-offset-2"
+                            style={{ color: "hsl(170 58% 14%)" }}
+                            onClick={() =>
+                              updateItem.mutate({
+                                itemId: it.id,
+                                data: { cartId, quantity: inv },
+                              })
+                            }
+                            data-testid={`checkout-update-to-${it.id}`}
+                          >
+                            Update to {inv}
+                          </button>
+                        ) : null}
+                      </div>
                     ) : lowStock ? (
                       <p
                         className="text-[11px] font-semibold uppercase tracking-[0.18em]"
