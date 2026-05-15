@@ -196,6 +196,15 @@ export interface ReorderResponse {
   skipped: ReorderResponseSkippedItem[];
 }
 
+export interface AdminOrderLink {
+  orderId: number;
+  active: boolean;
+  /** @nullable */
+  issuedAt?: string | null;
+  /** @nullable */
+  lastUsedAt?: string | null;
+}
+
 export interface BlogPost {
   id: number;
   slug: string;

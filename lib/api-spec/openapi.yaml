@@ -697,6 +697,39 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Order" }
+  /admin/orders/{id}/order-link:
+    get:
+      operationId: getAdminOrderLink
+      tags: [admin]
+      summary: Get the customer's magic-link timestamps for an order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminOrderLink" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      operationId: rotateAdminOrderLink
+      tags: [admin]
+      summary: Revoke the order's magic link so the previously emailed URL stops working
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminOrderLink" }
+        "404": { $ref: "#/components/responses/NotFound" }
   /admin/blog/posts:
     get:
       operationId: listAdminBlogPosts
@@ -1452,6 +1485,15 @@ components:
               reason:
                 type: string
                 enum: [unavailable, out_of_stock]
+
+    AdminOrderLink:
+      type: object
+      required: [orderId, active]
+      properties:
+        orderId: { type: integer }
+        active: { type: boolean }
+        issuedAt: { type: ["string", "null"], format: date-time }
+        lastUsedAt: { type: ["string", "null"], format: date-time }
 
     BlogPost:
       type: object

@@ -347,6 +347,20 @@ router.post(
       // Confirmation email (best-effort, once per order).
       if (ctx.email) {
         try {
+          const lookupToken = signOrderToken({ orderId, email: ctx.email });
+          // Persist the issued token so admins can see when it was issued
+          // and revoke it (rotate) without our customer needing to email
+          // support. Stored alongside the order; the `/orders/by-token`
+          // route checks against this column so a cleared value invalidates
+          // the previously emailed link.
+          await db
+            .update(ordersTable)
+            .set({
+              lookupToken,
+              lookupTokenIssuedAt: new Date(),
+              lookupTokenLastUsedAt: null,
+            })
+            .where(eq(ordersTable.id, orderId));
           await sendOrderConfirmation({
             to: ctx.email,
             orderId,
@@ -362,7 +376,7 @@ router.post(
               priceCents: i.priceCents,
             })),
             orderUrl: `${SITE_URL}/orders/${orderId}?token=${encodeURIComponent(
-              signOrderToken({ orderId, email: ctx.email }),
+              lookupToken,
             )}`,
           });
         } catch (err) {

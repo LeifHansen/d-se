@@ -592,6 +592,19 @@ router.post("/orders/by-token", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Order not found" });
     return;
   }
+  // The token in the email must still match the one stored on the order.
+  // Admins can revoke a leaked link by clearing `lookupToken`, which makes
+  // any old emailed link stop working even though its HMAC is still valid.
+  if (!row.lookupToken || row.lookupToken !== parsed.data.token) {
+    res.status(404).json({ error: "Order not found" });
+    return;
+  }
+  // Record that the customer actually opened their order page so support
+  // staff can answer "I never got my order" questions with confidence.
+  await db
+    .update(ordersTable)
+    .set({ lookupTokenLastUsedAt: new Date() })
+    .where(eq(ordersTable.id, row.id));
   const order = await buildOrderResponse(row.id);
   res.json(GetOrderResponse.parse(order));
 });
