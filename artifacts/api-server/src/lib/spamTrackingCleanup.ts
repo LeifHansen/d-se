@@ -4,6 +4,7 @@ import {
   contactRateLimitsTable,
   contactSubmissionFingerprintsTable,
   newsletterRateLimitsTable,
+  orderLookupFailuresTable,
 } from "@workspace/db";
 import { logger } from "./logger";
 
@@ -38,6 +39,13 @@ function newsletterRateLimitWindowMinutes(): number {
   return envInt("NEWSLETTER_SPAM_RATE_WINDOW_MINUTES", 60);
 }
 
+function orderLookupWindowMinutes(): number {
+  // Mirrors LOOKUP_WINDOW_MINUTES in routes/orders.ts. Kept hardcoded there
+  // today; expose an env override here so operators can stretch the cleanup
+  // cutoff if the route ever becomes tunable.
+  return envInt("ORDER_LOOKUP_WINDOW_MINUTES", 10);
+}
+
 function cutoff(now: Date, windowMinutes: number): Date {
   const totalMs =
     windowMinutes * 60 * 1000 + SAFETY_MARGIN_HOURS * 60 * 60 * 1000;
@@ -48,6 +56,7 @@ export type SpamTrackingCleanupResult = {
   contactRateLimits: number;
   contactFingerprints: number;
   newsletterRateLimits: number;
+  orderLookupFailures: number;
 };
 
 export async function cleanupSpamTracking(
@@ -59,31 +68,38 @@ export async function cleanupSpamTracking(
     contactFingerprintWindowMinutes(),
   );
   const newsletterRateCutoff = cutoff(now, newsletterRateLimitWindowMinutes());
+  const orderLookupCutoff = cutoff(now, orderLookupWindowMinutes());
 
-  const [contactRate, contactFp, newsletterRate] = await Promise.all([
-    db
-      .delete(contactRateLimitsTable)
-      .where(lt(contactRateLimitsTable.windowStart, contactRateCutoff))
-      .returning({ ip: contactRateLimitsTable.ip }),
-    db
-      .delete(contactSubmissionFingerprintsTable)
-      .where(
-        lt(
-          contactSubmissionFingerprintsTable.firstSeen,
-          contactFingerprintCutoff,
-        ),
-      )
-      .returning({ hash: contactSubmissionFingerprintsTable.hash }),
-    db
-      .delete(newsletterRateLimitsTable)
-      .where(lt(newsletterRateLimitsTable.windowStart, newsletterRateCutoff))
-      .returning({ ip: newsletterRateLimitsTable.ip }),
-  ]);
+  const [contactRate, contactFp, newsletterRate, orderLookup] =
+    await Promise.all([
+      db
+        .delete(contactRateLimitsTable)
+        .where(lt(contactRateLimitsTable.windowStart, contactRateCutoff))
+        .returning({ ip: contactRateLimitsTable.ip }),
+      db
+        .delete(contactSubmissionFingerprintsTable)
+        .where(
+          lt(
+            contactSubmissionFingerprintsTable.firstSeen,
+            contactFingerprintCutoff,
+          ),
+        )
+        .returning({ hash: contactSubmissionFingerprintsTable.hash }),
+      db
+        .delete(newsletterRateLimitsTable)
+        .where(lt(newsletterRateLimitsTable.windowStart, newsletterRateCutoff))
+        .returning({ ip: newsletterRateLimitsTable.ip }),
+      db
+        .delete(orderLookupFailuresTable)
+        .where(lt(orderLookupFailuresTable.firstAt, orderLookupCutoff))
+        .returning({ ip: orderLookupFailuresTable.ip }),
+    ]);
 
   return {
     contactRateLimits: contactRate.length,
     contactFingerprints: contactFp.length,
     newsletterRateLimits: newsletterRate.length,
+    orderLookupFailures: orderLookup.length,
   };
 }
 
@@ -99,7 +115,8 @@ export function startSpamTrackingCleanupScheduler(): void {
       const total =
         removed.contactRateLimits +
         removed.contactFingerprints +
-        removed.newsletterRateLimits;
+        removed.newsletterRateLimits +
+        removed.orderLookupFailures;
       if (total > 0) {
         logger.info(
           { ...removed, total },
