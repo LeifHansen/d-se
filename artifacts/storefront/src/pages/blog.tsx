@@ -1,4 +1,5 @@
-import { Link } from "wouter";
+import { useMemo } from "react";
+import { Link, useSearch } from "wouter";
 import { ArrowUpRight } from "lucide-react";
 import { useListBlogPosts } from "@workspace/api-client-react";
 import { SiteShell } from "@/components/dose/SiteShell";
@@ -18,7 +19,25 @@ function formatDate(s?: string | null): string {
 }
 
 export default function BlogIndex() {
-  const { data, isLoading, isError } = useListBlogPosts();
+  const search = useSearch();
+  const activeTag = useMemo(() => {
+    const sp = new URLSearchParams(search);
+    const t = sp.get("tag");
+    return t && t.length > 0 ? t : null;
+  }, [search]);
+
+  const { data: allPosts } = useListBlogPosts();
+  const { data, isLoading, isError } = useListBlogPosts(
+    activeTag ? { tag: activeTag } : undefined,
+  );
+
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of allPosts ?? []) {
+      for (const t of p.tags ?? []) set.add(t);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [allPosts]);
 
   return (
     <SiteShell testId="page-blog">
@@ -50,6 +69,62 @@ export default function BlogIndex() {
       </section>
 
       <section className="mx-auto max-w-5xl px-6 py-16 md:px-10 md:py-20">
+        {allTags.length > 0 ? (
+          <div
+            className="mb-10 flex flex-wrap items-center gap-2"
+            data-testid="blog-tag-filter"
+            aria-label="Filter posts by tag"
+          >
+            <Link
+              href="/blog"
+              className="inline-flex items-center rounded-full border px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] transition-colors"
+              style={
+                activeTag === null
+                  ? {
+                      background: "hsl(170 58% 14%)",
+                      color: "hsl(45 49% 90%)",
+                      borderColor: "hsl(170 58% 14%)",
+                    }
+                  : {
+                      background: "transparent",
+                      color: "hsl(170 58% 14%)",
+                      borderColor: "hsl(40 18% 80%)",
+                    }
+              }
+              aria-pressed={activeTag === null}
+              data-testid="blog-tag-all"
+            >
+              All
+            </Link>
+            {allTags.map((t) => {
+              const isActive = t === activeTag;
+              return (
+                <Link
+                  key={t}
+                  href={`/blog?tag=${encodeURIComponent(t)}`}
+                  className="inline-flex items-center rounded-full border px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] transition-colors"
+                  style={
+                    isActive
+                      ? {
+                          background: "hsl(170 58% 14%)",
+                          color: "hsl(45 49% 90%)",
+                          borderColor: "hsl(170 58% 14%)",
+                        }
+                      : {
+                          background: "transparent",
+                          color: "hsl(170 58% 14%)",
+                          borderColor: "hsl(40 18% 80%)",
+                        }
+                  }
+                  aria-pressed={isActive}
+                  data-testid={`blog-tag-${t}`}
+                >
+                  {t}
+                </Link>
+              );
+            })}
+          </div>
+        ) : null}
         {isLoading ? (
           <div
             className="grid gap-8 md:grid-cols-2"
@@ -138,7 +213,9 @@ export default function BlogIndex() {
             className="text-center font-display text-2xl"
             data-testid="blog-empty"
           >
-            New journal entries coming soon.
+            {activeTag
+              ? `No posts tagged "${activeTag}" yet.`
+              : "New journal entries coming soon."}
           </p>
         )}
       </section>

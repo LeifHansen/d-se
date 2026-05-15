@@ -1,4 +1,5 @@
-import { Link } from "wouter";
+import { useMemo } from "react";
+import { Link, useSearch } from "wouter";
 import { ArrowRight } from "lucide-react";
 import { useListProducts } from "@workspace/api-client-react";
 import { SiteShell } from "@/components/dose/SiteShell";
@@ -8,7 +9,25 @@ import { Stars } from "@/components/dose/Stars";
 import { Image } from "@/components/dose/Image";
 
 export default function Shop() {
-  const { data, isLoading, isError, error, refetch } = useListProducts();
+  const search = useSearch();
+  const activeTag = useMemo(() => {
+    const sp = new URLSearchParams(search);
+    const t = sp.get("tag");
+    return t && t.length > 0 ? t : null;
+  }, [search]);
+
+  const { data: allProducts } = useListProducts();
+  const { data, isLoading, isError, error, refetch } = useListProducts(
+    activeTag ? { tag: activeTag } : undefined,
+  );
+
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of allProducts ?? []) {
+      for (const t of p.tags ?? []) set.add(t);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [allProducts]);
 
   return (
     <SiteShell testId="page-shop">
@@ -51,6 +70,62 @@ export default function Shop() {
         style={{ color: "hsl(170 58% 14%)" }}
       >
         <div className="mx-auto max-w-7xl px-6 py-16 md:px-10 md:py-24">
+          {allTags.length > 0 ? (
+            <div
+              className="mb-10 flex flex-wrap items-center gap-2"
+              data-testid="shop-tag-filter"
+              aria-label="Filter products by tag"
+            >
+              <Link
+                href="/shop"
+                className="inline-flex items-center rounded-full border px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] transition-colors"
+                style={
+                  activeTag === null
+                    ? {
+                        background: "hsl(170 58% 14%)",
+                        color: "hsl(45 49% 90%)",
+                        borderColor: "hsl(170 58% 14%)",
+                      }
+                    : {
+                        background: "transparent",
+                        color: "hsl(170 58% 14%)",
+                        borderColor: "hsl(40 18% 80%)",
+                      }
+                }
+                aria-pressed={activeTag === null}
+                data-testid="shop-tag-all"
+              >
+                All
+              </Link>
+              {allTags.map((t) => {
+                const isActive = t === activeTag;
+                return (
+                  <Link
+                    key={t}
+                    href={`/shop?tag=${encodeURIComponent(t)}`}
+                    className="inline-flex items-center rounded-full border px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] transition-colors"
+                    style={
+                      isActive
+                        ? {
+                            background: "hsl(170 58% 14%)",
+                            color: "hsl(45 49% 90%)",
+                            borderColor: "hsl(170 58% 14%)",
+                          }
+                        : {
+                            background: "transparent",
+                            color: "hsl(170 58% 14%)",
+                            borderColor: "hsl(40 18% 80%)",
+                          }
+                    }
+                    aria-pressed={isActive}
+                    data-testid={`shop-tag-${t}`}
+                  >
+                    {t}
+                  </Link>
+                );
+              })}
+            </div>
+          ) : null}
           {isLoading ? (
             <div
               className="grid gap-8 md:grid-cols-3"
@@ -172,7 +247,9 @@ export default function Shop() {
               className="text-center font-display text-2xl"
               data-testid="shop-empty"
             >
-              No products available yet — check back soon.
+              {activeTag
+                ? `No products tagged "${activeTag}" yet.`
+                : "No products available yet — check back soon."}
             </p>
           )}
         </div>
