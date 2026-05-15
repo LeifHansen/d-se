@@ -16,6 +16,21 @@ if [ -n "$DATABASE_URL" ]; then
   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c \
     "DELETE FROM abandoned_carts WHERE length(btrim(email)) = 0;" \
     || echo "Abandoned-cart empty-email cleanup skipped (psql failed)."
+
+  # One-shot cleanup: null out (or delete) any pre-existing email rows that
+  # don't look roughly like an address (must contain '@' with at least one
+  # non-whitespace, non-'@' character on each side) so the shape CHECK
+  # constraint added by the subsequent `pnpm --filter db push` doesn't fail
+  # on rollout. Idempotent.
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c \
+    "UPDATE orders SET email = NULL WHERE email IS NOT NULL AND email !~ '^[^@[:space:]]+@[^@[:space:]]+\$';" \
+    || echo "Order malformed-email cleanup skipped (psql failed)."
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c \
+    "UPDATE carts SET email = NULL WHERE email IS NOT NULL AND email !~ '^[^@[:space:]]+@[^@[:space:]]+\$';" \
+    || echo "Cart malformed-email cleanup skipped (psql failed)."
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c \
+    "DELETE FROM abandoned_carts WHERE email !~ '^[^@[:space:]]+@[^@[:space:]]+\$';" \
+    || echo "Abandoned-cart malformed-email cleanup skipped (psql failed)."
 fi
 
 pnpm --filter db push

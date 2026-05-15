@@ -30,7 +30,7 @@ export const abandonedCartsTable = pgTable(
     index("abandoned_carts_email_idx").on(t.email),
     check(
       "abandoned_carts_email_canonical_check",
-      sql`length(${t.email}) > 0 AND ${t.email} = lower(btrim(${t.email}))`,
+      sql`length(${t.email}) > 0 AND ${t.email} = lower(btrim(${t.email})) AND ${t.email} ~ '^[^@\s]+@[^@\s]+$'`,
     ),
   ],
 );

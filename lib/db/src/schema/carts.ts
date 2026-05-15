@@ -24,7 +24,7 @@ export const cartsTable = pgTable(
   (t) => [
     check(
       "carts_email_canonical_check",
-      sql`${t.email} IS NULL OR (length(${t.email}) > 0 AND ${t.email} = lower(btrim(${t.email})))`,
+      sql`${t.email} IS NULL OR (length(${t.email}) > 0 AND ${t.email} = lower(btrim(${t.email})) AND ${t.email} ~ '^[^@\s]+@[^@\s]+$')`,
     ),
   ],
 );
