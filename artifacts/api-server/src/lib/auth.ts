@@ -24,6 +24,21 @@ export async function requireAdmin(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
+  // Dev-only test bypass: when NODE_ENV !== "production" and the server is
+  // launched with E2E_ADMIN_BYPASS_TOKEN set, requests carrying a matching
+  // x-e2e-admin-bypass header skip Clerk entirely. This exists so the real-
+  // backend Playwright suite can hit the admin routes without standing up a
+  // Clerk session. Hard-fails closed in production: the token check is
+  // *inside* the NODE_ENV gate, so even an attacker-supplied env var on a
+  // production deploy cannot enable the bypass.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    process.env.E2E_ADMIN_BYPASS_TOKEN &&
+    req.header("x-e2e-admin-bypass") === process.env.E2E_ADMIN_BYPASS_TOKEN
+  ) {
+    next();
+    return;
+  }
   const auth = getAuth(req);
   if (!auth.userId) {
     res.status(401).json({ error: "Unauthorized" });
