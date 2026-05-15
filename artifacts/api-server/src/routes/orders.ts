@@ -8,8 +8,10 @@ import {
   cartItemsTable,
   cartsTable,
   productsTable,
+  orderLookupFailuresTable,
   type OrderAddress,
 } from "@workspace/db";
+import { sql } from "drizzle-orm";
 import {
   CreateCheckoutBody,
   CreateCheckoutResponse,
@@ -43,56 +45,70 @@ const STRIPE_TAX_ENABLED = process.env.STRIPE_TAX_ENABLED === "1";
 
 const router: IRouter = Router();
 
-// In-memory rate limit for the guest order lookup endpoint. Counts failed
-// attempts per (ip, orderId) and short-circuits with 429 once the threshold
-// is exceeded within the window. Successful lookups clear the counter so
-// legitimate users aren't penalised by an earlier mistype.
+// Persistent rate limit for the guest order lookup endpoint. Counts failed
+// attempts per (ip, orderId) in Postgres so the throttle survives restarts
+// and applies across every API process. Once the threshold is exceeded
+// within the window we short-circuit with 429. Successful lookups clear the
+// counter so legitimate users aren't penalised by an earlier mistype.
 const LOOKUP_MAX_FAILS = 5;
-const LOOKUP_WINDOW_MS = 10 * 60 * 1000;
-type LookupAttempt = { count: number; firstAt: number };
-const lookupFailures = new Map<string, LookupAttempt>();
+const LOOKUP_WINDOW_MINUTES = 10;
 
-function lookupKey(ip: string, orderId: number): string {
-  return `${ip}|${orderId}`;
-}
-
-function checkLookupRateLimit(
+async function checkLookupRateLimit(
   ip: string,
   orderId: number,
-): { allowed: true } | { allowed: false; retryAfterSeconds: number } {
-  const key = lookupKey(ip, orderId);
-  const now = Date.now();
-  const entry = lookupFailures.get(key);
-  if (!entry || now - entry.firstAt > LOOKUP_WINDOW_MS) {
-    return { allowed: true };
-  }
-  if (entry.count >= LOOKUP_MAX_FAILS) {
-    const retryAfterMs = LOOKUP_WINDOW_MS - (now - entry.firstAt);
-    return {
-      allowed: false,
-      retryAfterSeconds: Math.max(1, Math.ceil(retryAfterMs / 1000)),
-    };
-  }
-  return { allowed: true };
+): Promise<{ allowed: true } | { allowed: false; retryAfterSeconds: number }> {
+  const result = await db.execute<{ count: number; first_at: Date | string }>(sql`
+    SELECT count, first_at FROM order_lookup_failures
+    WHERE ip = ${ip} AND order_id = ${orderId}
+      AND first_at > NOW() - (${LOOKUP_WINDOW_MINUTES}::int * INTERVAL '1 minute')
+  `);
+  const row = result.rows[0];
+  if (!row) return { allowed: true };
+  const count = Number(row.count);
+  if (count < LOOKUP_MAX_FAILS) return { allowed: true };
+  const firstAtMs = new Date(row.first_at).getTime();
+  const retryAfterMs =
+    LOOKUP_WINDOW_MINUTES * 60 * 1000 - (Date.now() - firstAtMs);
+  return {
+    allowed: false,
+    retryAfterSeconds: Math.max(1, Math.ceil(retryAfterMs / 1000)),
+  };
 }
 
-function recordLookupFailure(ip: string, orderId: number): void {
-  const key = lookupKey(ip, orderId);
-  const now = Date.now();
-  const entry = lookupFailures.get(key);
-  if (!entry || now - entry.firstAt > LOOKUP_WINDOW_MS) {
-    lookupFailures.set(key, { count: 1, firstAt: now });
-    return;
-  }
-  entry.count += 1;
+async function recordLookupFailure(ip: string, orderId: number): Promise<void> {
+  // Atomic upsert: reset the counter when the existing window has expired,
+  // otherwise increment. Mirrors the contact_rate_limits pattern.
+  await db.execute(sql`
+    INSERT INTO order_lookup_failures (ip, order_id, count, first_at, updated_at)
+    VALUES (${ip}, ${orderId}, 1, NOW(), NOW())
+    ON CONFLICT (ip, order_id) DO UPDATE SET
+      count = CASE
+        WHEN order_lookup_failures.first_at < NOW() - (${LOOKUP_WINDOW_MINUTES}::int * INTERVAL '1 minute')
+          THEN 1
+        ELSE order_lookup_failures.count + 1
+      END,
+      first_at = CASE
+        WHEN order_lookup_failures.first_at < NOW() - (${LOOKUP_WINDOW_MINUTES}::int * INTERVAL '1 minute')
+          THEN NOW()
+        ELSE order_lookup_failures.first_at
+      END,
+      updated_at = NOW()
+  `);
 }
 
-function clearLookupFailures(ip: string, orderId: number): void {
-  lookupFailures.delete(lookupKey(ip, orderId));
+async function clearLookupFailures(ip: string, orderId: number): Promise<void> {
+  await db
+    .delete(orderLookupFailuresTable)
+    .where(
+      and(
+        eq(orderLookupFailuresTable.ip, ip),
+        eq(orderLookupFailuresTable.orderId, orderId),
+      ),
+    );
 }
 
-export function __resetLookupRateLimitForTests(): void {
-  lookupFailures.clear();
+export async function __resetLookupRateLimitForTests(): Promise<void> {
+  await db.execute(sql`TRUNCATE TABLE order_lookup_failures`);
 }
 
 // Independent throttle for the resend-link endpoint. Bucket by (ip, orderId)
@@ -541,7 +557,7 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
   // header directly would let an attacker spoof a fresh IP per request and
   // bypass the limit entirely.
   const clientIp = req.ip || "unknown";
-  const limit = checkLookupRateLimit(clientIp, parsed.data.orderId);
+  const limit = await checkLookupRateLimit(clientIp, parsed.data.orderId);
   if (!limit.allowed) {
     res.setHeader("Retry-After", String(limit.retryAfterSeconds));
     res.status(429).json({ error: "Too many attempts. Try again later." });
@@ -554,11 +570,11 @@ router.post("/orders/lookup", async (req, res): Promise<void> => {
     .where(eq(ordersTable.id, parsed.data.orderId));
   // Don't leak whether the order exists when credentials don't match.
   if (!row || !row.email || row.email !== submittedEmail) {
-    recordLookupFailure(clientIp, parsed.data.orderId);
+    await recordLookupFailure(clientIp, parsed.data.orderId);
     res.status(404).json({ error: "Order not found" });
     return;
   }
-  clearLookupFailures(clientIp, parsed.data.orderId);
+  await clearLookupFailures(clientIp, parsed.data.orderId);
   const order = await buildOrderResponse(row.id);
   res.json(GetOrderResponse.parse(order));
 });

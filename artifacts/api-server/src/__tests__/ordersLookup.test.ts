@@ -46,7 +46,7 @@ async function createOrder(email: string): Promise<{ orderId: number }> {
 describe("POST /api/orders/lookup — guest order authorization", () => {
   beforeEach(async () => {
     await resetDb();
-    __resetLookupRateLimitForTests();
+    await __resetLookupRateLimitForTests();
   });
 
   it("returns the order when the email matches (case-insensitive)", async () => {
@@ -104,6 +104,33 @@ describe("POST /api/orders/lookup — guest order authorization", () => {
       .post("/api/orders/lookup")
       .send({ orderId, email: "buyer@example.com" });
     expect(stillBlocked.status).toBe(429);
+  });
+
+  it("preserves the failure counter across a server restart", async () => {
+    const { orderId } = await createOrder("buyer@example.com");
+    // Burn through the entire allowance.
+    for (let i = 0; i < 5; i++) {
+      const bad = await request(app)
+        .post("/api/orders/lookup")
+        .send({ orderId, email: `wrong-${i}@example.com` });
+      expect(bad.status).toBe(404);
+    }
+
+    // Simulate a server restart: drop every cached copy of the orders module
+    // and re-import it from scratch. If the counter lived in an in-process
+    // Map this would reset it to zero and the next request would 404 again;
+    // because it lives in Postgres, the throttle survives.
+    vi.resetModules();
+    const reimported = await import("../routes/orders");
+    const restartedApp = makeApp((r) => {
+      r.use(reimported.default);
+    });
+
+    const blocked = await request(restartedApp)
+      .post("/api/orders/lookup")
+      .send({ orderId, email: "still-wrong@example.com" });
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers["retry-after"]).toBeTruthy();
   });
 
   it("cannot be bypassed by spoofing the X-Forwarded-For header", async () => {

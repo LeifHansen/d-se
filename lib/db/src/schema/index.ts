@@ -12,3 +12,4 @@ export * from "./contactSubmissionFingerprints";
 export * from "./contactQuarantine";
 export * from "./newsletterRateLimits";
 export * from "./newsletterQuarantine";
+export * from "./orderLookupFailures";
