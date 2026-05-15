@@ -2017,6 +2017,25 @@ export const ListAdminSpamQuarantineResponse = zod.object({
   ),
 });
 
+/**
+ * @summary Cleanup activity and current row counts for spam-protection tracking tables
+ */
+export const GetAdminSpamTrackingStatsResponse = zod.object({
+  lastRunAt: zod.coerce.date().nullable(),
+  contactRateLimits: zod.object({
+    rowCount: zod.number(),
+    lastSweepRemoved: zod.number().nullable(),
+  }),
+  contactFingerprints: zod.object({
+    rowCount: zod.number(),
+    lastSweepRemoved: zod.number().nullable(),
+  }),
+  newsletterRateLimits: zod.object({
+    rowCount: zod.number(),
+    lastSweepRemoved: zod.number().nullable(),
+  }),
+});
+
 export const GetAdminTaxSummaryResponse = zod.object({
   taxCollectedCents: zod.number(),
   taxableOrders: zod.number(),

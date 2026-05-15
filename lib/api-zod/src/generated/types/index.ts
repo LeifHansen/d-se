@@ -19,6 +19,8 @@ export * from "./adminNewsletterSubscriberStatus";
 export * from "./adminOrderLink";
 export * from "./adminSpamQuarantineSummary";
 export * from "./adminSpamReasonCount";
+export * from "./adminSpamTrackingStats";
+export * from "./adminSpamTrackingTableStats";
 export * from "./adminStats";
 export * from "./applyCartDiscountBody";
 export * from "./badRequestResponse";

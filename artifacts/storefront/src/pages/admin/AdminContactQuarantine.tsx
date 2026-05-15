@@ -8,16 +8,20 @@ import {
   markAdminContactQuarantineLegit,
   deleteAdminNewsletterQuarantine,
   markAdminNewsletterQuarantineLegit,
+  getAdminSpamTrackingStats,
   type AdminSpamQuarantineSummary,
   type AdminContactQuarantineEntry,
   type AdminNewsletterQuarantineEntry,
   type AdminSpamReasonCount,
+  type AdminSpamTrackingStats,
 } from "@workspace/api-client-react";
 
 type BusyKey = `contact:${number}` | `newsletter:${number}` | null;
 
 export default function AdminContactQuarantine() {
   const [data, setData] = useState<AdminSpamQuarantineSummary | null>(null);
+  const [trackingStats, setTrackingStats] =
+    useState<AdminSpamTrackingStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<BusyKey>(null);
@@ -26,8 +30,12 @@ export default function AdminContactQuarantine() {
     setLoading(true);
     setError(null);
     try {
-      const result = await listAdminSpamQuarantine();
+      const [result, stats] = await Promise.all([
+        listAdminSpamQuarantine(),
+        getAdminSpamTrackingStats(),
+      ]);
       setData(result);
+      setTrackingStats(stats);
     } catch (err) {
       setError(
         err instanceof Error
@@ -76,6 +84,11 @@ export default function AdminContactQuarantine() {
             {error}
           </p>
         )}
+
+        <SpamTrackingStatsPanel
+          loading={loading}
+          stats={trackingStats}
+        />
 
         <ReasonCountsPanel
           loading={loading}
@@ -158,6 +171,90 @@ export default function AdminContactQuarantine() {
         </section>
       </div>
     </AdminLayout>
+  );
+}
+
+function SpamTrackingStatsPanel({
+  loading,
+  stats,
+}: {
+  loading: boolean;
+  stats: AdminSpamTrackingStats | null;
+}) {
+  const rows: Array<{
+    key: "contactRateLimits" | "contactFingerprints" | "newsletterRateLimits";
+    label: string;
+  }> = [
+    { key: "contactRateLimits", label: "Contact form rate limits" },
+    { key: "contactFingerprints", label: "Contact submission fingerprints" },
+    { key: "newsletterRateLimits", label: "Newsletter rate limits" },
+  ];
+  const lastRunLabel = stats?.lastRunAt
+    ? new Date(stats.lastRunAt).toLocaleString()
+    : "Not yet on this server";
+  return (
+    <section
+      className="rounded-md border p-4"
+      data-testid="section-spam-tracking-stats"
+    >
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-base font-semibold">
+          Spam-tracking table cleanup
+        </h2>
+        <span
+          className="text-xs text-muted-foreground"
+          data-testid="text-spam-tracking-last-run"
+        >
+          Last sweep: {lastRunLabel}
+        </span>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Background sweeps prune stale rate-limit and fingerprint rows so the
+        spam heuristics keep performing well. Watch for sudden spikes in the
+        current row counts — they can hint at a flood of automated traffic.
+      </p>
+      {loading && !stats ? (
+        <p className="mt-3 text-sm">Loading…</p>
+      ) : (
+        <table className="mt-3 w-full text-sm">
+          <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="py-1 pr-4">Table</th>
+              <th className="py-1 pr-4">Current rows</th>
+              <th className="py-1">Removed last sweep</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ key, label }) => {
+              const entry = stats?.[key];
+              return (
+                <tr
+                  key={key}
+                  className="border-t"
+                  data-testid={`spam-tracking-row-${key}`}
+                >
+                  <td className="py-1 pr-4">{label}</td>
+                  <td
+                    className="py-1 pr-4"
+                    data-testid={`spam-tracking-${key}-current`}
+                  >
+                    {entry ? entry.rowCount : "—"}
+                  </td>
+                  <td
+                    className="py-1"
+                    data-testid={`spam-tracking-${key}-removed`}
+                  >
+                    {entry && entry.lastSweepRemoved != null
+                      ? entry.lastSweepRemoved
+                      : "—"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </section>
   );
 }
 

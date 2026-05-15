@@ -14,6 +14,9 @@ import {
   contactQuarantineTable,
   newsletterQuarantineTable,
   customersTable,
+  contactRateLimitsTable,
+  contactSubmissionFingerprintsTable,
+  newsletterRateLimitsTable,
 } from "@workspace/db";
 import {
   CreateProductBody,
@@ -60,6 +63,7 @@ import {
   MarkAdminNewsletterQuarantineLegitParams,
   MarkAdminNewsletterQuarantineLegitResponse,
   ListAdminSpamQuarantineResponse,
+  GetAdminSpamTrackingStatsResponse,
   GetAdminOrderLinkResponse,
   ListAdminCustomersQueryParams,
   ListAdminCustomersResponse,
@@ -163,6 +167,7 @@ import {
   cleanupContactQuarantine,
   cleanupNewsletterQuarantine,
 } from "../lib/contactQuarantineCleanup";
+import { getSpamTrackingCleanupStats } from "../lib/spamTrackingCleanup";
 import { getStripeWebhookHealth } from "../lib/metrics";
 
 const router: IRouter = Router();
@@ -1891,6 +1896,44 @@ router.get("/admin/spam-quarantine", async (_req, res): Promise<void> => {
       newsletter: newsletterRows.map(serializeNewsletterQuarantine),
       reasonCounts7d: toSorted(counts7),
       reasonCounts30d: toSorted(counts30),
+    }),
+  );
+});
+
+router.get("/admin/spam-tracking-stats", async (_req, res): Promise<void> => {
+  const [
+    [{ contactRateRows }],
+    [{ contactFingerprintRows }],
+    [{ newsletterRateRows }],
+  ] = await Promise.all([
+    db
+      .select({ contactRateRows: count() })
+      .from(contactRateLimitsTable),
+    db
+      .select({ contactFingerprintRows: count() })
+      .from(contactSubmissionFingerprintsTable),
+    db
+      .select({ newsletterRateRows: count() })
+      .from(newsletterRateLimitsTable),
+  ]);
+
+  const { lastRunAt, lastResult } = getSpamTrackingCleanupStats();
+
+  res.json(
+    GetAdminSpamTrackingStatsResponse.parse({
+      lastRunAt: lastRunAt ? lastRunAt.toISOString() : null,
+      contactRateLimits: {
+        rowCount: Number(contactRateRows ?? 0),
+        lastSweepRemoved: lastResult ? lastResult.contactRateLimits : null,
+      },
+      contactFingerprints: {
+        rowCount: Number(contactFingerprintRows ?? 0),
+        lastSweepRemoved: lastResult ? lastResult.contactFingerprints : null,
+      },
+      newsletterRateLimits: {
+        rowCount: Number(newsletterRateRows ?? 0),
+        lastSweepRemoved: lastResult ? lastResult.newsletterRateLimits : null,
+      },
     }),
   );
 });

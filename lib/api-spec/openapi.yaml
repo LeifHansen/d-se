@@ -1302,6 +1302,18 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/AdminSpamQuarantineSummary" }
 
+  /admin/spam-tracking-stats:
+    get:
+      operationId: getAdminSpamTrackingStats
+      tags: [admin]
+      summary: Cleanup activity and current row counts for spam-protection tracking tables
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminSpamTrackingStats" }
+
   /admin/tax-summary:
     get:
       operationId: getAdminTaxSummary
@@ -1984,6 +1996,26 @@ components:
       properties:
         reason: { type: string }
         count: { type: integer }
+
+    AdminSpamTrackingTableStats:
+      type: object
+      required: [rowCount, lastSweepRemoved]
+      properties:
+        rowCount: { type: integer }
+        lastSweepRemoved: { type: ["integer", "null"] }
+
+    AdminSpamTrackingStats:
+      type: object
+      required:
+        [lastRunAt, contactRateLimits, contactFingerprints, newsletterRateLimits]
+      properties:
+        lastRunAt: { type: ["string", "null"], format: date-time }
+        contactRateLimits:
+          { $ref: "#/components/schemas/AdminSpamTrackingTableStats" }
+        contactFingerprints:
+          { $ref: "#/components/schemas/AdminSpamTrackingTableStats" }
+        newsletterRateLimits:
+          { $ref: "#/components/schemas/AdminSpamTrackingTableStats" }
 
     AdminSpamQuarantineSummary:
       type: object

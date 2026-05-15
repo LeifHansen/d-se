@@ -27,6 +27,7 @@ import type {
   AdminNewsletterSubscriberList,
   AdminOrderLink,
   AdminSpamQuarantineSummary,
+  AdminSpamTrackingStats,
   AdminStats,
   ApplyCartDiscountBody,
   BadRequestResponse,
@@ -5929,6 +5930,85 @@ export function useListAdminSpamQuarantine<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getListAdminSpamQuarantineQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Cleanup activity and current row counts for spam-protection tracking tables
+ */
+export const getGetAdminSpamTrackingStatsUrl = () => {
+  return `/api/admin/spam-tracking-stats`;
+};
+
+export const getAdminSpamTrackingStats = async (
+  options?: RequestInit,
+): Promise<AdminSpamTrackingStats> => {
+  return customFetch<AdminSpamTrackingStats>(
+    getGetAdminSpamTrackingStatsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAdminSpamTrackingStatsQueryKey = () => {
+  return [`/api/admin/spam-tracking-stats`] as const;
+};
+
+export const getGetAdminSpamTrackingStatsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminSpamTrackingStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminSpamTrackingStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminSpamTrackingStatsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminSpamTrackingStats>>
+  > = ({ signal }) => getAdminSpamTrackingStats({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminSpamTrackingStats>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminSpamTrackingStatsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminSpamTrackingStats>>
+>;
+export type GetAdminSpamTrackingStatsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Cleanup activity and current row counts for spam-protection tracking tables
+ */
+
+export function useGetAdminSpamTrackingStats<
+  TData = Awaited<ReturnType<typeof getAdminSpamTrackingStats>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminSpamTrackingStats>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminSpamTrackingStatsQueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

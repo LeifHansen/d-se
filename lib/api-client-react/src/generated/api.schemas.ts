@@ -607,6 +607,20 @@ export interface AdminSpamReasonCount {
   count: number;
 }
 
+export interface AdminSpamTrackingTableStats {
+  rowCount: number;
+  /** @nullable */
+  lastSweepRemoved: number | null;
+}
+
+export interface AdminSpamTrackingStats {
+  /** @nullable */
+  lastRunAt: string | null;
+  contactRateLimits: AdminSpamTrackingTableStats;
+  contactFingerprints: AdminSpamTrackingTableStats;
+  newsletterRateLimits: AdminSpamTrackingTableStats;
+}
+
 export interface AdminSpamQuarantineSummary {
   contact: AdminContactQuarantineEntry[];
   newsletter: AdminNewsletterQuarantineEntry[];

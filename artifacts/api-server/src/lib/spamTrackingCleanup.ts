@@ -59,6 +59,18 @@ export type SpamTrackingCleanupResult = {
   orderLookupFailures: number;
 };
 
+export type SpamTrackingCleanupStats = {
+  lastRunAt: Date | null;
+  lastResult: SpamTrackingCleanupResult | null;
+};
+
+let lastRunAt: Date | null = null;
+let lastResult: SpamTrackingCleanupResult | null = null;
+
+export function getSpamTrackingCleanupStats(): SpamTrackingCleanupStats {
+  return { lastRunAt, lastResult };
+}
+
 export async function cleanupSpamTracking(
   now: Date = new Date(),
 ): Promise<SpamTrackingCleanupResult> {
@@ -95,12 +107,15 @@ export async function cleanupSpamTracking(
         .returning({ ip: orderLookupFailuresTable.ip }),
     ]);
 
-  return {
+  const result: SpamTrackingCleanupResult = {
     contactRateLimits: contactRate.length,
     contactFingerprints: contactFp.length,
     newsletterRateLimits: newsletterRate.length,
     orderLookupFailures: orderLookup.length,
   };
+  lastRunAt = now;
+  lastResult = result;
+  return result;
 }
 
 let timer: NodeJS.Timeout | null = null;
