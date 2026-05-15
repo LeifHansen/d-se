@@ -11,6 +11,8 @@ type OrderItem = {
   productImage: string | null;
   quantity: number;
   priceCents: number;
+  available?: boolean;
+  unavailableReason?: "unavailable" | "out_of_stock" | null;
 };
 
 type OrderAddress = {
@@ -261,6 +263,122 @@ test.describe("/account and /account/orders/:id", () => {
     await expect(labelLink).toHaveAttribute("href", SHIPPED_ORDER.labelUrl!);
 
     await expect(page.getByTestId("order-tracking-pending")).toHaveCount(0);
+  });
+
+  test("past order shows an availability badge next to an unavailable line item", async ({
+    page,
+  }) => {
+    const MIXED_ORDER: Order = {
+      ...ORDER_ONE,
+      id: 5201,
+      items: [
+        {
+          id: 11,
+          productId: 401,
+          productName: "Calm Tincture",
+          productImage: null,
+          quantity: 2,
+          priceCents: 4500,
+          available: true,
+          unavailableReason: null,
+        },
+        {
+          id: 12,
+          productId: 402,
+          productName: "Focus Elixir",
+          productImage: null,
+          quantity: 1,
+          priceCents: 5200,
+          available: false,
+          unavailableReason: "out_of_stock",
+        },
+      ],
+      subtotalCents: 14200,
+      totalCents: 14799,
+    };
+
+    await mockSignedIn(page, [MIXED_ORDER]);
+
+    await page.goto(`/account/orders/${MIXED_ORDER.id}`);
+    await dismissOverlays(page);
+    await page.reload();
+
+    await expect(page.getByTestId("page-account-order")).toBeVisible();
+    await expect(page.getByTestId("order-summary")).toBeVisible();
+
+    // The available item should NOT carry a badge.
+    await expect(
+      page.getByTestId("order-item-11-availability"),
+    ).toHaveCount(0);
+
+    // The out-of-stock item shows the inline badge with the right copy.
+    const badge = page.getByTestId("order-item-12-availability");
+    await expect(badge).toBeVisible();
+    await expect(badge).toContainText("Out of stock");
+
+    // Reorder is still enabled because at least one item is purchasable, and
+    // the hint shows the default "adds the same items" copy.
+    await expect(page.getByTestId("button-reorder")).toBeEnabled();
+    await expect(page.getByTestId("reorder-hint")).toContainText(
+      "Adds the same items to your current cart.",
+    );
+  });
+
+  test("past order with no purchasable items disables Reorder and shows the hint", async ({
+    page,
+  }) => {
+    const ALL_GONE_ORDER: Order = {
+      ...ORDER_ONE,
+      id: 5202,
+      items: [
+        {
+          id: 21,
+          productId: 401,
+          productName: "Calm Tincture",
+          productImage: null,
+          quantity: 2,
+          priceCents: 4500,
+          available: false,
+          unavailableReason: "unavailable",
+        },
+        {
+          id: 22,
+          productId: 402,
+          productName: "Focus Elixir",
+          productImage: null,
+          quantity: 1,
+          priceCents: 5200,
+          available: false,
+          unavailableReason: "out_of_stock",
+        },
+      ],
+      subtotalCents: 14200,
+      totalCents: 14799,
+    };
+
+    await mockSignedIn(page, [ALL_GONE_ORDER]);
+
+    await page.goto(`/account/orders/${ALL_GONE_ORDER.id}`);
+    await dismissOverlays(page);
+    await page.reload();
+
+    await expect(page.getByTestId("page-account-order")).toBeVisible();
+    await expect(page.getByTestId("order-summary")).toBeVisible();
+
+    // Both items show their respective badges.
+    const unavailableBadge = page.getByTestId("order-item-21-availability");
+    await expect(unavailableBadge).toBeVisible();
+    await expect(unavailableBadge).toContainText("Unavailable");
+
+    const outOfStockBadge = page.getByTestId("order-item-22-availability");
+    await expect(outOfStockBadge).toBeVisible();
+    await expect(outOfStockBadge).toContainText("Out of stock");
+
+    // Reorder is disabled and the hint switches to the "nothing available" copy.
+    await expect(page.getByTestId("button-reorder")).toBeDisabled();
+    await expect(page.getByTestId("reorder-hint")).toContainText(
+      "None of these items are available right now.",
+    );
   });
 
   test("signed-in shopper requesting another user's order id sees a not-found state", async ({

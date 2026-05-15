@@ -101,6 +101,143 @@ describe("GET /api/orders/:id", () => {
   });
 });
 
+describe("GET /api/orders/:id availability annotations (buildOrderResponse)", () => {
+  beforeEach(async () => {
+    await resetDb();
+    __setAuth(null);
+  });
+
+  async function seedMultiItemOrder(opts: {
+    userId: string;
+    items: Array<{ productId: number; quantity: number }>;
+  }): Promise<number> {
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        userId: opts.userId,
+        email: "buyer@example.com",
+        status: "paid",
+        subtotalCents: 0,
+        totalCents: 0,
+        currency: "usd",
+      })
+      .returning();
+    await db.insert(orderItemsTable).values(
+      opts.items.map((it) => ({
+        orderId: order.id,
+        productId: it.productId,
+        productName: "Test Item",
+        quantity: it.quantity,
+        priceCents: 1_000,
+      })),
+    );
+    return order.id;
+  }
+
+  it("flags an unpublished product as unavailable on the past order", async () => {
+    const inStock = await seedProduct({
+      slug: "p-avail-instock",
+      inventory: 5,
+    });
+    const unpublished = await seedProduct({
+      slug: "p-avail-unpub",
+      inventory: 5,
+    });
+    await db
+      .update(productsTable)
+      .set({ published: false })
+      .where(eq(productsTable.id, unpublished.id));
+
+    const orderId = await seedMultiItemOrder({
+      userId: "user_avail_unpub",
+      items: [
+        { productId: inStock.id, quantity: 1 },
+        { productId: unpublished.id, quantity: 1 },
+      ],
+    });
+    __setAuth("user_avail_unpub");
+
+    const res = await request(app).get(`/api/orders/${orderId}`);
+    expect(res.status).toBe(200);
+
+    const items = res.body.items as Array<{
+      productId: number;
+      available: boolean;
+      unavailableReason: "unavailable" | "out_of_stock" | null;
+    }>;
+    const inStockItem = items.find((i) => i.productId === inStock.id)!;
+    const unpubItem = items.find((i) => i.productId === unpublished.id)!;
+
+    expect(inStockItem.available).toBe(true);
+    expect(inStockItem.unavailableReason).toBeNull();
+    expect(unpubItem.available).toBe(false);
+    expect(unpubItem.unavailableReason).toBe("unavailable");
+  });
+
+  it("flags a product whose inventory dropped below the ordered quantity as out_of_stock", async () => {
+    const product = await seedProduct({
+      slug: "p-avail-zeroed",
+      inventory: 5,
+    });
+    const orderId = await seedMultiItemOrder({
+      userId: "user_avail_oos",
+      items: [{ productId: product.id, quantity: 2 }],
+    });
+    // Drop inventory below the ordered quantity (mirrors an admin zeroing
+    // stock after the order was placed).
+    await db
+      .update(productsTable)
+      .set({ inventory: 0 })
+      .where(eq(productsTable.id, product.id));
+    __setAuth("user_avail_oos");
+
+    const res = await request(app).get(`/api/orders/${orderId}`);
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0].available).toBe(false);
+    expect(res.body.items[0].unavailableReason).toBe("out_of_stock");
+  });
+
+  it("returns every item as unavailable when the whole order is unpurchasable", async () => {
+    const a = await seedProduct({ slug: "p-avail-allgone-a", inventory: 5 });
+    const b = await seedProduct({ slug: "p-avail-allgone-b", inventory: 5 });
+    const orderId = await seedMultiItemOrder({
+      userId: "user_avail_allgone",
+      items: [
+        { productId: a.id, quantity: 1 },
+        { productId: b.id, quantity: 1 },
+      ],
+    });
+    // One unpublished, one zero-inventory → both should flip to unavailable
+    // with their respective reasons.
+    await db
+      .update(productsTable)
+      .set({ published: false })
+      .where(eq(productsTable.id, a.id));
+    await db
+      .update(productsTable)
+      .set({ inventory: 0 })
+      .where(eq(productsTable.id, b.id));
+    __setAuth("user_avail_allgone");
+
+    const res = await request(app).get(`/api/orders/${orderId}`);
+    expect(res.status).toBe(200);
+
+    const items = res.body.items as Array<{
+      productId: number;
+      available: boolean;
+      unavailableReason: "unavailable" | "out_of_stock" | null;
+    }>;
+    expect(items.every((i) => i.available === false)).toBe(true);
+    expect(items.find((i) => i.productId === a.id)!.unavailableReason).toBe(
+      "unavailable",
+    );
+    expect(items.find((i) => i.productId === b.id)!.unavailableReason).toBe(
+      "out_of_stock",
+    );
+  });
+});
+
 describe("POST /api/orders/:id/reorder", () => {
   beforeEach(async () => {
     await resetDb();
