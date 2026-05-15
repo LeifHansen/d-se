@@ -682,6 +682,27 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Customer" }
+  /admin/customers/{id}:
+    get:
+      operationId: getAdminCustomer
+      tags: [admin]
+      summary: Get a single customer with every order attached to them
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminCustomerDetail" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
   /admin/orders/merge-into-customer:
     post:
       operationId: mergeOrdersIntoCustomer
@@ -1628,6 +1649,14 @@ components:
       properties:
         email: { type: string, minLength: 1 }
         name: { type: ["string", "null"] }
+    AdminCustomerDetail:
+      type: object
+      required: [customer, orders]
+      properties:
+        customer: { $ref: "#/components/schemas/Customer" }
+        orders:
+          type: array
+          items: { $ref: "#/components/schemas/Order" }
     MergeOrdersIntoCustomerInput:
       type: object
       required: [email, customerId]

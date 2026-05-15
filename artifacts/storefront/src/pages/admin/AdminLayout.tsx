@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 const NAV_ITEMS: { href: string; label: string }[] = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/orders", label: "Orders" },
+  { href: "/admin/customers", label: "Customers" },
   { href: "/admin/products", label: "Products" },
   { href: "/admin/discounts", label: "Discount codes" },
   { href: "/admin/reviews", label: "Reviews" },

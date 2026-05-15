@@ -22,6 +22,7 @@ import type {
   AdminContactQuarantineEntry,
   AdminContactQuarantineForwardResult,
   AdminContactQuarantineList,
+  AdminCustomerDetail,
   AdminNewsletterQuarantineEntry,
   AdminNewsletterSubscriber,
   AdminNewsletterSubscriberList,
@@ -3004,6 +3005,93 @@ export const useCreateAdminCustomer = <
 > => {
   return useMutation(getCreateAdminCustomerMutationOptions(options));
 };
+
+/**
+ * @summary Get a single customer with every order attached to them
+ */
+export const getGetAdminCustomerUrl = (id: number) => {
+  return `/api/admin/customers/${id}`;
+};
+
+export const getAdminCustomer = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminCustomerDetail> => {
+  return customFetch<AdminCustomerDetail>(getGetAdminCustomerUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAdminCustomerQueryKey = (id: number) => {
+  return [`/api/admin/customers/${id}`] as const;
+};
+
+export const getGetAdminCustomerQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminCustomer>>,
+  TError = ErrorType<Error>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminCustomer>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAdminCustomerQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminCustomer>>
+  > = ({ signal }) => getAdminCustomer(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminCustomer>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminCustomerQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminCustomer>>
+>;
+export type GetAdminCustomerQueryError = ErrorType<Error>;
+
+/**
+ * @summary Get a single customer with every order attached to them
+ */
+
+export function useGetAdminCustomer<
+  TData = Awaited<ReturnType<typeof getAdminCustomer>>,
+  TError = ErrorType<Error>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getAdminCustomer>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminCustomerQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Reassign every order placed under an email to a single customer record

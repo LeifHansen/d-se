@@ -73,6 +73,8 @@ import {
   CreateAdminCustomerBody,
   MergeOrdersIntoCustomerBody,
   MergeOrdersIntoCustomerResponse,
+  GetAdminCustomerParams,
+  GetAdminCustomerResponse,
 } from "@workspace/api-zod";
 import { requireAdmin, getUserId } from "../lib/auth";
 import { buildOrderResponse } from "./orders";
@@ -802,6 +804,37 @@ router.post("/admin/customers", async (req, res): Promise<void> => {
     .values({ email, name })
     .returning();
   res.status(201).json(serializeCustomer(row, 0));
+});
+
+router.get("/admin/customers/:id", async (req, res): Promise<void> => {
+  const params = GetAdminCustomerParams.safeParse(req.params);
+  if (!params.success) {
+    res.status(400).json({ error: params.error.message });
+    return;
+  }
+  const [customer] = await db
+    .select()
+    .from(customersTable)
+    .where(eq(customersTable.id, params.data.id));
+  if (!customer) {
+    res.status(404).json({ error: "Customer not found" });
+    return;
+  }
+  const rows = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.customerId, customer.id))
+    .orderBy(desc(ordersTable.createdAt));
+  const orders = await Promise.all(
+    rows.map(async (o) => (await buildOrderResponse(o.id))!),
+  );
+  const counts = await getCustomerOrderCounts([customer.id]);
+  res.json(
+    GetAdminCustomerResponse.parse({
+      customer: serializeCustomer(customer, counts.get(customer.id) ?? 0),
+      orders,
+    }),
+  );
 });
 
 router.post(

@@ -1360,6 +1360,73 @@ export const CreateAdminCustomerBody = zod.object({
 });
 
 /**
+ * @summary Get a single customer with every order attached to them
+ */
+export const GetAdminCustomerParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetAdminCustomerResponse = zod.object({
+  customer: zod.object({
+    id: zod.number(),
+    email: zod.string(),
+    name: zod.string().nullish(),
+    orderCount: zod.number().optional(),
+    createdAt: zod.coerce.date(),
+  }),
+  orders: zod.array(
+    zod.object({
+      id: zod.number(),
+      status: zod.string(),
+      email: zod.string().nullish(),
+      items: zod.array(
+        zod.object({
+          id: zod.number(),
+          productId: zod.number(),
+          productName: zod.string(),
+          productImage: zod.string().nullish(),
+          quantity: zod.number(),
+          priceCents: zod.number(),
+          available: zod.boolean(),
+          unavailableReason: zod
+            .union([
+              zod.literal("unavailable"),
+              zod.literal("out_of_stock"),
+              zod.literal(null),
+            ])
+            .nullish(),
+        }),
+      ),
+      subtotalCents: zod.number(),
+      shippingCents: zod.number(),
+      taxCents: zod.number(),
+      discountCents: zod.number().optional(),
+      discountCode: zod.string().nullish(),
+      totalCents: zod.number(),
+      currency: zod.string(),
+      shippingAddress: zod
+        .object({
+          name: zod.string(),
+          street1: zod.string(),
+          street2: zod.string().nullish(),
+          city: zod.string(),
+          state: zod.string(),
+          zip: zod.string(),
+          country: zod.string(),
+          phone: zod.string().nullish(),
+        })
+        .optional(),
+      trackingCode: zod.string().nullish(),
+      carrier: zod.string().nullish(),
+      trackingUrl: zod.string().nullish(),
+      labelUrl: zod.string().nullish(),
+      customerId: zod.number().nullish(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+/**
  * @summary Reassign every order placed under an email to a single customer record
  */
 

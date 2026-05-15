@@ -206,6 +206,11 @@ export interface CustomerInput {
   name?: string | null;
 }
 
+export interface AdminCustomerDetail {
+  customer: Customer;
+  orders: Order[];
+}
+
 export interface MergeOrdersIntoCustomerInput {
   /** @minLength 1 */
   email: string;

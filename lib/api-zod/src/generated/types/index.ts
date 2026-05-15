@@ -12,6 +12,7 @@ export * from "./addressInput";
 export * from "./adminContactQuarantineEntry";
 export * from "./adminContactQuarantineForwardResult";
 export * from "./adminContactQuarantineList";
+export * from "./adminCustomerDetail";
 export * from "./adminNewsletterQuarantineEntry";
 export * from "./adminNewsletterSubscriber";
 export * from "./adminNewsletterSubscriberList";

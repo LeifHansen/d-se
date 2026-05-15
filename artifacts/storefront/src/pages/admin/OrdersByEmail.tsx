@@ -131,13 +131,17 @@ export default function AdminOrdersByEmail() {
               Every order placed under this email address.
             </p>
             {existingCustomerId != null ? (
-              <Badge
-                variant="secondary"
-                className="mt-2"
+              <Link
+                href={`/admin/customers/${existingCustomerId}`}
                 data-testid="badge-merged-customer"
               >
-                Merged into customer #{existingCustomerId}
-              </Badge>
+                <Badge
+                  variant="secondary"
+                  className="mt-2 cursor-pointer hover:bg-secondary/80"
+                >
+                  Merged into customer #{existingCustomerId}
+                </Badge>
+              </Link>
             ) : null}
           </div>
           {orders.length > 0 ? (

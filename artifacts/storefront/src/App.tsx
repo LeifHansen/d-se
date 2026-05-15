@@ -30,6 +30,10 @@ const AdminOrders = lazy(() => import("@/pages/admin/Orders"));
 const AdminOrdersByEmail = lazy(
   () => import("@/pages/admin/OrdersByEmail"),
 );
+const AdminCustomers = lazy(() => import("@/pages/admin/AdminCustomers"));
+const AdminCustomerDetail = lazy(
+  () => import("@/pages/admin/AdminCustomerDetail"),
+);
 const AdminProducts = lazy(() => import("@/pages/admin/Products"));
 const AdminNewsletter = lazy(() => import("@/pages/admin/Newsletter"));
 const AdminDiscounts = lazy(() => import("@/pages/admin/AdminDiscounts"));
@@ -89,6 +93,11 @@ function Router() {
         <Route
           path="/admin/orders/by-email/:email"
           component={AdminOrdersByEmail}
+        />
+        <Route path="/admin/customers" component={AdminCustomers} />
+        <Route
+          path="/admin/customers/:id"
+          component={AdminCustomerDetail}
         />
         <Route path="/admin/products" component={AdminProducts} />
         <Route path="/admin/newsletter" component={AdminNewsletter} />
