@@ -105,4 +105,36 @@ describe("/me/saved-address", () => {
       .send({ address: { name: "x" } });
     expect(res.status).toBe(400);
   });
+
+  it("DELETE clears the saved address and requires auth", async () => {
+    __setAuth(null);
+    const unauth = await request(app).delete("/api/me/saved-address");
+    expect(unauth.status).toBe(401);
+
+    __setAuth("user_a");
+    await request(app)
+      .put("/api/me/saved-address")
+      .send({ address: ADDRESS });
+
+    const del = await request(app).delete("/api/me/saved-address");
+    expect(del.status).toBe(200);
+    expect(del.body).toEqual({ address: null });
+
+    const get = await request(app).get("/api/me/saved-address");
+    expect(get.body).toEqual({ address: null });
+
+    const rows = await db
+      .select()
+      .from(userProfilesTable)
+      .where(eq(userProfilesTable.userId, "user_a"));
+    expect(rows).toHaveLength(1);
+    expect(rows[0].savedAddress).toBeNull();
+  });
+
+  it("DELETE is a no-op when nothing was saved", async () => {
+    __setAuth("user_a");
+    const del = await request(app).delete("/api/me/saved-address");
+    expect(del.status).toBe(200);
+    expect(del.body).toEqual({ address: null });
+  });
 });

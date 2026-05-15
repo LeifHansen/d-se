@@ -1472,6 +1472,87 @@ export const useUpdateMySavedAddress = <
 };
 
 /**
+ * @summary Clear the signed-in shopper's saved default shipping address
+ */
+export const getDeleteMySavedAddressUrl = () => {
+  return `/api/me/saved-address`;
+};
+
+export const deleteMySavedAddress = async (
+  options?: RequestInit,
+): Promise<SavedAddressResponse> => {
+  return customFetch<SavedAddressResponse>(getDeleteMySavedAddressUrl(), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteMySavedAddressMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMySavedAddress>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteMySavedAddress>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["deleteMySavedAddress"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteMySavedAddress>>,
+    void
+  > = () => {
+    return deleteMySavedAddress(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteMySavedAddressMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteMySavedAddress>>
+>;
+
+export type DeleteMySavedAddressMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Clear the signed-in shopper's saved default shipping address
+ */
+export const useDeleteMySavedAddress = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteMySavedAddress>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteMySavedAddress>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getDeleteMySavedAddressMutationOptions(options));
+};
+
+/**
  * @summary List signed-in user's orders
  */
 export const getListMyOrdersUrl = () => {

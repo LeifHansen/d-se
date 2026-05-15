@@ -6,6 +6,7 @@ import {
   useReorder,
   useGetMySavedAddress,
   useUpdateMySavedAddress,
+  useDeleteMySavedAddress,
   getGetMySavedAddressQueryKey,
   getGetCartQueryKey,
   type AddressInput,
@@ -282,6 +283,7 @@ function SavedAddressCard() {
     query: { retry: false } as never,
   });
   const update = useUpdateMySavedAddress();
+  const remove = useDeleteMySavedAddress();
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<AddressInput>(EMPTY_ADDRESS);
@@ -302,6 +304,36 @@ function SavedAddressCard() {
     <K extends keyof AddressInput>(key: K) =>
     (e: React.ChangeEvent<HTMLInputElement>) =>
       setDraft((a) => ({ ...a, [key]: e.target.value }));
+
+  const onRemove = () => {
+    if (!saved) return;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm("Remove your saved shipping address?")
+    ) {
+      return;
+    }
+    remove.mutate(undefined, {
+      onSuccess: () => {
+        queryClient.setQueryData(getGetMySavedAddressQueryKey(), {
+          address: null,
+        });
+        setEditing(false);
+        setDraft(EMPTY_ADDRESS);
+        toast({
+          title: "Address removed",
+          description: "We won't pre-fill checkout from a saved address.",
+        });
+      },
+      onError: () => {
+        toast({
+          title: "Couldn't remove address",
+          description: "Please try again in a moment.",
+          variant: "destructive",
+        });
+      },
+    });
+  };
 
   const onSave = (e: FormEvent) => {
     e.preventDefault();
@@ -344,19 +376,33 @@ function SavedAddressCard() {
           </p>
         </div>
         {!editing ? (
-          <Button
-            type="button"
-            onClick={startEdit}
-            disabled={isLoading}
-            className="rounded-full px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.22em]"
-            style={{
-              background: "hsl(170 58% 14%)",
-              color: "hsl(45 49% 90%)",
-            }}
-            data-testid="saved-address-edit"
-          >
-            {saved ? "Edit" : "Add address"}
-          </Button>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              onClick={startEdit}
+              disabled={isLoading}
+              className="rounded-full px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.22em]"
+              style={{
+                background: "hsl(170 58% 14%)",
+                color: "hsl(45 49% 90%)",
+              }}
+              data-testid="saved-address-edit"
+            >
+              {saved ? "Edit" : "Add address"}
+            </Button>
+            {saved ? (
+              <button
+                type="button"
+                onClick={onRemove}
+                disabled={remove.isPending}
+                className="text-[11px] font-semibold uppercase tracking-[0.22em] underline underline-offset-4"
+                style={{ color: "hsl(170 18% 32%)" }}
+                data-testid="saved-address-remove"
+              >
+                {remove.isPending ? "Removing…" : "Remove"}
+              </button>
+            ) : null}
+          </div>
         ) : null}
       </div>
 

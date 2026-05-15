@@ -339,6 +339,16 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/SavedAddressResponse" }
+    delete:
+      operationId: deleteMySavedAddress
+      tags: [account]
+      summary: Clear the signed-in shopper's saved default shipping address
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedAddressResponse" }
   /orders/me:
     get:
       operationId: listMyOrders

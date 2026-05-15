@@ -38,4 +38,13 @@ router.put("/me/saved-address", requireAuth, async (req, res): Promise<void> => 
   res.json({ address });
 });
 
+router.delete("/me/saved-address", requireAuth, async (req, res): Promise<void> => {
+  const userId = getUserId(req)!;
+  await db
+    .update(userProfilesTable)
+    .set({ savedAddress: null, updatedAt: new Date() })
+    .where(eq(userProfilesTable.userId, userId));
+  res.json({ address: null });
+});
+
 export default router;

@@ -589,6 +589,25 @@ export const UpdateMySavedAddressResponse = zod.object({
 });
 
 /**
+ * @summary Clear the signed-in shopper's saved default shipping address
+ */
+export const DeleteMySavedAddressResponse = zod.object({
+  address: zod.union([
+    zod.object({
+      name: zod.string(),
+      street1: zod.string(),
+      street2: zod.string().nullish(),
+      city: zod.string(),
+      state: zod.string(),
+      zip: zod.string(),
+      country: zod.string(),
+      phone: zod.string().nullish(),
+    }),
+    zod.null(),
+  ]),
+});
+
+/**
  * @summary List signed-in user's orders
  */
 export const ListMyOrdersResponseItem = zod.object({
