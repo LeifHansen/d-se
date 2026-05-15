@@ -355,6 +355,116 @@ test.describe("admin dashboard", () => {
     await expect(page.getByTestId("row-recent-order-9002")).toBeVisible();
   });
 
+  test("marketing range switcher refetches and updates totals for 7d / 30d / 90d", async ({
+    page,
+  }) => {
+    const api = new AdminApi();
+    await installAdminMocks(page, api);
+
+    const statsRequests: string[] = [];
+    const payloadsByRange: Record<number, { orders: number; revenueCents: number; subscribers: number }> = {
+      7: { orders: 12, revenueCents: 64500, subscribers: 1280 },
+      30: { orders: 58, revenueCents: 312000, subscribers: 1325 },
+      90: { orders: 174, revenueCents: 920000, subscribers: 1410 },
+    };
+
+    // Re-register the stats route after installAdminMocks so this handler
+    // (most-recently-added) wins and can vary the payload by marketingRange.
+    await page.route("**/api/admin/stats**", async (route) => {
+      const url = new URL(route.request().url());
+      statsRequests.push(url.search);
+      const range = Number(url.searchParams.get("marketingRange") ?? "7");
+      const p = payloadsByRange[range] ?? payloadsByRange[7];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          totalOrders: 142,
+          ordersToday: 3,
+          revenueCentsToday: 9900,
+          ordersThisMonth: 27,
+          revenueCentsThisMonth: 142500,
+          pendingFulfillment: 2,
+          lowStock: 1,
+          totalProducts: api.products.length,
+          webhookHealthy: true,
+          webhookLastReceivedAt: "2026-05-14T09:00:00.000Z",
+          recentOrders: api.orders.slice(0, 2),
+          marketing: {
+            newsletterSubscribers: p.subscribers,
+            rangeDays: range,
+            ordersInRange: p.orders,
+            revenueCentsInRange: p.revenueCents,
+            ga4Url: "https://analytics.google.com/example",
+            subscribersDaily: [],
+            ordersDaily: [],
+            revenueCentsDaily: [],
+          },
+        }),
+      });
+    });
+
+    await page.goto("/admin");
+    await expect(page.getByTestId("admin-shell")).toBeVisible({
+      timeout: 15_000,
+    });
+
+    // Default 7d window
+    await expect(page.getByTestId("marketing-orders-range")).toHaveText("12", {
+      timeout: 15_000,
+    });
+    await expect(page.getByTestId("marketing-revenue-range")).toHaveText(
+      "$645.00",
+    );
+    await expect(page.getByTestId("panel-marketing")).toContainText(
+      "last 7 days",
+    );
+    await expect.poll(() =>
+      statsRequests.some((q) => q.includes("marketingRange=7")),
+    ).toBe(true);
+
+    // Switch to 30d
+    await page.getByTestId("marketing-range-30d").click();
+    await expect(page.getByTestId("marketing-orders-range")).toHaveText("58");
+    await expect(page.getByTestId("marketing-revenue-range")).toHaveText(
+      "$3,120.00",
+    );
+    await expect(page.getByTestId("panel-marketing")).toContainText(
+      "last 30 days",
+    );
+    await expect.poll(() =>
+      statsRequests.some((q) => q.includes("marketingRange=30")),
+    ).toBe(true);
+
+    // Switch to 90d
+    await page.getByTestId("marketing-range-90d").click();
+    await expect(page.getByTestId("marketing-orders-range")).toHaveText("174");
+    await expect(page.getByTestId("marketing-revenue-range")).toHaveText(
+      "$9,200.00",
+    );
+    await expect(page.getByTestId("panel-marketing")).toContainText(
+      "last 90 days",
+    );
+    await expect.poll(() =>
+      statsRequests.some((q) => q.includes("marketingRange=90")),
+    ).toBe(true);
+
+    // And back to 7d — assert it actually re-fetched (not just served from cache)
+    const requestsBeforeReturn = statsRequests.length;
+    await page.getByTestId("marketing-range-7d").click();
+    await expect(page.getByTestId("marketing-orders-range")).toHaveText("12");
+    await expect(page.getByTestId("marketing-revenue-range")).toHaveText(
+      "$645.00",
+    );
+    await expect(page.getByTestId("panel-marketing")).toContainText(
+      "last 7 days",
+    );
+    await expect
+      .poll(() => statsRequests.length)
+      .toBeGreaterThan(requestsBeforeReturn);
+    expect(statsRequests.at(-1)).toContain("marketingRange=7");
+  });
+
   test("hides stale-webhook warning when webhook is healthy", async ({
     page,
   }) => {
