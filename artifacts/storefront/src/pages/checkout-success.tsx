@@ -109,8 +109,18 @@ export default function CheckoutSuccessPage() {
   }, [order]);
 
   const processing = !!order && order.status === "pending";
+  const errorStatus =
+    isError && error && typeof (error as { status?: unknown }).status === "number"
+      ? ((error as { status: number }).status)
+      : null;
+  const errorMessage = error instanceof Error ? error.message : "";
+  const receiptMissing =
+    isError &&
+    (errorStatus === 401 || /\b401\b|unauthorized/i.test(errorMessage));
   const notFound =
-    isError && /404|not found/i.test(error instanceof Error ? error.message : "");
+    isError &&
+    !receiptMissing &&
+    (errorStatus === 404 || /\b404\b|not found/i.test(errorMessage));
 
   return (
     <div
@@ -163,6 +173,15 @@ export default function CheckoutSuccessPage() {
               data-testid="success-order-loading"
             >
               Loading your order…
+            </p>
+          ) : receiptMissing ? (
+            <p
+              className="mt-10 text-center text-sm"
+              style={{ color: MUTED }}
+              data-testid="success-order-receipt-missing"
+            >
+              This link is missing its receipt token. Please open the order
+              link from your confirmation email to view the details.
             </p>
           ) : notFound ? (
             <p
