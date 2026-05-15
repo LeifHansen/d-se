@@ -115,6 +115,55 @@ describe("admin contact-quarantine routes", () => {
       expect(ids).toContain(liveId);
       expect(ids).not.toContain(expiredId);
     });
+
+    it("removes expired rows from the database (not just the response) on read", async () => {
+      // Seed a mix: two expired (different ages), two fresh.
+      const expiredOldId = await seedQuarantine({
+        expiresAt: new Date(Date.now() - 1000 * 60 * 60 * 24),
+        subject: "expired-old",
+        email: "old@example.com",
+      });
+      const expiredRecentId = await seedQuarantine({
+        expiresAt: new Date(Date.now() - 1000),
+        subject: "expired-recent",
+        email: "recent@example.com",
+      });
+      const freshSoonId = await seedQuarantine({
+        expiresAt: new Date(Date.now() + 1000 * 60 * 5),
+        subject: "fresh-soon",
+        email: "soon@example.com",
+      });
+      const freshLaterId = await seedQuarantine({
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
+        subject: "fresh-later",
+        email: "later@example.com",
+      });
+
+      // Sanity: all four rows exist before the request.
+      const before = await db.select().from(contactQuarantineTable);
+      expect(before.map((r) => r.id).sort()).toEqual(
+        [expiredOldId, expiredRecentId, freshSoonId, freshLaterId].sort(),
+      );
+
+      const res = await request(app).get("/api/admin/contact-quarantine");
+      expect(res.status).toBe(200);
+
+      // Response must only contain the fresh rows.
+      const responseIds = (res.body.items as { id: number }[])
+        .map((i) => i.id)
+        .sort();
+      expect(responseIds).toEqual([freshSoonId, freshLaterId].sort());
+
+      // And — crucially — the expired rows must be physically gone from
+      // the database, proving the route really called cleanup (not just
+      // filtered the SELECT). If the on-read cleanup call is removed,
+      // these rows would still be present and this assertion would fail.
+      const after = await db.select().from(contactQuarantineTable);
+      const remainingIds = after.map((r) => r.id).sort();
+      expect(remainingIds).toEqual([freshSoonId, freshLaterId].sort());
+      expect(remainingIds).not.toContain(expiredOldId);
+      expect(remainingIds).not.toContain(expiredRecentId);
+    });
   });
 
   describe("POST /admin/contact-quarantine/:id/forward", () => {
