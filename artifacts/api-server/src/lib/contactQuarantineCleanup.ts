@@ -1,5 +1,9 @@
 import { lt } from "drizzle-orm";
-import { db, contactQuarantineTable } from "@workspace/db";
+import {
+  db,
+  contactQuarantineTable,
+  newsletterQuarantineTable,
+} from "@workspace/db";
 import { logger } from "./logger";
 
 const POLL_INTERVAL_MS = Number(
@@ -16,6 +20,16 @@ export async function cleanupContactQuarantine(
   return deleted.length;
 }
 
+export async function cleanupNewsletterQuarantine(
+  now: Date = new Date(),
+): Promise<number> {
+  const deleted = await db
+    .delete(newsletterQuarantineTable)
+    .where(lt(newsletterQuarantineTable.expiresAt, now))
+    .returning({ id: newsletterQuarantineTable.id });
+  return deleted.length;
+}
+
 let timer: NodeJS.Timeout | null = null;
 
 export function startContactQuarantineCleanupScheduler(): void {
@@ -24,11 +38,15 @@ export function startContactQuarantineCleanupScheduler(): void {
   if (process.env.DISABLE_CONTACT_QUARANTINE_CLEANUP === "1") return;
   const tick = async () => {
     try {
-      const removed = await cleanupContactQuarantine();
+      const [contact, newsletter] = await Promise.all([
+        cleanupContactQuarantine(),
+        cleanupNewsletterQuarantine(),
+      ]);
+      const removed = contact + newsletter;
       if (removed > 0) {
         logger.info(
-          { removed },
-          "Pruned expired contact_quarantine rows",
+          { contact, newsletter },
+          "Pruned expired spam quarantine rows",
         );
       }
     } catch (err) {

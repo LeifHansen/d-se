@@ -1739,6 +1739,7 @@ export const ListAdminContactQuarantineResponse = zod.object({
       createdAt: zod.coerce.date(),
       expiresAt: zod.coerce.date(),
       forwardedAt: zod.coerce.date().nullish(),
+      markedLegitAt: zod.coerce.date().nullish(),
     }),
   ),
 });
@@ -1760,6 +1761,97 @@ export const ForwardAdminContactQuarantineResponse = zod.object({
  */
 export const DeleteAdminContactQuarantineParams = zod.object({
   id: zod.coerce.number(),
+});
+
+/**
+ * @summary Flag a quarantined contact submission as a false positive
+ */
+export const MarkAdminContactQuarantineLegitParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const MarkAdminContactQuarantineLegitResponse = zod.object({
+  id: zod.number(),
+  name: zod.string(),
+  email: zod.string(),
+  subject: zod.string(),
+  message: zod.string(),
+  reasons: zod.array(zod.string()),
+  ip: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  expiresAt: zod.coerce.date(),
+  forwardedAt: zod.coerce.date().nullish(),
+  markedLegitAt: zod.coerce.date().nullish(),
+});
+
+/**
+ * @summary Permanently delete a quarantined newsletter signup
+ */
+export const DeleteAdminNewsletterQuarantineParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+/**
+ * @summary Flag a quarantined newsletter signup as a false positive
+ */
+export const MarkAdminNewsletterQuarantineLegitParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const MarkAdminNewsletterQuarantineLegitResponse = zod.object({
+  id: zod.number(),
+  email: zod.string(),
+  source: zod.string().nullish(),
+  reasons: zod.array(zod.string()),
+  ip: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+  expiresAt: zod.coerce.date(),
+  markedLegitAt: zod.coerce.date().nullish(),
+});
+
+/**
+ * @summary Combined recent filtered submissions across contact form and newsletter
+ */
+export const ListAdminSpamQuarantineResponse = zod.object({
+  contact: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      email: zod.string(),
+      subject: zod.string(),
+      message: zod.string(),
+      reasons: zod.array(zod.string()),
+      ip: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      expiresAt: zod.coerce.date(),
+      forwardedAt: zod.coerce.date().nullish(),
+      markedLegitAt: zod.coerce.date().nullish(),
+    }),
+  ),
+  newsletter: zod.array(
+    zod.object({
+      id: zod.number(),
+      email: zod.string(),
+      source: zod.string().nullish(),
+      reasons: zod.array(zod.string()),
+      ip: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+      expiresAt: zod.coerce.date(),
+      markedLegitAt: zod.coerce.date().nullish(),
+    }),
+  ),
+  reasonCounts7d: zod.array(
+    zod.object({
+      reason: zod.string(),
+      count: zod.number(),
+    }),
+  ),
+  reasonCounts30d: zod.array(
+    zod.object({
+      reason: zod.string(),
+      count: zod.number(),
+    }),
+  ),
 });
 
 export const GetAdminTaxSummaryResponse = zod.object({

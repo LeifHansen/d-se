@@ -12,6 +12,7 @@ import {
   cartItemsTable,
   newsletterSubscribersTable,
   contactQuarantineTable,
+  newsletterQuarantineTable,
 } from "@workspace/db";
 import {
   CreateProductBody,
@@ -52,6 +53,12 @@ import {
   ForwardAdminContactQuarantineParams,
   ForwardAdminContactQuarantineResponse,
   DeleteAdminContactQuarantineParams,
+  MarkAdminContactQuarantineLegitParams,
+  MarkAdminContactQuarantineLegitResponse,
+  DeleteAdminNewsletterQuarantineParams,
+  MarkAdminNewsletterQuarantineLegitParams,
+  MarkAdminNewsletterQuarantineLegitResponse,
+  ListAdminSpamQuarantineResponse,
 } from "@workspace/api-zod";
 import { requireAdmin, getUserId } from "../lib/auth";
 import { buildOrderResponse } from "./orders";
@@ -126,7 +133,10 @@ import {
   FROM_ADDRESS,
 } from "../lib/easypost";
 import { sendShipmentEmail, forwardQuarantinedContactEmail } from "../lib/email";
-import { cleanupContactQuarantine } from "../lib/contactQuarantineCleanup";
+import {
+  cleanupContactQuarantine,
+  cleanupNewsletterQuarantine,
+} from "../lib/contactQuarantineCleanup";
 import { getStripeWebhookHealth } from "../lib/metrics";
 
 const router: IRouter = Router();
@@ -1475,5 +1485,189 @@ router.delete(
     res.status(204).end();
   },
 );
+
+function serializeContactQuarantine(
+  r: typeof contactQuarantineTable.$inferSelect,
+) {
+  return {
+    id: r.id,
+    name: r.name,
+    email: r.email,
+    subject: r.subject,
+    message: r.message,
+    reasons: (r.reasons ?? []) as string[],
+    ip: r.ip,
+    createdAt: r.createdAt.toISOString(),
+    expiresAt: r.expiresAt.toISOString(),
+    forwardedAt: r.forwardedAt ? r.forwardedAt.toISOString() : null,
+    markedLegitAt: r.markedLegitAt ? r.markedLegitAt.toISOString() : null,
+  };
+}
+
+function serializeNewsletterQuarantine(
+  r: typeof newsletterQuarantineTable.$inferSelect,
+) {
+  return {
+    id: r.id,
+    email: r.email,
+    source: r.source,
+    reasons: (r.reasons ?? []) as string[],
+    ip: r.ip,
+    createdAt: r.createdAt.toISOString(),
+    expiresAt: r.expiresAt.toISOString(),
+    markedLegitAt: r.markedLegitAt ? r.markedLegitAt.toISOString() : null,
+  };
+}
+
+router.post(
+  "/admin/contact-quarantine/:id/mark-legit",
+  async (req, res): Promise<void> => {
+    const params = MarkAdminContactQuarantineLegitParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const [updated] = await db
+      .update(contactQuarantineTable)
+      .set({ markedLegitAt: new Date() })
+      .where(eq(contactQuarantineTable.id, params.data.id))
+      .returning();
+    if (!updated) {
+      res.status(404).json({ error: "Quarantined message not found" });
+      return;
+    }
+    res.json(
+      MarkAdminContactQuarantineLegitResponse.parse(
+        serializeContactQuarantine(updated),
+      ),
+    );
+  },
+);
+
+router.post(
+  "/admin/newsletter-quarantine/:id/mark-legit",
+  async (req, res): Promise<void> => {
+    const params = MarkAdminNewsletterQuarantineLegitParams.safeParse(
+      req.params,
+    );
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const [updated] = await db
+      .update(newsletterQuarantineTable)
+      .set({ markedLegitAt: new Date() })
+      .where(eq(newsletterQuarantineTable.id, params.data.id))
+      .returning();
+    if (!updated) {
+      res.status(404).json({ error: "Quarantined signup not found" });
+      return;
+    }
+    res.json(
+      MarkAdminNewsletterQuarantineLegitResponse.parse(
+        serializeNewsletterQuarantine(updated),
+      ),
+    );
+  },
+);
+
+router.delete(
+  "/admin/newsletter-quarantine/:id",
+  async (req, res): Promise<void> => {
+    const params = DeleteAdminNewsletterQuarantineParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    await db
+      .delete(newsletterQuarantineTable)
+      .where(eq(newsletterQuarantineTable.id, params.data.id));
+    res.status(204).end();
+  },
+);
+
+// Strip an optional `:detail` suffix (e.g. `blocked_tld:.ru` -> `blocked_tld`)
+// so trend counts group by the underlying signal rather than each unique value.
+function reasonKey(raw: string): string {
+  const colon = raw.indexOf(":");
+  return colon < 0 ? raw : raw.slice(0, colon);
+}
+
+router.get("/admin/spam-quarantine", async (_req, res): Promise<void> => {
+  // Best-effort eviction so admins never see stale rows even if the cleanup
+  // scheduler is paused or hasn't run yet on this instance.
+  try {
+    await Promise.all([
+      cleanupContactQuarantine(),
+      cleanupNewsletterQuarantine(),
+    ]);
+  } catch {
+    // Non-fatal — the listing is the important part.
+  }
+
+  const now = new Date();
+  const start7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const start30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const [contactRows, newsletterRows, contact30, newsletter30] =
+    await Promise.all([
+      db
+        .select()
+        .from(contactQuarantineTable)
+        .orderBy(desc(contactQuarantineTable.createdAt))
+        .limit(200),
+      db
+        .select()
+        .from(newsletterQuarantineTable)
+        .orderBy(desc(newsletterQuarantineTable.createdAt))
+        .limit(200),
+      db
+        .select({
+          reasons: contactQuarantineTable.reasons,
+          createdAt: contactQuarantineTable.createdAt,
+        })
+        .from(contactQuarantineTable)
+        .where(gte(contactQuarantineTable.createdAt, start30)),
+      db
+        .select({
+          reasons: newsletterQuarantineTable.reasons,
+          createdAt: newsletterQuarantineTable.createdAt,
+        })
+        .from(newsletterQuarantineTable)
+        .where(gte(newsletterQuarantineTable.createdAt, start30)),
+    ]);
+
+  const counts7 = new Map<string, number>();
+  const counts30 = new Map<string, number>();
+  const tally = (createdAt: Date, reasons: unknown) => {
+    const list = Array.isArray(reasons) ? (reasons as string[]) : [];
+    const seen = new Set<string>();
+    for (const raw of list) {
+      const key = reasonKey(raw);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      counts30.set(key, (counts30.get(key) ?? 0) + 1);
+      if (createdAt >= start7) {
+        counts7.set(key, (counts7.get(key) ?? 0) + 1);
+      }
+    }
+  };
+  for (const r of contact30) tally(r.createdAt, r.reasons);
+  for (const r of newsletter30) tally(r.createdAt, r.reasons);
+
+  const toSorted = (m: Map<string, number>) =>
+    Array.from(m.entries())
+      .map(([reason, count]) => ({ reason, count }))
+      .sort((a, b) => b.count - a.count || a.reason.localeCompare(b.reason));
+
+  res.json(
+    ListAdminSpamQuarantineResponse.parse({
+      contact: contactRows.map(serializeContactQuarantine),
+      newsletter: newsletterRows.map(serializeNewsletterQuarantine),
+      reasonCounts7d: toSorted(counts7),
+      reasonCounts30d: toSorted(counts30),
+    }),
+  );
+});
 
 export default router;

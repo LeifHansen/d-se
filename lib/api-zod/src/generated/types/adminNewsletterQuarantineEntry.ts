@@ -6,19 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface AdminContactQuarantineEntry {
+export interface AdminNewsletterQuarantineEntry {
   id: number;
-  name: string;
   email: string;
-  subject: string;
-  message: string;
+  /** @nullable */
+  source?: string | null;
   reasons: string[];
   /** @nullable */
   ip?: string | null;
   createdAt: Date;
   expiresAt: Date;
-  /** @nullable */
-  forwardedAt?: Date | null;
   /** @nullable */
   markedLegitAt?: Date | null;
 }

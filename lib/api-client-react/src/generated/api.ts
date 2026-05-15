@@ -19,10 +19,13 @@ import type {
 import type {
   AbandonedCart,
   AddCartItemBody,
+  AdminContactQuarantineEntry,
   AdminContactQuarantineForwardResult,
   AdminContactQuarantineList,
+  AdminNewsletterQuarantineEntry,
   AdminNewsletterSubscriber,
   AdminNewsletterSubscriberList,
+  AdminSpamQuarantineSummary,
   AdminStats,
   ApplyCartDiscountBody,
   BadRequestResponse,
@@ -4805,6 +4808,349 @@ export const useDeleteAdminContactQuarantine = <
 > => {
   return useMutation(getDeleteAdminContactQuarantineMutationOptions(options));
 };
+
+/**
+ * @summary Flag a quarantined contact submission as a false positive
+ */
+export const getMarkAdminContactQuarantineLegitUrl = (id: number) => {
+  return `/api/admin/contact-quarantine/${id}/mark-legit`;
+};
+
+export const markAdminContactQuarantineLegit = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminContactQuarantineEntry> => {
+  return customFetch<AdminContactQuarantineEntry>(
+    getMarkAdminContactQuarantineLegitUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getMarkAdminContactQuarantineLegitMutationOptions = <
+  TError = ErrorType<Error>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAdminContactQuarantineLegit>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markAdminContactQuarantineLegit>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["markAdminContactQuarantineLegit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markAdminContactQuarantineLegit>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return markAdminContactQuarantineLegit(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkAdminContactQuarantineLegitMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markAdminContactQuarantineLegit>>
+>;
+
+export type MarkAdminContactQuarantineLegitMutationError = ErrorType<Error>;
+
+/**
+ * @summary Flag a quarantined contact submission as a false positive
+ */
+export const useMarkAdminContactQuarantineLegit = <
+  TError = ErrorType<Error>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAdminContactQuarantineLegit>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markAdminContactQuarantineLegit>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(
+    getMarkAdminContactQuarantineLegitMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Permanently delete a quarantined newsletter signup
+ */
+export const getDeleteAdminNewsletterQuarantineUrl = (id: number) => {
+  return `/api/admin/newsletter-quarantine/${id}`;
+};
+
+export const deleteAdminNewsletterQuarantine = async (
+  id: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteAdminNewsletterQuarantineUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteAdminNewsletterQuarantineMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAdminNewsletterQuarantine>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteAdminNewsletterQuarantine>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["deleteAdminNewsletterQuarantine"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteAdminNewsletterQuarantine>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return deleteAdminNewsletterQuarantine(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteAdminNewsletterQuarantineMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteAdminNewsletterQuarantine>>
+>;
+
+export type DeleteAdminNewsletterQuarantineMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Permanently delete a quarantined newsletter signup
+ */
+export const useDeleteAdminNewsletterQuarantine = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteAdminNewsletterQuarantine>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteAdminNewsletterQuarantine>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(
+    getDeleteAdminNewsletterQuarantineMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Flag a quarantined newsletter signup as a false positive
+ */
+export const getMarkAdminNewsletterQuarantineLegitUrl = (id: number) => {
+  return `/api/admin/newsletter-quarantine/${id}/mark-legit`;
+};
+
+export const markAdminNewsletterQuarantineLegit = async (
+  id: number,
+  options?: RequestInit,
+): Promise<AdminNewsletterQuarantineEntry> => {
+  return customFetch<AdminNewsletterQuarantineEntry>(
+    getMarkAdminNewsletterQuarantineLegitUrl(id),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getMarkAdminNewsletterQuarantineLegitMutationOptions = <
+  TError = ErrorType<Error>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAdminNewsletterQuarantineLegit>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markAdminNewsletterQuarantineLegit>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["markAdminNewsletterQuarantineLegit"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markAdminNewsletterQuarantineLegit>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return markAdminNewsletterQuarantineLegit(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkAdminNewsletterQuarantineLegitMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markAdminNewsletterQuarantineLegit>>
+>;
+
+export type MarkAdminNewsletterQuarantineLegitMutationError = ErrorType<Error>;
+
+/**
+ * @summary Flag a quarantined newsletter signup as a false positive
+ */
+export const useMarkAdminNewsletterQuarantineLegit = <
+  TError = ErrorType<Error>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAdminNewsletterQuarantineLegit>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markAdminNewsletterQuarantineLegit>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(
+    getMarkAdminNewsletterQuarantineLegitMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Combined recent filtered submissions across contact form and newsletter
+ */
+export const getListAdminSpamQuarantineUrl = () => {
+  return `/api/admin/spam-quarantine`;
+};
+
+export const listAdminSpamQuarantine = async (
+  options?: RequestInit,
+): Promise<AdminSpamQuarantineSummary> => {
+  return customFetch<AdminSpamQuarantineSummary>(
+    getListAdminSpamQuarantineUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getListAdminSpamQuarantineQueryKey = () => {
+  return [`/api/admin/spam-quarantine`] as const;
+};
+
+export const getListAdminSpamQuarantineQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminSpamQuarantine>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminSpamQuarantine>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminSpamQuarantineQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminSpamQuarantine>>
+  > = ({ signal }) => listAdminSpamQuarantine({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminSpamQuarantine>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminSpamQuarantineQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminSpamQuarantine>>
+>;
+export type ListAdminSpamQuarantineQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Combined recent filtered submissions across contact form and newsletter
+ */
+
+export function useListAdminSpamQuarantine<
+  TData = Awaited<ReturnType<typeof listAdminSpamQuarantine>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminSpamQuarantine>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminSpamQuarantineQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 export const getGetAdminTaxSummaryUrl = () => {
   return `/api/admin/tax-summary`;

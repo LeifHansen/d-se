@@ -524,6 +524,8 @@ export interface AdminContactQuarantineEntry {
   expiresAt: string;
   /** @nullable */
   forwardedAt?: string | null;
+  /** @nullable */
+  markedLegitAt?: string | null;
 }
 
 export interface AdminContactQuarantineList {
@@ -533,6 +535,32 @@ export interface AdminContactQuarantineList {
 export interface AdminContactQuarantineForwardResult {
   id: number;
   forwardedAt: string;
+}
+
+export interface AdminNewsletterQuarantineEntry {
+  id: number;
+  email: string;
+  /** @nullable */
+  source?: string | null;
+  reasons: string[];
+  /** @nullable */
+  ip?: string | null;
+  createdAt: string;
+  expiresAt: string;
+  /** @nullable */
+  markedLegitAt?: string | null;
+}
+
+export interface AdminSpamReasonCount {
+  reason: string;
+  count: number;
+}
+
+export interface AdminSpamQuarantineSummary {
+  contact: AdminContactQuarantineEntry[];
+  newsletter: AdminNewsletterQuarantineEntry[];
+  reasonCounts7d: AdminSpamReasonCount[];
+  reasonCounts30d: AdminSpamReasonCount[];
 }
 
 /**

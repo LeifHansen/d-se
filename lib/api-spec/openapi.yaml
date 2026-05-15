@@ -1069,6 +1069,75 @@ paths:
       responses:
         "204": { description: Deleted }
 
+  /admin/contact-quarantine/{id}/mark-legit:
+    post:
+      operationId: markAdminContactQuarantineLegit
+      tags: [admin]
+      summary: Flag a quarantined contact submission as a false positive
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminContactQuarantineEntry" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /admin/newsletter-quarantine/{id}:
+    delete:
+      operationId: deleteAdminNewsletterQuarantine
+      tags: [admin]
+      summary: Permanently delete a quarantined newsletter signup
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "204": { description: Deleted }
+
+  /admin/newsletter-quarantine/{id}/mark-legit:
+    post:
+      operationId: markAdminNewsletterQuarantineLegit
+      tags: [admin]
+      summary: Flag a quarantined newsletter signup as a false positive
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminNewsletterQuarantineEntry" }
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /admin/spam-quarantine:
+    get:
+      operationId: listAdminSpamQuarantine
+      tags: [admin]
+      summary: Combined recent filtered submissions across contact form and newsletter
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminSpamQuarantineSummary" }
+
   /admin/tax-summary:
     get:
       operationId: getAdminTaxSummary
@@ -1656,6 +1725,7 @@ components:
         createdAt: { type: string, format: date-time }
         expiresAt: { type: string, format: date-time }
         forwardedAt: { type: ["string", "null"], format: date-time }
+        markedLegitAt: { type: ["string", "null"], format: date-time }
 
     AdminContactQuarantineList:
       type: object
@@ -1671,3 +1741,42 @@ components:
       properties:
         id: { type: integer }
         forwardedAt: { type: string, format: date-time }
+
+    AdminNewsletterQuarantineEntry:
+      type: object
+      required: [id, email, reasons, createdAt, expiresAt]
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        source: { type: ["string", "null"] }
+        reasons:
+          type: array
+          items: { type: string }
+        ip: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        markedLegitAt: { type: ["string", "null"], format: date-time }
+
+    AdminSpamReasonCount:
+      type: object
+      required: [reason, count]
+      properties:
+        reason: { type: string }
+        count: { type: integer }
+
+    AdminSpamQuarantineSummary:
+      type: object
+      required: [contact, newsletter, reasonCounts7d, reasonCounts30d]
+      properties:
+        contact:
+          type: array
+          items: { $ref: "#/components/schemas/AdminContactQuarantineEntry" }
+        newsletter:
+          type: array
+          items: { $ref: "#/components/schemas/AdminNewsletterQuarantineEntry" }
+        reasonCounts7d:
+          type: array
+          items: { $ref: "#/components/schemas/AdminSpamReasonCount" }
+        reasonCounts30d:
+          type: array
+          items: { $ref: "#/components/schemas/AdminSpamReasonCount" }

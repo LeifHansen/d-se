@@ -11,7 +11,11 @@ import {
   sql,
   type SQL,
 } from "drizzle-orm";
-import { db, newsletterSubscribersTable } from "@workspace/db";
+import {
+  db,
+  newsletterSubscribersTable,
+  newsletterQuarantineTable,
+} from "@workspace/db";
 import {
   SubscribeNewsletterBody,
   SubscribeNewsletterResponse,
@@ -220,6 +224,26 @@ router.post("/newsletter/subscribe", async (req, res): Promise<void> => {
       { ip, email, source, reasons },
       "Newsletter signup shadow-accepted (spam heuristics matched)",
     );
+    const retentionDays = envInt(
+      "NEWSLETTER_QUARANTINE_RETENTION_DAYS",
+      envInt("CONTACT_QUARANTINE_RETENTION_DAYS", 14),
+    );
+    const expiresAt = new Date(
+      Date.now() + retentionDays * 24 * 60 * 60 * 1000,
+    );
+    try {
+      await db.insert(newsletterQuarantineTable).values({
+        email,
+        source,
+        reasons,
+        ip,
+        expiresAt,
+      });
+    } catch (err) {
+      // Persistence failures must never alter the response shape — the operator
+      // just loses one row of recoverability for this signup.
+      req.log.warn({ err }, "Failed to persist newsletter quarantine row");
+    }
     res.json(
       SubscribeNewsletterResponse.parse({ ok: true, alreadySubscribed: true }),
     );

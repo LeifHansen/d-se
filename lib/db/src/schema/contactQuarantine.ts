@@ -19,6 +19,7 @@ export const contactQuarantineTable = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
     expiresAt: timestamp("expires_at").notNull(),
     forwardedAt: timestamp("forwarded_at"),
+    markedLegitAt: timestamp("marked_legit_at"),
   },
   (t) => ({
     expiresIdx: index("contact_quarantine_expires_idx").on(t.expiresAt),
