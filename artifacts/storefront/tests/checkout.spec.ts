@@ -132,7 +132,7 @@ async function installCheckoutMocks(
   // Same-origin stub so Playwright can wait for the navigation triggered by
   // window.location.href = result.url. A real Stripe URL would be
   // cross-origin and produce flaky network behavior in a test environment.
-  await page.route("**" + STRIPE_STUB_PATH, async (route: Route) => {
+  await page.route("**" + STRIPE_STUB_PATH + "*", async (route: Route) => {
     await route.fulfill({
       status: 200,
       contentType: "text/html",
@@ -461,7 +461,7 @@ test.describe("cart → Stripe checkout handoff", () => {
     await expect(page.getByTestId("checkout-zip")).toHaveValue("");
   });
 
-  test("/checkout/success clears the stored cart id before redirecting", async ({
+  test("/checkout/success clears the stored cart id once the order loads", async ({
     page,
   }) => {
     await installCheckoutMocks(page, {
@@ -469,21 +469,49 @@ test.describe("cart → Stripe checkout handoff", () => {
       calls: [],
     });
 
-    // The success page redirects to /orders/:id (or /account) once the cart
-    // is cleared. Stub those destinations so the test stays self-contained
-    // and we can assert the cleanup happened.
-    await page.route(`**/orders/${ORDER_ID}*`, async (route: Route) => {
+    // Stub the order fetch so the success page can render its inline order
+    // summary without depending on a real backend.
+    await page.route(/\/api\/orders\/\d+(\?|$)/, async (route: Route) => {
+      if (route.request().method() !== "GET") {
+        await route.fallback();
+        return;
+      }
       await route.fulfill({
         status: 200,
-        contentType: "text/html",
-        body: '<!doctype html><title>order-stub</title><h1 data-testid="order-stub">Order page</h1>',
-      });
-    });
-    await page.route("**/account*", async (route: Route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "text/html",
-        body: "<!doctype html><title>account-stub</title><h1>Account</h1>",
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: ORDER_ID,
+          status: "paid",
+          email: "buyer@example.com",
+          items: [
+            {
+              id: 1,
+              productId: 101,
+              productName: "Calm Tincture",
+              productImage: null,
+              quantity: 1,
+              priceCents: 4_200,
+            },
+          ],
+          subtotalCents: 4_200,
+          shippingCents: 800,
+          taxCents: 0,
+          discountCents: 0,
+          discountCode: null,
+          totalCents: 5_000,
+          currency: "usd",
+          shippingAddress: {
+            name: "Test Buyer",
+            street1: "1 Main St",
+            city: "Town",
+            state: "CA",
+            zip: "90210",
+            country: "US",
+          },
+          trackingCode: null,
+          labelUrl: null,
+          createdAt: "2026-05-01T12:00:00.000Z",
+        }),
       });
     });
 
@@ -491,17 +519,19 @@ test.describe("cart → Stripe checkout handoff", () => {
 
     await page.goto(`/checkout/success?orderId=${ORDER_ID}`);
 
-    // Success page kicks off a same-origin redirect to /orders/:id once the
-    // cleanup effect has run.
-    await page.waitForURL(new RegExp(`/orders/${ORDER_ID}(\\?|$)`));
-    await expect(page.getByTestId("order-stub")).toBeVisible();
+    // The success page renders the inline order summary once the order
+    // loads — that's the signal the cleanup effect has already run.
+    await expect(page.getByTestId("checkout-success-page")).toBeVisible();
+    await expect(page.getByTestId("success-order-summary")).toBeVisible();
 
-    // localStorage is same-origin so the value is still readable on the
-    // stubbed destination — and it must be null.
-    const stored = await page.evaluate(
-      (k) => window.localStorage.getItem(k),
-      STORED_CART_KEY,
-    );
-    expect(stored).toBeNull();
+    // Cleanup effect must have wiped the locally-stored cart id.
+    await expect
+      .poll(() =>
+        page.evaluate(
+          (k) => window.localStorage.getItem(k),
+          STORED_CART_KEY,
+        ),
+      )
+      .toBeNull();
   });
 });
