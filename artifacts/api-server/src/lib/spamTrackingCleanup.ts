@@ -18,12 +18,12 @@ function envInt(name: string, fallback: number): number {
   return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 
-const SAFETY_MARGIN_HOURS = Number(
-  process.env.SPAM_TRACKING_SAFETY_MARGIN_HOURS ?? 24,
-);
-const POLL_INTERVAL_MS = Number(
-  process.env.SPAM_TRACKING_CLEANUP_INTERVAL_MS ?? 60 * 60 * 1000,
-);
+function safetyMarginHours(): number {
+  return Number(process.env.SPAM_TRACKING_SAFETY_MARGIN_HOURS ?? 24);
+}
+function pollIntervalMs(): number {
+  return Number(process.env.SPAM_TRACKING_CLEANUP_INTERVAL_MS ?? 60 * 60 * 1000);
+}
 
 function contactRateLimitWindowMinutes(): number {
   // Contact form's rate-limit window is hardcoded at 10 minutes today; expose
@@ -48,7 +48,7 @@ function orderLookupWindowMinutes(): number {
 
 function cutoff(now: Date, windowMinutes: number): Date {
   const totalMs =
-    windowMinutes * 60 * 1000 + SAFETY_MARGIN_HOURS * 60 * 60 * 1000;
+    windowMinutes * 60 * 1000 + safetyMarginHours() * 60 * 60 * 1000;
   return new Date(now.getTime() - totalMs);
 }
 
@@ -104,6 +104,18 @@ export async function cleanupSpamTracking(
 }
 
 let timer: NodeJS.Timeout | null = null;
+let bootTimer: NodeJS.Timeout | null = null;
+
+export function stopSpamTrackingCleanupScheduler(): void {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+  if (bootTimer) {
+    clearTimeout(bootTimer);
+    bootTimer = null;
+  }
+}
 
 export function startSpamTrackingCleanupScheduler(): void {
   if (timer) return;
@@ -127,15 +139,17 @@ export function startSpamTrackingCleanupScheduler(): void {
       logger.warn({ err }, "Spam tracking cleanup tick failed");
     }
   };
-  timer = setInterval(tick, POLL_INTERVAL_MS);
+  const intervalMs = pollIntervalMs();
+  timer = setInterval(tick, intervalMs);
   if (typeof timer.unref === "function") timer.unref();
   // Run once shortly after boot so a freshly-deployed instance prunes any
   // backlog without waiting a full interval.
-  setTimeout(() => void tick(), 60_000).unref?.();
+  bootTimer = setTimeout(() => void tick(), 60_000);
+  bootTimer.unref?.();
   logger.info(
     {
-      intervalMs: POLL_INTERVAL_MS,
-      safetyMarginHours: SAFETY_MARGIN_HOURS,
+      intervalMs,
+      safetyMarginHours: safetyMarginHours(),
     },
     "Spam tracking cleanup scheduler started",
   );
