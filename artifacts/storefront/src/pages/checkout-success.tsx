@@ -259,7 +259,23 @@ export default function CheckoutSuccessPage() {
                         />
                       )}
                       <div className="flex-1">
-                        <p className="font-medium">{it.productName}</p>
+                        <p className="flex flex-wrap items-center gap-2 font-medium">
+                          <span>{it.productName}</span>
+                          {!it.available ? (
+                            <span
+                              className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                              style={{
+                                background: "hsl(40 50% 88%)",
+                                color: "hsl(0 55% 30%)",
+                              }}
+                              data-testid={`success-order-item-${it.id}-availability`}
+                            >
+                              {it.unavailableReason === "out_of_stock"
+                                ? "Out of stock"
+                                : "Unavailable"}
+                            </span>
+                          ) : null}
+                        </p>
                         <p
                           className="text-xs"
                           style={{ color: MUTED }}

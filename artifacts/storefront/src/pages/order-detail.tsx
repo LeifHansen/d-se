@@ -200,9 +200,25 @@ export default function OrderDetailPage() {
                   className="flex justify-between gap-2"
                   data-testid={`order-item-${it.id}`}
                 >
-                  <span>
-                    {it.productName}{" "}
-                    <span className="opacity-70">× {it.quantity}</span>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span>
+                      {it.productName}{" "}
+                      <span className="opacity-70">× {it.quantity}</span>
+                    </span>
+                    {!it.available ? (
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                        style={{
+                          background: "hsl(40 50% 88%)",
+                          color: "hsl(0 55% 30%)",
+                        }}
+                        data-testid={`order-item-${it.id}-availability`}
+                      >
+                        {it.unavailableReason === "out_of_stock"
+                          ? "Out of stock"
+                          : "Unavailable"}
+                      </span>
+                    ) : null}
                   </span>
                   <span>
                     {formatMoney(
