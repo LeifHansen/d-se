@@ -1290,6 +1290,33 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /admin/quarantine-digest-settings:
+    get:
+      operationId: getAdminQuarantineDigestSettings
+      tags: [admin]
+      summary: Read the admin's chosen cadence for the spam quarantine digest email
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminQuarantineDigestSettings" }
+    put:
+      operationId: updateAdminQuarantineDigestSettings
+      tags: [admin]
+      summary: Update the admin's chosen cadence for the spam quarantine digest email
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdminQuarantineDigestSettings" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminQuarantineDigestSettings" }
+
   /admin/spam-quarantine:
     get:
       operationId: listAdminSpamQuarantine
@@ -1989,6 +2016,15 @@ components:
         createdAt: { type: string, format: date-time }
         expiresAt: { type: string, format: date-time }
         markedLegitAt: { type: ["string", "null"], format: date-time }
+
+    AdminQuarantineDigestSettings:
+      type: object
+      required: [frequency]
+      properties:
+        frequency:
+          type: string
+          enum: [off, immediate, daily, weekly]
+          description: How often the spam quarantine digest email should be sent.
 
     AdminSpamReasonCount:
       type: object

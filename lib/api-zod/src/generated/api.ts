@@ -1973,6 +1973,30 @@ export const MarkAdminNewsletterQuarantineLegitResponse = zod.object({
 });
 
 /**
+ * @summary Read the admin's chosen cadence for the spam quarantine digest email
+ */
+export const GetAdminQuarantineDigestSettingsResponse = zod.object({
+  frequency: zod
+    .enum(["off", "immediate", "daily", "weekly"])
+    .describe("How often the spam quarantine digest email should be sent."),
+});
+
+/**
+ * @summary Update the admin's chosen cadence for the spam quarantine digest email
+ */
+export const UpdateAdminQuarantineDigestSettingsBody = zod.object({
+  frequency: zod
+    .enum(["off", "immediate", "daily", "weekly"])
+    .describe("How often the spam quarantine digest email should be sent."),
+});
+
+export const UpdateAdminQuarantineDigestSettingsResponse = zod.object({
+  frequency: zod
+    .enum(["off", "immediate", "daily", "weekly"])
+    .describe("How often the spam quarantine digest email should be sent."),
+});
+
+/**
  * @summary Combined recent filtered submissions across contact form and newsletter
  */
 export const ListAdminSpamQuarantineResponse = zod.object({

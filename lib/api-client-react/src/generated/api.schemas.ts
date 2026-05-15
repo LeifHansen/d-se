@@ -602,6 +602,24 @@ export interface AdminNewsletterQuarantineEntry {
   markedLegitAt?: string | null;
 }
 
+/**
+ * How often the spam quarantine digest email should be sent.
+ */
+export type AdminQuarantineDigestSettingsFrequency =
+  (typeof AdminQuarantineDigestSettingsFrequency)[keyof typeof AdminQuarantineDigestSettingsFrequency];
+
+export const AdminQuarantineDigestSettingsFrequency = {
+  off: "off",
+  immediate: "immediate",
+  daily: "daily",
+  weekly: "weekly",
+} as const;
+
+export interface AdminQuarantineDigestSettings {
+  /** How often the spam quarantine digest email should be sent. */
+  frequency: AdminQuarantineDigestSettingsFrequency;
+}
+
 export interface AdminSpamReasonCount {
   reason: string;
   count: number;

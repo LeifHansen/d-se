@@ -26,6 +26,7 @@ import type {
   AdminNewsletterSubscriber,
   AdminNewsletterSubscriberList,
   AdminOrderLink,
+  AdminQuarantineDigestSettings,
   AdminSpamQuarantineSummary,
   AdminSpamTrackingStats,
   AdminStats,
@@ -5856,6 +5857,179 @@ export const useMarkAdminNewsletterQuarantineLegit = <
 > => {
   return useMutation(
     getMarkAdminNewsletterQuarantineLegitMutationOptions(options),
+  );
+};
+
+/**
+ * @summary Read the admin's chosen cadence for the spam quarantine digest email
+ */
+export const getGetAdminQuarantineDigestSettingsUrl = () => {
+  return `/api/admin/quarantine-digest-settings`;
+};
+
+export const getAdminQuarantineDigestSettings = async (
+  options?: RequestInit,
+): Promise<AdminQuarantineDigestSettings> => {
+  return customFetch<AdminQuarantineDigestSettings>(
+    getGetAdminQuarantineDigestSettingsUrl(),
+    {
+      ...options,
+      method: "GET",
+    },
+  );
+};
+
+export const getGetAdminQuarantineDigestSettingsQueryKey = () => {
+  return [`/api/admin/quarantine-digest-settings`] as const;
+};
+
+export const getGetAdminQuarantineDigestSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAdminQuarantineDigestSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminQuarantineDigestSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetAdminQuarantineDigestSettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getAdminQuarantineDigestSettings>>
+  > = ({ signal }) =>
+    getAdminQuarantineDigestSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminQuarantineDigestSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAdminQuarantineDigestSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAdminQuarantineDigestSettings>>
+>;
+export type GetAdminQuarantineDigestSettingsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Read the admin's chosen cadence for the spam quarantine digest email
+ */
+
+export function useGetAdminQuarantineDigestSettings<
+  TData = Awaited<ReturnType<typeof getAdminQuarantineDigestSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAdminQuarantineDigestSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAdminQuarantineDigestSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Update the admin's chosen cadence for the spam quarantine digest email
+ */
+export const getUpdateAdminQuarantineDigestSettingsUrl = () => {
+  return `/api/admin/quarantine-digest-settings`;
+};
+
+export const updateAdminQuarantineDigestSettings = async (
+  adminQuarantineDigestSettings: AdminQuarantineDigestSettings,
+  options?: RequestInit,
+): Promise<AdminQuarantineDigestSettings> => {
+  return customFetch<AdminQuarantineDigestSettings>(
+    getUpdateAdminQuarantineDigestSettingsUrl(),
+    {
+      ...options,
+      method: "PUT",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(adminQuarantineDigestSettings),
+    },
+  );
+};
+
+export const getUpdateAdminQuarantineDigestSettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminQuarantineDigestSettings>>,
+    TError,
+    { data: BodyType<AdminQuarantineDigestSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAdminQuarantineDigestSettings>>,
+  TError,
+  { data: BodyType<AdminQuarantineDigestSettings> },
+  TContext
+> => {
+  const mutationKey = ["updateAdminQuarantineDigestSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAdminQuarantineDigestSettings>>,
+    { data: BodyType<AdminQuarantineDigestSettings> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateAdminQuarantineDigestSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAdminQuarantineDigestSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAdminQuarantineDigestSettings>>
+>;
+export type UpdateAdminQuarantineDigestSettingsMutationBody =
+  BodyType<AdminQuarantineDigestSettings>;
+export type UpdateAdminQuarantineDigestSettingsMutationError =
+  ErrorType<unknown>;
+
+/**
+ * @summary Update the admin's chosen cadence for the spam quarantine digest email
+ */
+export const useUpdateAdminQuarantineDigestSettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAdminQuarantineDigestSettings>>,
+    TError,
+    { data: BodyType<AdminQuarantineDigestSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAdminQuarantineDigestSettings>>,
+  TError,
+  { data: BodyType<AdminQuarantineDigestSettings> },
+  TContext
+> => {
+  return useMutation(
+    getUpdateAdminQuarantineDigestSettingsMutationOptions(options),
   );
 };
 

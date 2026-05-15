@@ -5,6 +5,7 @@ import { db, contactQuarantineTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import type { Logger } from "pino";
 import { createHash } from "node:crypto";
+import { triggerImmediateQuarantineDigestIfEnabled } from "../lib/quarantineDigest";
 
 const router: IRouter = Router();
 
@@ -340,6 +341,11 @@ router.post("/contact", async (req, res): Promise<void> => {
       // the operator just loses one row of recoverability for this submission.
       req.log.warn({ err }, "Failed to persist contact quarantine row");
     }
+    // Fire a digest right away if the admin opted into "immediate" cadence.
+    // Best-effort: failures must never alter the response shape.
+    triggerImmediateQuarantineDigestIfEnabled().catch((err) => {
+      req.log.warn({ err }, "Immediate quarantine digest trigger failed");
+    });
     res.json({ ok: true });
     return;
   }

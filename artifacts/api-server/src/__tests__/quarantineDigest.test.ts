@@ -10,7 +10,12 @@ vi.mock("../lib/email", () => ({
   sendQuarantineDigest: sendQuarantineDigestMock,
 }));
 
-const { runQuarantineDigestOnce } = await import("../lib/quarantineDigest");
+const {
+  runQuarantineDigestOnce,
+  getQuarantineDigestFrequency,
+  setQuarantineDigestFrequency,
+  triggerImmediateQuarantineDigestIfEnabled,
+} = await import("../lib/quarantineDigest");
 
 const HOUR = 60 * 60 * 1000;
 
@@ -110,5 +115,119 @@ describe("runQuarantineDigestOnce", () => {
     expect(arg.reviewUrl).toBe(
       "https://shop.example.com/admin/contact-quarantine",
     );
+  });
+
+  it("respects a custom windowMs (weekly cadence covers the past 7 days)", async () => {
+    const now = new Date("2026-05-15T12:00:00Z");
+    await seedEntry({
+      name: "Inside week",
+      createdAt: new Date(now.getTime() - 5 * 24 * HOUR),
+    });
+    await seedEntry({
+      name: "Outside week",
+      createdAt: new Date(now.getTime() - 10 * 24 * HOUR),
+    });
+    const sent = await runQuarantineDigestOnce(now, {
+      windowMs: 7 * 24 * HOUR,
+    });
+    expect(sent).toBe(1);
+    const arg = sendQuarantineDigestMock.mock.calls[0][0] as {
+      items: Array<{ name: string }>;
+    };
+    expect(arg.items.map((i) => i.name)).toEqual(["Inside week"]);
+  });
+});
+
+describe("quarantine digest frequency setting", () => {
+  beforeEach(async () => {
+    await resetDb();
+    sendQuarantineDigestMock.mockClear();
+    process.env.ADMIN_EMAILS = "owner@example.com";
+  });
+
+  afterEach(() => {
+    delete process.env.ADMIN_EMAILS;
+    delete process.env.NODE_ENV;
+    delete process.env.DISABLE_CONTACT_QUARANTINE_DIGEST;
+  });
+
+  it("defaults to daily when no setting is stored", async () => {
+    expect(await getQuarantineDigestFrequency()).toBe("daily");
+  });
+
+  it("round-trips a stored frequency", async () => {
+    await setQuarantineDigestFrequency("weekly");
+    expect(await getQuarantineDigestFrequency()).toBe("weekly");
+    await setQuarantineDigestFrequency("off");
+    expect(await getQuarantineDigestFrequency()).toBe("off");
+  });
+});
+
+describe("triggerImmediateQuarantineDigestIfEnabled", () => {
+  beforeEach(async () => {
+    await resetDb();
+    sendQuarantineDigestMock.mockClear();
+    process.env.ADMIN_EMAILS = "owner@example.com";
+    // The function short-circuits in test mode by design; clear NODE_ENV
+    // for these targeted tests so we can exercise the gating logic.
+    delete process.env.NODE_ENV;
+  });
+
+  afterEach(() => {
+    delete process.env.ADMIN_EMAILS;
+    delete process.env.DISABLE_CONTACT_QUARANTINE_DIGEST;
+    process.env.NODE_ENV = "test";
+  });
+
+  it("does nothing when frequency is daily", async () => {
+    await setQuarantineDigestFrequency("daily");
+    // Use a time well past any prior in-process cooldown so the gating
+    // we exercise here is the frequency check, not the debounce.
+    const now = new Date("2026-05-16T12:00:00Z");
+    await seedEntry({ createdAt: new Date(now.getTime() - 5 * 60 * 1000) });
+    const sent = await triggerImmediateQuarantineDigestIfEnabled(now);
+    expect(sent).toBe(0);
+    expect(sendQuarantineDigestMock).not.toHaveBeenCalled();
+  });
+
+  it("sends right away when frequency is immediate", async () => {
+    await setQuarantineDigestFrequency("immediate");
+    const now = new Date("2026-05-17T12:00:00Z");
+    await seedEntry({ createdAt: new Date(now.getTime() - 5 * 60 * 1000) });
+    const sent = await triggerImmediateQuarantineDigestIfEnabled(now);
+    expect(sent).toBe(1);
+    expect(sendQuarantineDigestMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("debounces rapid bursts to a single digest", async () => {
+    await setQuarantineDigestFrequency("immediate");
+    const now = new Date("2026-05-18T12:00:00Z");
+    await seedEntry({
+      name: "Burst A",
+      createdAt: new Date(now.getTime() - 60 * 1000),
+    });
+    const sent1 = await triggerImmediateQuarantineDigestIfEnabled(now);
+    expect(sent1).toBe(1);
+    expect(sendQuarantineDigestMock).toHaveBeenCalledTimes(1);
+
+    // A second submission moments later should NOT produce another email.
+    await seedEntry({
+      name: "Burst B",
+      createdAt: new Date(now.getTime() + 30 * 1000),
+    });
+    const justAfter = new Date(now.getTime() + 60 * 1000);
+    const sent2 = await triggerImmediateQuarantineDigestIfEnabled(justAfter);
+    expect(sent2).toBe(0);
+    expect(sendQuarantineDigestMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("respects DISABLE_CONTACT_QUARANTINE_DIGEST even on immediate", async () => {
+    await setQuarantineDigestFrequency("immediate");
+    process.env.DISABLE_CONTACT_QUARANTINE_DIGEST = "1";
+    const now = new Date("2026-05-19T12:00:00Z");
+    await seedEntry({ createdAt: new Date(now.getTime() - 5 * 60 * 1000) });
+    const sent = await triggerImmediateQuarantineDigestIfEnabled(now);
+    expect(sent).toBe(0);
+    expect(sendQuarantineDigestMock).not.toHaveBeenCalled();
   });
 });

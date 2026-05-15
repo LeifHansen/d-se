@@ -52,6 +52,9 @@ import {
   DeleteReviewParams,
   ListAdminAbandonedCartsResponse,
   GetAdminTaxSummaryResponse,
+  GetAdminQuarantineDigestSettingsResponse,
+  UpdateAdminQuarantineDigestSettingsBody,
+  UpdateAdminQuarantineDigestSettingsResponse,
   BulkUpdateInventoryBody,
   ListAdminContactQuarantineResponse,
   ForwardAdminContactQuarantineParams,
@@ -169,6 +172,10 @@ import {
 } from "../lib/contactQuarantineCleanup";
 import { getSpamTrackingCleanupStats } from "../lib/spamTrackingCleanup";
 import { getStripeWebhookHealth } from "../lib/metrics";
+import {
+  getQuarantineDigestFrequency,
+  setQuarantineDigestFrequency,
+} from "../lib/quarantineDigest";
 
 const router: IRouter = Router();
 
@@ -1614,6 +1621,35 @@ router.get("/admin/tax-summary", async (_req, res): Promise<void> => {
     }),
   );
 });
+
+// ---------- Quarantine digest settings ----------
+
+router.get(
+  "/admin/quarantine-digest-settings",
+  async (_req, res): Promise<void> => {
+    const frequency = await getQuarantineDigestFrequency();
+    res.json(GetAdminQuarantineDigestSettingsResponse.parse({ frequency }));
+  },
+);
+
+router.put(
+  "/admin/quarantine-digest-settings",
+  async (req, res): Promise<void> => {
+    const parsed = UpdateAdminQuarantineDigestSettingsBody.safeParse(req.body);
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({ error: "Invalid frequency", details: parsed.error.flatten() });
+      return;
+    }
+    await setQuarantineDigestFrequency(parsed.data.frequency);
+    res.json(
+      UpdateAdminQuarantineDigestSettingsResponse.parse({
+        frequency: parsed.data.frequency,
+      }),
+    );
+  },
+);
 
 router.get("/admin/contact-quarantine", async (_req, res): Promise<void> => {
   // Best-effort eviction of expired rows so admins never see stale messages
