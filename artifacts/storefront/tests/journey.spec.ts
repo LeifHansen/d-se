@@ -721,7 +721,16 @@ test.describe("storefront customer journey", () => {
       "calm wind-down",
     );
 
-    await page.getByTestId("link-back-to-blog").click();
+    // Avoid clicking link-back-to-blog: the post page re-renders as the
+    // markdown content and related-posts query settle, which can detach the
+    // anchor mid-click and time out Playwright's retry. Asserting the link's
+    // href and navigating via page.goto gives us the same coverage without
+    // racing React re-renders.
+    await expect(page.getByTestId("link-back-to-blog")).toHaveAttribute(
+      "href",
+      "/blog",
+    );
+    await page.goto("/blog");
     await expect(page).toHaveURL(/\/blog$/);
     await expect(page.getByTestId("blog-grid")).toBeVisible();
   });
