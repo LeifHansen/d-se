@@ -15,6 +15,7 @@ import reviewsRouter from "./reviews";
 import newsletterRouter from "./newsletter";
 import contactRouter from "./contact";
 import accountRouter from "./account";
+import quarantineDigestActionsRouter from "./quarantineDigestActions";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(seoRouter);
 router.use(newsletterRouter);
 router.use(contactRouter);
 router.use(accountRouter);
+router.use(quarantineDigestActionsRouter);
 
 export default router;

@@ -217,12 +217,14 @@ export async function sendQuarantineDigest(opts: {
     subject: string;
     reasons: string[];
     createdAt: Date;
+    forwardUrl?: string | null;
+    discardUrl?: string | null;
   }>;
   reviewUrl?: string | null;
 }): Promise<void> {
   const r = await getResend();
   if (!r) return;
-  const escapeHtml = (s: string) =>
+  const esc = (s: string) =>
     s
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
@@ -230,14 +232,23 @@ export async function sendQuarantineDigest(opts: {
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
   const rows = opts.items
-    .map(
-      (i) =>
-        `<tr><td>#${i.id}</td><td>${escapeHtml(i.name)}</td><td>${escapeHtml(
-          i.email,
-        )}</td><td>${escapeHtml(i.subject)}</td><td>${i.reasons
-          .map(escapeHtml)
-          .join(", ")}</td><td>${i.createdAt.toISOString()}</td></tr>`,
-    )
+    .map((i) => {
+      const actions: string[] = [];
+      if (i.forwardUrl) {
+        actions.push(`<a href="${i.forwardUrl}">Forward to me</a>`);
+      }
+      if (i.discardUrl) {
+        actions.push(`<a href="${i.discardUrl}">Discard</a>`);
+      }
+      const actionsCell = actions.length
+        ? actions.join(" &middot; ")
+        : "<em>links disabled</em>";
+      return `<tr><td>#${i.id}</td><td>${esc(i.name)}</td><td>${esc(
+        i.email,
+      )}</td><td>${esc(i.subject)}</td><td>${i.reasons
+        .map(esc)
+        .join(", ")}</td><td>${i.createdAt.toISOString()}</td><td>${actionsCell}</td></tr>`;
+    })
     .join("");
   const reviewLink = opts.reviewUrl
     ? `<p><a href="${opts.reviewUrl}">Review the quarantine inbox →</a></p>`
@@ -249,9 +260,10 @@ export async function sendQuarantineDigest(opts: {
     html: `<h1>New quarantined messages</h1>
 <p>${opts.items.length} contact message(s) were quarantined in the last 24 hours and are waiting for review.</p>
 <table border="1" cellpadding="6" cellspacing="0">
-<thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Subject</th><th>Reasons</th><th>Received</th></tr></thead>
+<thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Subject</th><th>Reasons</th><th>Received</th><th>Actions</th></tr></thead>
 <tbody>${rows}</tbody>
 </table>
+<p style="font-size:12px;color:#666">Forward and discard links expire in 7 days and stop working after one use.</p>
 ${reviewLink}`,
   });
 }

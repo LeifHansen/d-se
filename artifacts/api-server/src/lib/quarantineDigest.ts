@@ -3,6 +3,11 @@ import { db, contactQuarantineTable } from "@workspace/db";
 import { logger } from "./logger";
 import { sendQuarantineDigest } from "./email";
 import { getMetric, setMetric } from "./metrics";
+import {
+  isDigestActionSigningConfigured,
+  signDigestActionToken,
+} from "./quarantineDigestToken";
+import { SITE_URL } from "./site-url";
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 const ONE_WEEK_MS = 7 * ONE_DAY_MS;
@@ -55,6 +60,20 @@ export async function setQuarantineDigestFrequency(
   await setMetric(SETTING_KEY, frequency);
 }
 
+function actionUrlsFor(
+  id: number,
+): { forwardUrl: string; discardUrl: string } | null {
+  if (!isDigestActionSigningConfigured()) return null;
+  const forwardToken = signDigestActionToken({ id, action: "forward" });
+  const discardToken = signDigestActionToken({ id, action: "discard" });
+  if (!forwardToken || !discardToken) return null;
+  const base = SITE_URL.replace(/\/$/, "");
+  return {
+    forwardUrl: `${base}/api/quarantine-digest/forward?t=${encodeURIComponent(forwardToken)}`,
+    discardUrl: `${base}/api/quarantine-digest/discard?t=${encodeURIComponent(discardToken)}`,
+  };
+}
+
 export async function runQuarantineDigestOnce(
   now: Date = new Date(),
   opts: { windowMs?: number } = {},
@@ -74,14 +93,19 @@ export async function runQuarantineDigestOnce(
     )
     .orderBy(desc(contactQuarantineTable.createdAt));
   if (rows.length === 0) return 0;
-  const items = rows.map((r) => ({
-    id: r.id,
-    name: r.name,
-    email: r.email,
-    subject: r.subject,
-    reasons: r.reasons,
-    createdAt: r.createdAt,
-  }));
+  const items = rows.map((r) => {
+    const actions = actionUrlsFor(r.id);
+    return {
+      id: r.id,
+      name: r.name,
+      email: r.email,
+      subject: r.subject,
+      reasons: r.reasons,
+      createdAt: r.createdAt,
+      forwardUrl: actions?.forwardUrl ?? null,
+      discardUrl: actions?.discardUrl ?? null,
+    };
+  });
   const link = reviewUrl();
   for (const to of recipients) {
     try {
