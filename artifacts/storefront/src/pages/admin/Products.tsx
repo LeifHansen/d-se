@@ -212,6 +212,15 @@ export default function AdminProducts() {
 
   const [confirmDelete, setConfirmDelete] = useState<Product | null>(null);
 
+  const slugConflict = useMemo(() => {
+    const slug = form.slug.trim().toLowerCase();
+    if (!slug) return null;
+    const owner = (data ?? []).find((p) => p.slug === slug);
+    if (!owner) return null;
+    if (editing && owner.id === editing.id) return null;
+    return owner;
+  }, [form.slug, data, editing]);
+
   // Seed drafts whenever the product list changes, and prune any
   // selected ids that no longer correspond to a product (e.g. after a
   // delete).
@@ -417,6 +426,12 @@ export default function AdminProducts() {
     const built = fromForm(form);
     if ("error" in built) {
       setFormError(built.error);
+      return;
+    }
+    if (slugConflict) {
+      setFormError(
+        `Slug "${built.slug}" is already used by "${slugConflict.name}". Pick a different slug.`,
+      );
       return;
     }
     try {
@@ -679,8 +694,18 @@ export default function AdminProducts() {
                   }}
                   placeholder="lowercase-with-dashes"
                   required
+                  aria-invalid={slugConflict ? true : undefined}
                   data-testid="input-product-slug"
                 />
+                {slugConflict ? (
+                  <p
+                    className="mt-1 text-xs text-amber-700 dark:text-amber-400"
+                    data-testid="text-slug-conflict"
+                  >
+                    Already used by &ldquo;{slugConflict.name}&rdquo;. Pick a
+                    different slug.
+                  </p>
+                ) : null}
               </div>
             </div>
 
