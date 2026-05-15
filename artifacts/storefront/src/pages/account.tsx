@@ -1,12 +1,24 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation } from "wouter";
-import { useListMyOrders } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  useListMyOrders,
+  useReorder,
+  getGetCartQueryKey,
+  type Order,
+} from "@workspace/api-client-react";
 import { SiteShell } from "@/components/dose/SiteShell";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { formatMoney } from "@/lib/cart";
+import {
+  formatMoney,
+  getStoredCartId,
+  setStoredCartId,
+  requestOpenCartDrawer,
+} from "@/lib/cart";
+import { useToast } from "@/hooks/use-toast";
 
 function formatDate(s: string): string {
   try {
@@ -105,6 +117,142 @@ function GuestOrderLookup() {
   );
 }
 
+function OrderRow({ order }: { order: Order }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const reorderMutation = useReorder();
+
+  const handleReorder = () => {
+    reorderMutation.mutate(
+      { id: order.id, data: { cartId: getStoredCartId() } },
+      {
+        onSuccess: ({ cart, skipped }) => {
+          if (cart?.id) setStoredCartId(cart.id);
+          queryClient.invalidateQueries({
+            queryKey: getGetCartQueryKey({ cartId: cart?.id }),
+          });
+          queryClient.invalidateQueries({ queryKey: getGetCartQueryKey() });
+          const added = order.items.length - skipped.length;
+          if (added <= 0) {
+            toast({
+              title: "Nothing could be reordered",
+              description:
+                skipped.length > 0
+                  ? `${skipped.map((s) => s.productName).join(", ")} ${skipped.length === 1 ? "is" : "are"} no longer available.`
+                  : "This order has no items to reorder.",
+              variant: "destructive",
+            });
+            return;
+          }
+          if (skipped.length > 0) {
+            toast({
+              title: "Some items were skipped",
+              description: `${skipped.map((s) => `${s.productName} (${s.reason === "out_of_stock" ? "out of stock" : "unavailable"})`).join("; ")}.`,
+            });
+          } else {
+            toast({
+              title: "Added to cart",
+              description: "Your past order is back in your cart.",
+            });
+          }
+          requestOpenCartDrawer();
+        },
+        onError: () => {
+          toast({
+            title: "Couldn't reorder",
+            description: "Please try again in a moment.",
+            variant: "destructive",
+          });
+        },
+      },
+    );
+  };
+
+  return (
+    <li
+      className="rounded-2xl border bg-card p-5 transition-colors hover:bg-card/80"
+      style={{ borderColor: "hsl(40 18% 80%)" }}
+      data-testid={`order-${order.id}`}
+    >
+      <Link
+        href={`/account/orders/${order.id}`}
+        className="block"
+        data-testid={`link-order-${order.id}`}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="font-display text-xl">Order #{order.id}</p>
+            <p
+              className="text-xs uppercase tracking-[0.18em]"
+              style={{ color: "hsl(170 18% 32%)" }}
+            >
+              {formatDate(String(order.createdAt))} · {order.status}
+            </p>
+          </div>
+          <p className="font-display text-lg">
+            {formatMoney(order.totalCents, order.currency)}
+          </p>
+        </div>
+        <ul
+          className="mt-3 space-y-1 text-sm"
+          style={{ color: "hsl(170 18% 28%)" }}
+        >
+          {order.items.map((it) => (
+            <li key={it.id}>
+              {it.productName}{" "}
+              <span className="opacity-70">× {it.quantity}</span>
+            </li>
+          ))}
+        </ul>
+        {order.trackingCode ? (
+          <p className="mt-2 text-sm">
+            {order.carrier ? `${order.carrier}: ` : "Tracking: "}
+            <code className="break-all">{order.trackingCode}</code>
+            {order.trackingUrl ? (
+              <>
+                {" — "}
+                <a
+                  href={order.trackingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="underline"
+                  data-testid="account-order-tracking-link"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Track package →
+                </a>
+              </>
+            ) : null}
+          </p>
+        ) : null}
+      </Link>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <Link
+          href={`/account/orders/${order.id}`}
+          className="text-[11px] font-semibold uppercase tracking-[0.22em]"
+          style={{ color: "hsl(170 58% 14%)" }}
+          data-testid={`link-order-details-${order.id}`}
+        >
+          View details →
+        </Link>
+        <Button
+          type="button"
+          onClick={handleReorder}
+          disabled={reorderMutation.isPending || order.items.length === 0}
+          className="rounded-full px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.22em]"
+          style={{
+            background: "hsl(170 58% 14%)",
+            color: "hsl(45 49% 90%)",
+          }}
+          data-testid={`button-reorder-${order.id}`}
+        >
+          {reorderMutation.isPending ? "Adding to cart…" : "Reorder"}
+        </Button>
+      </div>
+    </li>
+  );
+}
+
 export default function AccountPage() {
   const { data, isLoading, isError, error } = useListMyOrders({
     query: { retry: false } as never,
@@ -183,73 +331,7 @@ export default function AccountPage() {
         ) : data && data.length > 0 ? (
           <ul className="space-y-4" data-testid="account-orders">
             {data.map((order) => (
-              <li
-                key={order.id}
-                className="rounded-2xl border bg-card p-5 transition-colors hover:bg-card/80"
-                style={{ borderColor: "hsl(40 18% 80%)" }}
-                data-testid={`order-${order.id}`}
-              >
-                <Link
-                  href={`/account/orders/${order.id}`}
-                  className="block"
-                  data-testid={`link-order-${order.id}`}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="font-display text-xl">
-                        Order #{order.id}
-                      </p>
-                      <p
-                        className="text-xs uppercase tracking-[0.18em]"
-                        style={{ color: "hsl(170 18% 32%)" }}
-                      >
-                        {formatDate(String(order.createdAt))} · {order.status}
-                      </p>
-                    </div>
-                    <p className="font-display text-lg">
-                      {formatMoney(order.totalCents, order.currency)}
-                    </p>
-                  </div>
-                  <ul
-                    className="mt-3 space-y-1 text-sm"
-                    style={{ color: "hsl(170 18% 28%)" }}
-                  >
-                    {order.items.map((it) => (
-                      <li key={it.id}>
-                        {it.productName}{" "}
-                        <span className="opacity-70">× {it.quantity}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  {order.trackingCode ? (
-                    <p className="mt-2 text-sm">
-                      {order.carrier ? `${order.carrier}: ` : "Tracking: "}
-                      <code className="break-all">{order.trackingCode}</code>
-                      {order.trackingUrl ? (
-                        <>
-                          {" — "}
-                          <a
-                            href={order.trackingUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="underline"
-                            data-testid="account-order-tracking-link"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            Track package →
-                          </a>
-                        </>
-                      ) : null}
-                    </p>
-                  ) : null}
-                  <p
-                    className="mt-3 text-[11px] font-semibold uppercase tracking-[0.22em]"
-                    style={{ color: "hsl(170 58% 14%)" }}
-                  >
-                    View details →
-                  </p>
-                </Link>
-              </li>
+              <OrderRow key={order.id} order={order} />
             ))}
           </ul>
         ) : (
