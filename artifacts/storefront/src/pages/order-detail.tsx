@@ -113,7 +113,21 @@ export default function OrderDetailPage() {
 
   return (
     <SiteShell testId="page-order-detail">
-      <Seo title={`Order #${params.id}`} noindex />
+      <Seo
+        title={
+          order
+            ? `Order #${order.id} confirmed`
+            : Number.isFinite(orderId)
+              ? `Order #${orderId}`
+              : "Order lookup"
+        }
+        description={
+          order
+            ? `Order #${order.id} details, status, and tracking.`
+            : "Look up your DŌSE order."
+        }
+        noindex
+      />
       <section
         style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
       >

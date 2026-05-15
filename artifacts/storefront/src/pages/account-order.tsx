@@ -106,7 +106,15 @@ export default function AccountOrderPage() {
 
   return (
     <SiteShell testId="page-account-order">
-      <Seo title={validId ? `Order #${orderId}` : "Order"} noindex />
+      <Seo
+        title={validId ? `Order #${orderId}` : "Order"}
+        description={
+          validId
+            ? `Order #${orderId} details, status, and tracking.`
+            : "Order details, status, and tracking."
+        }
+        noindex
+      />
       <section
         style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
       >

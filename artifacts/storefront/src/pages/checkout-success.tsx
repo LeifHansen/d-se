@@ -8,6 +8,7 @@ import { Footer } from "@/components/dose/Footer";
 import { CookieBanner } from "@/components/dose/CookieBanner";
 import { AgeGate } from "@/components/dose/AgeGate";
 import { Button } from "@/components/ui/button";
+import { Seo } from "@/components/seo/Seo";
 import { clearCartId, getCartId } from "@/lib/cart-id";
 import { formatMoney } from "@/lib/cart";
 
@@ -117,6 +118,15 @@ export default function CheckoutSuccessPage() {
       style={{ background: CREAM, color: FOREST }}
       data-testid="checkout-success-page"
     >
+      <Seo
+        title={validId ? `Order #${initial.orderId} confirmed` : "Order confirmed"}
+        description={
+          validId
+            ? `Thank you for your order. Your DŌSE order #${initial.orderId} is confirmed.`
+            : "Thank you for your order. Your DŌSE order is confirmed."
+        }
+        noindex
+      />
       <PromoBanner />
       <Header />
       <main id="main">
