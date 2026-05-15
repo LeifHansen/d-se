@@ -381,6 +381,253 @@ test.describe("/account and /account/orders/:id", () => {
     );
   });
 
+  test("per-row Reorder button on the orders list adds items, opens the cart drawer, and shows the success toast", async ({
+    page,
+  }) => {
+    await mockSignedIn(page, [ORDER_TWO, ORDER_ONE]);
+
+    // Track the call so we can assert wiring.
+    const reorderCalls: Array<{ id: number; body: unknown }> = [];
+
+    // Cart starts empty. After reorder, GET /api/cart returns the rebuilt cart.
+    let cartItems: Array<{
+      id: number;
+      quantity: number;
+      product: {
+        id: number;
+        name: string;
+        slug: string;
+        priceCents: number;
+        currency: string;
+        images: string[];
+        inventory: number;
+        lowStockThreshold: number;
+      };
+    }> = [];
+
+    const cartFor = () => ({
+      id: "cart-001",
+      currency: "usd",
+      items: cartItems,
+      subtotalCents: cartItems.reduce(
+        (sum, it) => sum + it.quantity * it.product.priceCents,
+        0,
+      ),
+      discountCents: 0,
+      discountCode: null,
+      totalCents: cartItems.reduce(
+        (sum, it) => sum + it.quantity * it.product.priceCents,
+        0,
+      ),
+    });
+
+    await page.route("**/api/cart*", async (route: Route) => {
+      if (route.request().method() !== "GET") {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(cartFor()),
+      });
+    });
+
+    await page.route(/\/api\/orders\/\d+\/reorder$/, async (route: Route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+      const url = new URL(route.request().url());
+      const idStr = url.pathname.split("/").slice(-2, -1)[0] ?? "";
+      const id = Number(idStr);
+      const body = JSON.parse(route.request().postData() ?? "{}");
+      reorderCalls.push({ id, body });
+      // Happy path: every line item from ORDER_ONE lands in the cart, no skips.
+      cartItems = ORDER_ONE.items.map((it) => ({
+        id: 9000 + it.id,
+        quantity: it.quantity,
+        product: {
+          id: it.productId,
+          name: it.productName,
+          slug: `product-${it.productId}`,
+          priceCents: it.priceCents,
+          currency: "usd",
+          images: [],
+          inventory: 50,
+          lowStockThreshold: 0,
+        },
+      }));
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ cart: cartFor(), skipped: [] }),
+      });
+    });
+
+    await page.goto("/account");
+    await dismissOverlays(page);
+    await page.reload();
+
+    await expect(page.getByTestId("account-orders")).toBeVisible();
+
+    const reorderButton = page.getByTestId(`button-reorder-${ORDER_ONE.id}`);
+    await expect(reorderButton).toBeVisible();
+    await reorderButton.click();
+
+    // The drawer opens and renders the reordered items.
+    const drawer = page.getByTestId("cart-drawer");
+    await expect(drawer).toBeVisible();
+    await expect(drawer.getByTestId("cart-drawer-items")).toBeVisible();
+    await expect(drawer).toContainText("Calm Tincture");
+    // Quantity badge mirrors the past order (qty 2 in ORDER_ONE).
+    await expect(
+      drawer.getByTestId(`cart-drawer-qty-${cartItems[0].id}`),
+    ).toHaveText("2");
+
+    // Success toast (no skipped items).
+    await expect(page.getByText("Added to cart").first()).toBeVisible();
+    await expect(
+      page.getByText("Your past order is back in your cart.").first(),
+    ).toBeVisible();
+
+    // The mutation hit POST /orders/:id/reorder with the right id.
+    expect(reorderCalls).toHaveLength(1);
+    expect(reorderCalls[0].id).toBe(ORDER_ONE.id);
+  });
+
+  test("per-row Reorder button shows the partial-skipped toast when an item is out of stock", async ({
+    page,
+  }) => {
+    // Multi-item order so one can be added and one can be skipped.
+    const PARTIAL_ORDER: Order = {
+      ...ORDER_ONE,
+      id: 5104,
+      items: [
+        {
+          id: 11,
+          productId: 501,
+          productName: "Calm Tincture",
+          productImage: null,
+          quantity: 1,
+          priceCents: 4500,
+        },
+        {
+          id: 12,
+          productId: 502,
+          productName: "Sleep Drops",
+          productImage: null,
+          quantity: 1,
+          priceCents: 3800,
+        },
+      ],
+    };
+
+    await mockSignedIn(page, [PARTIAL_ORDER]);
+
+    let cartItems: Array<{
+      id: number;
+      quantity: number;
+      product: {
+        id: number;
+        name: string;
+        slug: string;
+        priceCents: number;
+        currency: string;
+        images: string[];
+        inventory: number;
+        lowStockThreshold: number;
+      };
+    }> = [];
+
+    const cartFor = () => ({
+      id: "cart-002",
+      currency: "usd",
+      items: cartItems,
+      subtotalCents: cartItems.reduce(
+        (s, it) => s + it.quantity * it.product.priceCents,
+        0,
+      ),
+      discountCents: 0,
+      discountCode: null,
+      totalCents: cartItems.reduce(
+        (s, it) => s + it.quantity * it.product.priceCents,
+        0,
+      ),
+    });
+
+    await page.route("**/api/cart*", async (route: Route) => {
+      if (route.request().method() !== "GET") {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(cartFor()),
+      });
+    });
+
+    await page.route(/\/api\/orders\/\d+\/reorder$/, async (route: Route) => {
+      if (route.request().method() !== "POST") {
+        await route.fallback();
+        return;
+      }
+      // Only the first item lands; the second is reported as out_of_stock.
+      cartItems = [
+        {
+          id: 9101,
+          quantity: 1,
+          product: {
+            id: 501,
+            name: "Calm Tincture",
+            slug: "calm-tincture",
+            priceCents: 4500,
+            currency: "usd",
+            images: [],
+            inventory: 25,
+            lowStockThreshold: 0,
+          },
+        },
+      ];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          cart: cartFor(),
+          skipped: [
+            {
+              productId: 502,
+              productName: "Sleep Drops",
+              quantity: 1,
+              reason: "out_of_stock",
+            },
+          ],
+        }),
+      });
+    });
+
+    await page.goto("/account");
+    await dismissOverlays(page);
+    await page.reload();
+
+    await page.getByTestId(`button-reorder-${PARTIAL_ORDER.id}`).click();
+
+    // Drawer opens with the in-stock item.
+    const drawer = page.getByTestId("cart-drawer");
+    await expect(drawer).toBeVisible();
+    await expect(drawer).toContainText("Calm Tincture");
+    await expect(drawer).not.toContainText("Sleep Drops");
+
+    // Skipped-items toast (matches the copy in OrderRow.handleReorder).
+    await expect(
+      page.getByText("Some items were skipped").first(),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/Sleep Drops \(out of stock\)/).first(),
+    ).toBeVisible();
+  });
+
   test("signed-in shopper requesting another user's order id sees a not-found state", async ({
     page,
   }) => {
