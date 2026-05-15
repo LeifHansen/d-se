@@ -160,6 +160,92 @@ describe("POST /api/checkout — Stripe promotion code attachment", () => {
   });
 });
 
+describe("POST /api/checkout — inventory enforcement", () => {
+  beforeEach(async () => {
+    await resetDb();
+    stripeMock.sessionsCreate.mockClear();
+  });
+
+  it("rejects with 409 when a line item is out of stock", async () => {
+    const product = await seedProduct({
+      slug: "p-oos",
+      priceCents: 5_000,
+      inventory: 0,
+    });
+    const cartId = "cart-oos";
+    await seedCart({ cartId, productId: product.id, quantity: 1 });
+
+    const res = await request(app)
+      .post("/api/checkout")
+      .send({
+        cartId,
+        email: "buyer@example.com",
+        shippingRateId: "",
+        address: {
+          name: "Buyer",
+          street1: "1 Main",
+          city: "Town",
+          state: "CA",
+          zip: "90210",
+          country: "US",
+        },
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("stock_unavailable");
+    expect(res.body.error).toMatch(/out of stock/i);
+    expect(res.body.issues).toHaveLength(1);
+    expect(res.body.issues[0]).toMatchObject({
+      productId: product.id,
+      kind: "out_of_stock",
+      requested: 1,
+      available: 0,
+    });
+    expect(stripeMock.sessionsCreate).not.toHaveBeenCalled();
+    const orders = await db.select().from(ordersTable);
+    expect(orders).toHaveLength(0);
+  });
+
+  it("rejects with 409 when requested quantity exceeds available inventory", async () => {
+    const product = await seedProduct({
+      slug: "p-low",
+      priceCents: 5_000,
+      inventory: 2,
+    });
+    const cartId = "cart-low";
+    await seedCart({ cartId, productId: product.id, quantity: 5 });
+
+    const res = await request(app)
+      .post("/api/checkout")
+      .send({
+        cartId,
+        email: "buyer@example.com",
+        shippingRateId: "",
+        address: {
+          name: "Buyer",
+          street1: "1 Main",
+          city: "Town",
+          state: "CA",
+          zip: "90210",
+          country: "US",
+        },
+      });
+
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("stock_unavailable");
+    expect(res.body.error).toMatch(/only 2/i);
+    expect(res.body.issues[0]).toMatchObject({
+      productId: product.id,
+      kind: "insufficient_stock",
+      requested: 5,
+      available: 2,
+    });
+    expect(stripeMock.sessionsCreate).not.toHaveBeenCalled();
+    const orders = await db.select().from(ordersTable);
+    expect(orders).toHaveLength(0);
+  });
+});
+
 describe("POST /api/checkout — no-address handoff", () => {
   beforeEach(async () => {
     await resetDb();

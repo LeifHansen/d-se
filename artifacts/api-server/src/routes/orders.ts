@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import type Stripe from "stripe";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   db,
   ordersTable,
@@ -155,6 +155,60 @@ router.post("/checkout", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Cart is empty" });
     return;
   }
+
+  // Re-check inventory server-side. The storefront warns and disables Pay
+  // when an item is sold out, but a stale tab or hand-crafted request could
+  // still POST here. Re-read each line's product.inventory and reject with
+  // a structured 409 when anything is short, before we create a Stripe
+  // session that would fail or oversell.
+  const productIds = Array.from(new Set(cart.items.map((it) => it.productId)));
+  const freshProducts = await db
+    .select()
+    .from(productsTable)
+    .where(inArray(productsTable.id, productIds));
+  const inventoryById = new Map(
+    freshProducts.map((p) => [p.id, p.inventory ?? 0]),
+  );
+  const stockIssues = cart.items
+    .map((it) => {
+      const available = inventoryById.get(it.productId) ?? 0;
+      if (available <= 0) {
+        return {
+          productId: it.productId,
+          productName: it.product.name,
+          requested: it.quantity,
+          available,
+          kind: "out_of_stock" as const,
+        };
+      }
+      if (it.quantity > available) {
+        return {
+          productId: it.productId,
+          productName: it.product.name,
+          requested: it.quantity,
+          available,
+          kind: "insufficient_stock" as const,
+        };
+      }
+      return null;
+    })
+    .filter((x): x is NonNullable<typeof x> => x !== null);
+  if (stockIssues.length > 0) {
+    const first = stockIssues[0];
+    const message =
+      stockIssues.length === 1
+        ? first.kind === "out_of_stock"
+          ? `${first.productName} is out of stock. Please update your bag before paying.`
+          : `Only ${first.available} of ${first.productName} left. Please update your bag before paying.`
+        : "Some items in your bag aren't available in the quantity you selected. Please update your bag before paying.";
+    res.status(409).json({
+      error: message,
+      code: "stock_unavailable",
+      issues: stockIssues,
+    });
+    return;
+  }
+
   const userId = getUserId(req);
   const address = (parsed.data.address ?? null) as OrderAddress | null;
 
