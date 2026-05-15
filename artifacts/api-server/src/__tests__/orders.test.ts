@@ -16,6 +16,8 @@ vi.mock("../lib/email", () => ({
   sendAbandonedCartEmail: vi.fn(async () => {}),
   sendLowStockDigest: vi.fn(async () => {}),
   sendWelcomeEmail: vi.fn(async () => {}),
+  sendOrderLinkEmail: vi.fn(async () => {}),
+  buildTrackingUrl: () => null,
   STORE_NAME: "Test",
 }));
 
@@ -24,7 +26,11 @@ const { __setAuth } = clerk as unknown as {
   __setAuth: (userId: string | null, user?: unknown) => void;
 };
 
-const ordersRouter = (await import("../routes/orders")).default;
+const ordersModule = await import("../routes/orders");
+const ordersRouter = ordersModule.default;
+const { __resetResendRateLimitForTests } = ordersModule;
+const emailMod = await import("../lib/email");
+const sendOrderLinkEmailMock = emailMod.sendOrderLinkEmail as unknown as ReturnType<typeof vi.fn>;
 
 const app = makeApp((r) => {
   r.use(ordersRouter);
@@ -655,6 +661,131 @@ describe("POST /api/checkout — dev fallback when Stripe is not configured", ()
     expect(res.body.error).toMatch(/address/i);
     const orders = await db.select().from(ordersTable);
     expect(orders).toHaveLength(0);
+  });
+});
+
+describe("POST /api/orders/:id/resend-link", () => {
+  beforeEach(async () => {
+    await resetDb();
+    __setAuth(null);
+    __resetResendRateLimitForTests();
+    sendOrderLinkEmailMock.mockClear();
+  });
+
+  it("triggers sendOrderLinkEmail and returns 200 when the email matches", async () => {
+    const product = await seedProduct({ slug: "p-resend-match" });
+    const orderId = await seedOrder({ userId: null, productId: product.id });
+
+    const res = await request(app)
+      .post(`/api/orders/${orderId}/resend-link`)
+      .send({ email: "buyer@example.com" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+    expect(sendOrderLinkEmailMock).toHaveBeenCalledTimes(1);
+    expect(sendOrderLinkEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "buyer@example.com",
+        orderId,
+        orderUrl: expect.stringContaining(`/orders/${orderId}?token=`),
+      }),
+    );
+  });
+
+  it("matches the email case-insensitively (no whitespace either)", async () => {
+    const product = await seedProduct({ slug: "p-resend-case" });
+    const orderId = await seedOrder({ userId: null, productId: product.id });
+
+    const res = await request(app)
+      .post(`/api/orders/${orderId}/resend-link`)
+      .send({ email: "  BUYER@Example.com  " });
+
+    expect(res.status).toBe(200);
+    expect(sendOrderLinkEmailMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("still returns 200 but does NOT send when the email doesn't match (no leak)", async () => {
+    const product = await seedProduct({ slug: "p-resend-nomatch" });
+    const orderId = await seedOrder({ userId: null, productId: product.id });
+
+    const res = await request(app)
+      .post(`/api/orders/${orderId}/resend-link`)
+      .send({ email: "someone-else@example.com" });
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true });
+    expect(sendOrderLinkEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 200 without sending for an order that does not exist (no existence leak)", async () => {
+    const res = await request(app)
+      .post("/api/orders/99999/resend-link")
+      .send({ email: "anyone@example.com" });
+
+    expect(res.status).toBe(200);
+    expect(sendOrderLinkEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("rejects a malformed email with 400 before counting against the throttle", async () => {
+    const product = await seedProduct({ slug: "p-resend-bademail" });
+    const orderId = await seedOrder({ userId: null, productId: product.id });
+
+    const res = await request(app)
+      .post(`/api/orders/${orderId}/resend-link`)
+      .send({ email: "not-an-email" });
+    expect(res.status).toBe(400);
+
+    const missing = await request(app)
+      .post(`/api/orders/${orderId}/resend-link`)
+      .send({});
+    expect(missing.status).toBe(400);
+
+    expect(sendOrderLinkEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("throttles after 3 attempts per (ip, orderId) with a 429", async () => {
+    const product = await seedProduct({ slug: "p-resend-throttle" });
+    const orderId = await seedOrder({ userId: null, productId: product.id });
+
+    // Three attempts (mix of misses and hits) are allowed.
+    for (let i = 0; i < 3; i++) {
+      const ok = await request(app)
+        .post(`/api/orders/${orderId}/resend-link`)
+        .send({ email: `wrong-${i}@example.com` });
+      expect(ok.status).toBe(200);
+    }
+
+    // The 4th — even with the *correct* email — is blocked.
+    const blocked = await request(app)
+      .post(`/api/orders/${orderId}/resend-link`)
+      .send({ email: "buyer@example.com" });
+    expect(blocked.status).toBe(429);
+    expect(blocked.headers["retry-after"]).toBeTruthy();
+    // Throttled requests must not actually send the email.
+    expect(sendOrderLinkEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("scopes the throttle by orderId so unrelated orders aren't penalised", async () => {
+    const product = await seedProduct({ slug: "p-resend-scope" });
+    const orderA = await seedOrder({ userId: null, productId: product.id });
+    const orderB = await seedOrder({ userId: null, productId: product.id });
+
+    for (let i = 0; i < 3; i++) {
+      const r = await request(app)
+        .post(`/api/orders/${orderA}/resend-link`)
+        .send({ email: `wrong-${i}@example.com` });
+      expect(r.status).toBe(200);
+    }
+    const blockedA = await request(app)
+      .post(`/api/orders/${orderA}/resend-link`)
+      .send({ email: "buyer@example.com" });
+    expect(blockedA.status).toBe(429);
+
+    // Different orderId → fresh bucket → still allowed.
+    const okB = await request(app)
+      .post(`/api/orders/${orderB}/resend-link`)
+      .send({ email: "buyer@example.com" });
+    expect(okB.status).toBe(200);
   });
 });
 
