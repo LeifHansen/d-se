@@ -498,6 +498,70 @@ test.describe("checkout failure paths against real api-server", () => {
     }
   });
 
+  test("applies a valid discount code and lowers the persisted order total", async ({
+    request,
+  }) => {
+    const unique = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const localSeed = await seedProductAndCart(unique);
+    const validCode = `E2EOK${unique.replace(/[^a-z0-9]/gi, "").toUpperCase().slice(0, 10)}`;
+    await withDb(async (c) => {
+      await c.query(
+        `INSERT INTO discount_codes
+           (code, type, value, active, redemptions_count, created_at, updated_at)
+         VALUES ($1, 'percent', 10, TRUE, 0, NOW(), NOW())`,
+        [validCode],
+      );
+    });
+    try {
+      const res = await request.post("/api/checkout", {
+        data: {
+          cartId: localSeed.cartId,
+          email: "valid-discount@example.com",
+          discountCode: validCode,
+        },
+      });
+      expect(res.status()).toBe(200);
+      const body = (await res.json()) as { url: string; orderId: number };
+      expect(body.orderId).toBeGreaterThan(0);
+      expect(body.url).toMatch(
+        new RegExp(`/checkout/success\\?orderId=${body.orderId}`),
+      );
+
+      // Seeded product is $42.00 (4200¢); 10% off = 420¢ discount.
+      // No address/shippingRateId in this request → shipping = 0.
+      const expectedSubtotal = 4200;
+      const expectedDiscount = 420;
+      const expectedTotal = expectedSubtotal - expectedDiscount;
+
+      await withDb(async (c) => {
+        const orderRes = await c.query<{
+          id: number;
+          subtotal_cents: number;
+          discount_cents: number;
+          total_cents: number;
+          discount_code: string | null;
+        }>(
+          `SELECT id, subtotal_cents, discount_cents, total_cents, discount_code
+             FROM orders WHERE id = $1`,
+          [body.orderId],
+        );
+        expect(orderRes.rowCount).toBe(1);
+        const order = orderRes.rows[0];
+        expect(order.subtotal_cents).toBe(expectedSubtotal);
+        expect(order.discount_cents).toBe(expectedDiscount);
+        expect(order.total_cents).toBe(expectedTotal);
+        expect(order.discount_code).toBe(validCode);
+      });
+    } finally {
+      await withDb(async (c) => {
+        await c.query(`DELETE FROM discount_codes WHERE code = $1`, [
+          validCode,
+        ]);
+      });
+      await cleanupSeed(localSeed);
+    }
+  });
+
   test("rejects a malformed email and creates no order", async ({
     request,
   }) => {
