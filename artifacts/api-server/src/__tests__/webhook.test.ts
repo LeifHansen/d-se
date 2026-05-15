@@ -8,6 +8,7 @@ import {
   ordersTable,
   orderItemsTable,
   cartsTable,
+  productsTable,
 } from "@workspace/db";
 import { makeApp, seedCart, seedDiscount, seedProduct } from "./helpers";
 
@@ -206,6 +207,465 @@ describe("POST /api/webhooks/stripe — checkout.session.completed", () => {
     expect(emailArg.discountCents).toBe(1_000);
     expect(emailArg.taxCents).toBe(830);
     expect(emailArg.discountCode).toBe("WELCOME10");
+  });
+
+  it("decrements product inventory atomically by each line's quantity when the order is paid", async () => {
+    const product = await seedProduct({ priceCents: 5_000, inventory: 10 });
+    const discount = await seedDiscount({
+      code: "WELCOME10",
+      type: "percent",
+      value: 10,
+    });
+    const cartId = "cart-wh-inv";
+    await seedCart({
+      cartId,
+      productId: product.id,
+      quantity: 2,
+      email: "buyer@example.com",
+    });
+    const { orderId, sessionId } = await seedPendingOrder({
+      cartId,
+      productId: product.id,
+      discountId: discount.id,
+      discountCode: "WELCOME10",
+      sessionId: "cs_test_inv_1",
+    });
+
+    stripeMock.constructEvent.mockReturnValue({
+      id: "evt_inv_1",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: sessionId,
+          metadata: { orderId: String(orderId), cartId },
+          payment_intent: "pi_test_inv_1",
+          customer_email: "buyer@example.com",
+          amount_total: 9_500,
+          total_details: {
+            amount_tax: 0,
+            amount_discount: 1_000,
+            amount_shipping: 500,
+          },
+        },
+      },
+    });
+
+    const res = await request(app)
+      .post("/api/webhooks/stripe")
+      .set("stripe-signature", "t=1,v1=fake")
+      .set("content-type", "application/json")
+      .send(Buffer.from(JSON.stringify({ id: "evt_inv_1" })));
+    expect(res.status).toBe(200);
+
+    const [p] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, product.id));
+    expect(p.inventory).toBe(8);
+  });
+
+  it("clamps inventory at zero when concurrent paid orders exceed available stock", async () => {
+    const product = await seedProduct({ priceCents: 5_000, inventory: 1 });
+    const discount = await seedDiscount({
+      code: "WELCOME10",
+      type: "percent",
+      value: 10,
+    });
+    // Two concurrent orders each claiming 2 units of a product with stock 1.
+    const cartA = "cart-wh-clamp-a";
+    const cartB = "cart-wh-clamp-b";
+    await seedCart({ cartId: cartA, productId: product.id, quantity: 2 });
+    await seedCart({ cartId: cartB, productId: product.id, quantity: 2 });
+    const a = await seedPendingOrder({
+      cartId: cartA,
+      productId: product.id,
+      discountId: discount.id,
+      discountCode: "WELCOME10",
+      sessionId: "cs_test_clamp_a",
+    });
+    const b = await seedPendingOrder({
+      cartId: cartB,
+      productId: product.id,
+      discountId: discount.id,
+      discountCode: "WELCOME10",
+      sessionId: "cs_test_clamp_b",
+    });
+
+    for (const [evtId, ord] of [
+      ["evt_clamp_a", a],
+      ["evt_clamp_b", b],
+    ] as const) {
+      stripeMock.constructEvent.mockReturnValueOnce({
+        id: evtId,
+        type: "checkout.session.completed",
+        data: {
+          object: {
+            id: ord.sessionId,
+            metadata: { orderId: String(ord.orderId) },
+            payment_intent: `pi_${evtId}`,
+            customer_email: "buyer@example.com",
+            amount_total: 9_500,
+            total_details: {
+              amount_tax: 0,
+              amount_discount: 1_000,
+              amount_shipping: 500,
+            },
+          },
+        },
+      });
+      const res = await request(app)
+        .post("/api/webhooks/stripe")
+        .set("stripe-signature", "t=1,v1=fake")
+        .set("content-type", "application/json")
+        .send(Buffer.from(JSON.stringify({ id: evtId })));
+      expect(res.status).toBe(200);
+    }
+
+    const [p] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, product.id));
+    expect(p.inventory).toBe(0);
+  });
+
+  it("restores inventory and flips order to refunded on charge.refunded (full refund)", async () => {
+    const product = await seedProduct({ priceCents: 5_000, inventory: 10 });
+    const discount = await seedDiscount({
+      code: "WELCOME10",
+      type: "percent",
+      value: 10,
+    });
+    const cartId = "cart-wh-refund";
+    await seedCart({ cartId, productId: product.id, quantity: 2 });
+    const { orderId, sessionId } = await seedPendingOrder({
+      cartId,
+      productId: product.id,
+      discountId: discount.id,
+      discountCode: "WELCOME10",
+      sessionId: "cs_test_refund_1",
+    });
+
+    // First, drive the order to paid (decrements inventory to 8).
+    stripeMock.constructEvent.mockReturnValueOnce({
+      id: "evt_refund_pay",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: sessionId,
+          metadata: { orderId: String(orderId), cartId },
+          payment_intent: "pi_refund_1",
+          customer_email: "buyer@example.com",
+          amount_total: 9_500,
+          total_details: {
+            amount_tax: 0,
+            amount_discount: 1_000,
+            amount_shipping: 500,
+          },
+        },
+      },
+    });
+    await request(app)
+      .post("/api/webhooks/stripe")
+      .set("stripe-signature", "t=1,v1=fake")
+      .set("content-type", "application/json")
+      .send(Buffer.from(JSON.stringify({ id: "evt_refund_pay" })));
+
+    const [afterPay] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, product.id));
+    expect(afterPay.inventory).toBe(8);
+
+    // Now deliver a charge.refunded full refund event.
+    stripeMock.constructEvent.mockReturnValueOnce({
+      id: "evt_refund_full",
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_refund_1",
+          payment_intent: "pi_refund_1",
+          refunded: true,
+          amount: 9_500,
+          amount_refunded: 9_500,
+        },
+      },
+    });
+    const res = await request(app)
+      .post("/api/webhooks/stripe")
+      .set("stripe-signature", "t=1,v1=fake")
+      .set("content-type", "application/json")
+      .send(Buffer.from(JSON.stringify({ id: "evt_refund_full" })));
+    expect(res.status).toBe(200);
+
+    const [p] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, product.id));
+    expect(p.inventory).toBe(10);
+    const [order] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+    expect(order.status).toBe("refunded");
+
+    // Idempotent: a redelivery of the same event must not double-restore.
+    stripeMock.constructEvent.mockReturnValueOnce({
+      id: "evt_refund_full",
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_refund_1",
+          payment_intent: "pi_refund_1",
+          refunded: true,
+          amount: 9_500,
+          amount_refunded: 9_500,
+        },
+      },
+    });
+    await request(app)
+      .post("/api/webhooks/stripe")
+      .set("stripe-signature", "t=1,v1=fake")
+      .set("content-type", "application/json")
+      .send(Buffer.from(JSON.stringify({ id: "evt_refund_full" })));
+    const [pAgain] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, product.id));
+    expect(pAgain.inventory).toBe(10);
+  });
+
+  it("restores inventory and marks order payment_failed when async payment later fails", async () => {
+    const product = await seedProduct({ priceCents: 5_000, inventory: 10 });
+    const discount = await seedDiscount({
+      code: "WELCOME10",
+      type: "percent",
+      value: 10,
+    });
+    const cartId = "cart-wh-async-fail";
+    await seedCart({ cartId, productId: product.id, quantity: 2 });
+    const { orderId, sessionId } = await seedPendingOrder({
+      cartId,
+      productId: product.id,
+      discountId: discount.id,
+      discountCode: "WELCOME10",
+      sessionId: "cs_test_async_fail",
+    });
+
+    // checkout.session.completed flips to paid + decrements stock to 8.
+    stripeMock.constructEvent.mockReturnValueOnce({
+      id: "evt_async_pay",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: sessionId,
+          metadata: { orderId: String(orderId), cartId },
+          payment_intent: "pi_async_fail",
+          customer_email: "buyer@example.com",
+          amount_total: 9_500,
+          total_details: {
+            amount_tax: 0,
+            amount_discount: 1_000,
+            amount_shipping: 500,
+          },
+        },
+      },
+    });
+    await request(app)
+      .post("/api/webhooks/stripe")
+      .set("stripe-signature", "t=1,v1=fake")
+      .set("content-type", "application/json")
+      .send(Buffer.from(JSON.stringify({ id: "evt_async_pay" })));
+
+    const [afterPay] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, product.id));
+    expect(afterPay.inventory).toBe(8);
+
+    // Bank later declines — async_payment_failed should restore inventory.
+    stripeMock.constructEvent.mockReturnValueOnce({
+      id: "evt_async_fail",
+      type: "checkout.session.async_payment_failed",
+      data: {
+        object: {
+          id: sessionId,
+          metadata: { orderId: String(orderId), cartId },
+        },
+      },
+    });
+    const res = await request(app)
+      .post("/api/webhooks/stripe")
+      .set("stripe-signature", "t=1,v1=fake")
+      .set("content-type", "application/json")
+      .send(Buffer.from(JSON.stringify({ id: "evt_async_fail" })));
+    expect(res.status).toBe(200);
+
+    const [p] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, product.id));
+    expect(p.inventory).toBe(10);
+    const [order] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+    expect(order.status).toBe("payment_failed");
+
+    // Idempotent: same event redelivered must not double-restore.
+    stripeMock.constructEvent.mockReturnValueOnce({
+      id: "evt_async_fail",
+      type: "checkout.session.async_payment_failed",
+      data: {
+        object: {
+          id: sessionId,
+          metadata: { orderId: String(orderId), cartId },
+        },
+      },
+    });
+    await request(app)
+      .post("/api/webhooks/stripe")
+      .set("stripe-signature", "t=1,v1=fake")
+      .set("content-type", "application/json")
+      .send(Buffer.from(JSON.stringify({ id: "evt_async_fail" })));
+    const [pAgain] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, product.id));
+    expect(pAgain.inventory).toBe(10);
+  });
+
+  it("restores inventory when a shipped order is later fully refunded", async () => {
+    const product = await seedProduct({ priceCents: 5_000, inventory: 8 });
+    // Seed a shipped order whose stock has already been decremented by an
+    // earlier paid transition (inventory: 8 = 10 - 2).
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "shipped",
+        subtotalCents: 10_000,
+        shippingCents: 0,
+        taxCents: 0,
+        discountCents: 0,
+        totalCents: 10_000,
+        currency: "usd",
+        stripePaymentIntentId: "pi_shipped_refund",
+        trackingCode: "TRK-RF-1",
+        carrier: "USPS",
+      })
+      .returning();
+    await db.insert(orderItemsTable).values({
+      orderId: order.id,
+      productId: product.id,
+      productName: "Test Product",
+      productImage: null,
+      quantity: 2,
+      priceCents: 5_000,
+    });
+
+    stripeMock.constructEvent.mockReturnValueOnce({
+      id: "evt_refund_shipped",
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_refund_shipped",
+          payment_intent: "pi_shipped_refund",
+          refunded: true,
+          amount: 10_000,
+          amount_refunded: 10_000,
+        },
+      },
+    });
+    const res = await request(app)
+      .post("/api/webhooks/stripe")
+      .set("stripe-signature", "t=1,v1=fake")
+      .set("content-type", "application/json")
+      .send(Buffer.from(JSON.stringify({ id: "evt_refund_shipped" })));
+    expect(res.status).toBe(200);
+
+    const [p] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, product.id));
+    expect(p.inventory).toBe(10);
+    const [updated] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, order.id));
+    expect(updated.status).toBe("refunded");
+  });
+
+  it("ignores partial charge.refunded events (does not restore inventory)", async () => {
+    const product = await seedProduct({ priceCents: 5_000, inventory: 10 });
+    const discount = await seedDiscount({
+      code: "WELCOME10",
+      type: "percent",
+      value: 10,
+    });
+    const cartId = "cart-wh-refund-partial";
+    await seedCart({ cartId, productId: product.id, quantity: 2 });
+    const { orderId, sessionId } = await seedPendingOrder({
+      cartId,
+      productId: product.id,
+      discountId: discount.id,
+      discountCode: "WELCOME10",
+      sessionId: "cs_test_refund_p",
+    });
+
+    stripeMock.constructEvent.mockReturnValueOnce({
+      id: "evt_refund_p_pay",
+      type: "checkout.session.completed",
+      data: {
+        object: {
+          id: sessionId,
+          metadata: { orderId: String(orderId), cartId },
+          payment_intent: "pi_refund_p",
+          customer_email: "buyer@example.com",
+          amount_total: 9_500,
+          total_details: {
+            amount_tax: 0,
+            amount_discount: 1_000,
+            amount_shipping: 500,
+          },
+        },
+      },
+    });
+    await request(app)
+      .post("/api/webhooks/stripe")
+      .set("stripe-signature", "t=1,v1=fake")
+      .set("content-type", "application/json")
+      .send(Buffer.from(JSON.stringify({ id: "evt_refund_p_pay" })));
+
+    stripeMock.constructEvent.mockReturnValueOnce({
+      id: "evt_refund_partial",
+      type: "charge.refunded",
+      data: {
+        object: {
+          id: "ch_refund_p",
+          payment_intent: "pi_refund_p",
+          refunded: false,
+          amount: 9_500,
+          amount_refunded: 1_000,
+        },
+      },
+    });
+    const res = await request(app)
+      .post("/api/webhooks/stripe")
+      .set("stripe-signature", "t=1,v1=fake")
+      .set("content-type", "application/json")
+      .send(Buffer.from(JSON.stringify({ id: "evt_refund_partial" })));
+    expect(res.status).toBe(200);
+
+    const [p] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, product.id));
+    expect(p.inventory).toBe(8);
+    const [order] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+    expect(order.status).toBe("paid");
   });
 
   it("EasyPost tracker.updated → delivered flips a shipped order to delivered", async () => {

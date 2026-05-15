@@ -1,6 +1,6 @@
 import { Router, type IRouter, raw } from "express";
 import { createHmac, timingSafeEqual } from "crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   ordersTable,
@@ -55,6 +55,166 @@ router.post(
       await recordStripeWebhookReceived();
     } catch (err) {
       req.log.warn({ err }, "Failed to record webhook timestamp");
+    }
+
+    // ----------------------------------------------------------------------
+    // charge.refunded — restore inventory we previously decremented and flip
+    // the order to `refunded`. Only acted on when the charge is fully
+    // refunded; partial refunds leave the order/inventory untouched because
+    // we don't track per-line refund quantities.
+    //
+    // The status flip and the inventory restore happen inside a single
+    // transaction that also claims the Stripe event id, so an erroring
+    // restore rolls the claim back and Stripe will retry.
+    // ----------------------------------------------------------------------
+    if (event.type === "charge.refunded") {
+      const charge = event.data.object as {
+        id?: string;
+        payment_intent?: string | null;
+        refunded?: boolean;
+        amount?: number | null;
+        amount_refunded?: number | null;
+      };
+      const paymentIntentId =
+        typeof charge.payment_intent === "string"
+          ? charge.payment_intent
+          : null;
+      const isFullRefund =
+        charge.refunded === true ||
+        (typeof charge.amount === "number" &&
+          typeof charge.amount_refunded === "number" &&
+          charge.amount_refunded >= charge.amount &&
+          charge.amount > 0);
+
+      try {
+        await db.transaction(async (tx) => {
+          const claimed = await tx
+            .insert(stripeProcessedEventsTable)
+            .values({ eventId: event.id, eventType: event.type })
+            .onConflictDoNothing({
+              target: stripeProcessedEventsTable.eventId,
+            })
+            .returning({ eventId: stripeProcessedEventsTable.eventId });
+          if (claimed.length === 0) return;
+          if (!paymentIntentId || !isFullRefund) return;
+
+          // Atomic transition to `refunded` for any post-paid state that
+          // had its inventory decremented at payment time. We include
+          // shipped/delivered because a customer can be refunded after
+          // fulfillment too — we still owe them the stock back. Already-
+          // refunded orders won't match and won't double-restore.
+          const flipped = await tx
+            .update(ordersTable)
+            .set({ status: "refunded", updatedAt: new Date() })
+            .where(
+              and(
+                eq(ordersTable.stripePaymentIntentId, paymentIntentId),
+                inArray(ordersTable.status, ["paid", "shipped", "delivered"]),
+              ),
+            )
+            .returning({ id: ordersTable.id });
+          if (flipped.length === 0) return;
+
+          const refundedOrderId = flipped[0].id;
+          const items = await tx
+            .select()
+            .from(orderItemsTable)
+            .where(eq(orderItemsTable.orderId, refundedOrderId));
+          for (const it of items) {
+            await tx
+              .update(productsTable)
+              .set({
+                inventory: sql`${productsTable.inventory} + ${it.quantity}`,
+              })
+              .where(eq(productsTable.id, it.productId));
+          }
+        });
+      } catch (err) {
+        req.log.error({ err }, "Stripe refund webhook failed; will retry");
+        res.status(500).json({ error: "Webhook processing failed" });
+        return;
+      }
+      res.json({ received: true });
+      return;
+    }
+
+    // ----------------------------------------------------------------------
+    // checkout.session.async_payment_failed — for delayed payment methods
+    // (ACH, etc.) Stripe fires `checkout.session.completed` immediately and
+    // we treat that as paid (decrementing inventory). If the bank later
+    // declines, this event arrives. Restore inventory and flip the order to
+    // `payment_failed` so it doesn't keep showing as a sale.
+    // ----------------------------------------------------------------------
+    if (event.type === "checkout.session.async_payment_failed") {
+      const failedSession = event.data.object as {
+        id?: string;
+        metadata?: Record<string, string> | null;
+      };
+      const failedOrderId = Number(failedSession.metadata?.orderId);
+
+      try {
+        await db.transaction(async (tx) => {
+          const claimed = await tx
+            .insert(stripeProcessedEventsTable)
+            .values({ eventId: event.id, eventType: event.type })
+            .onConflictDoNothing({
+              target: stripeProcessedEventsTable.eventId,
+            })
+            .returning({ eventId: stripeProcessedEventsTable.eventId });
+          if (claimed.length === 0) return;
+          if (!failedOrderId) return;
+
+          // If the order had already been flipped to paid (which is what
+          // would have decremented stock), atomically move it to
+          // `payment_failed` and add the line quantities back. If it never
+          // reached paid the update matches nothing and we restore nothing.
+          const flipped = await tx
+            .update(ordersTable)
+            .set({ status: "payment_failed", updatedAt: new Date() })
+            .where(
+              and(
+                eq(ordersTable.id, failedOrderId),
+                eq(ordersTable.status, "paid"),
+              ),
+            )
+            .returning({ id: ordersTable.id });
+          if (flipped.length === 0) {
+            // Also ensure a still-pending order is reflected as failed,
+            // even though no inventory needs restoring.
+            await tx
+              .update(ordersTable)
+              .set({ status: "payment_failed", updatedAt: new Date() })
+              .where(
+                and(
+                  eq(ordersTable.id, failedOrderId),
+                  eq(ordersTable.status, "pending"),
+                ),
+              );
+            return;
+          }
+          const items = await tx
+            .select()
+            .from(orderItemsTable)
+            .where(eq(orderItemsTable.orderId, failedOrderId));
+          for (const it of items) {
+            await tx
+              .update(productsTable)
+              .set({
+                inventory: sql`${productsTable.inventory} + ${it.quantity}`,
+              })
+              .where(eq(productsTable.id, it.productId));
+          }
+        });
+      } catch (err) {
+        req.log.error(
+          { err },
+          "Stripe async_payment_failed webhook failed; will retry",
+        );
+        res.status(500).json({ error: "Webhook processing failed" });
+        return;
+      }
+      res.json({ received: true });
+      return;
     }
 
     if (
