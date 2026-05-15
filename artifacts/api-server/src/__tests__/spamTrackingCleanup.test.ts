@@ -5,6 +5,7 @@ import {
   contactSubmissionFingerprintsTable,
   newsletterRateLimitsTable,
   orderLookupFailuresTable,
+  resendLinkAttemptsTable,
 } from "@workspace/db";
 import { cleanupSpamTracking } from "../lib/spamTrackingCleanup";
 
@@ -44,12 +45,20 @@ describe("cleanupSpamTracking", () => {
         ('2.2.2.2', 200, 1, '2026-05-15T11:00:00Z', '2026-05-15T11:00:00Z');
     `);
 
+    // resend_link_attempts: 60-minute window + 24h safety margin -> 25h cutoff.
+    await pglite.exec(`
+      INSERT INTO resend_link_attempts (ip, order_id, count, first_at, updated_at) VALUES
+        ('1.1.1.1', 100, 3, '2026-05-13T00:00:00Z', '2026-05-13T00:00:00Z'),
+        ('2.2.2.2', 200, 1, '2026-05-15T11:00:00Z', '2026-05-15T11:00:00Z');
+    `);
+
     const removed = await cleanupSpamTracking(now);
     expect(removed).toEqual({
       contactRateLimits: 1,
       contactFingerprints: 1,
       newsletterRateLimits: 1,
       orderLookupFailures: 1,
+      resendLinkAttempts: 1,
     });
 
     const rateRows = await db.select().from(contactRateLimitsTable);
@@ -74,6 +83,9 @@ describe("cleanupSpamTracking", () => {
     await db
       .insert(orderLookupFailuresTable)
       .values({ ip: "9.9.9.9", orderId: 42, count: 1 });
+    await db
+      .insert(resendLinkAttemptsTable)
+      .values({ ip: "9.9.9.9", orderId: 42, count: 1 });
 
     const removed = await cleanupSpamTracking(now);
     expect(removed).toEqual({
@@ -81,6 +93,7 @@ describe("cleanupSpamTracking", () => {
       contactFingerprints: 0,
       newsletterRateLimits: 0,
       orderLookupFailures: 0,
+      resendLinkAttempts: 0,
     });
   });
 });

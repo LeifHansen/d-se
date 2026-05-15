@@ -114,46 +114,57 @@ export async function __resetLookupRateLimitForTests(): Promise<void> {
 // Independent throttle for the resend-link endpoint. Bucket by (ip, orderId)
 // so an attacker can't spam an inbox by hammering arbitrary order ids, and
 // keep it separate from the lookup throttle so a successful resend doesn't
-// reset the brute-force budget on /lookup (and vice versa).
+// reset the brute-force budget on /lookup (and vice versa). Persisted in
+// Postgres (mirroring order_lookup_failures) so the budget survives restarts
+// and is shared across every API process.
 const RESEND_MAX_ATTEMPTS = 3;
-const RESEND_WINDOW_MS = 60 * 60 * 1000;
-type LookupAttempt = { count: number; firstAt: number };
-const lookupKey = (ip: string, orderId: number): string => `${ip}:${orderId}`;
-const resendAttempts = new Map<string, LookupAttempt>();
+const RESEND_WINDOW_MINUTES = 60;
 
-function checkResendRateLimit(
+async function checkResendRateLimit(
   ip: string,
   orderId: number,
-): { allowed: true } | { allowed: false; retryAfterSeconds: number } {
-  const key = lookupKey(ip, orderId);
-  const now = Date.now();
-  const entry = resendAttempts.get(key);
-  if (!entry || now - entry.firstAt > RESEND_WINDOW_MS) {
-    return { allowed: true };
-  }
-  if (entry.count >= RESEND_MAX_ATTEMPTS) {
-    const retryAfterMs = RESEND_WINDOW_MS - (now - entry.firstAt);
-    return {
-      allowed: false,
-      retryAfterSeconds: Math.max(1, Math.ceil(retryAfterMs / 1000)),
-    };
-  }
-  return { allowed: true };
+): Promise<{ allowed: true } | { allowed: false; retryAfterSeconds: number }> {
+  const result = await db.execute<{ count: number; first_at: Date | string }>(sql`
+    SELECT count, first_at FROM resend_link_attempts
+    WHERE ip = ${ip} AND order_id = ${orderId}
+      AND first_at > NOW() - (${RESEND_WINDOW_MINUTES}::int * INTERVAL '1 minute')
+  `);
+  const row = result.rows[0];
+  if (!row) return { allowed: true };
+  const count = Number(row.count);
+  if (count < RESEND_MAX_ATTEMPTS) return { allowed: true };
+  const firstAtMs = new Date(row.first_at).getTime();
+  const retryAfterMs =
+    RESEND_WINDOW_MINUTES * 60 * 1000 - (Date.now() - firstAtMs);
+  return {
+    allowed: false,
+    retryAfterSeconds: Math.max(1, Math.ceil(retryAfterMs / 1000)),
+  };
 }
 
-function recordResendAttempt(ip: string, orderId: number): void {
-  const key = lookupKey(ip, orderId);
-  const now = Date.now();
-  const entry = resendAttempts.get(key);
-  if (!entry || now - entry.firstAt > RESEND_WINDOW_MS) {
-    resendAttempts.set(key, { count: 1, firstAt: now });
-    return;
-  }
-  entry.count += 1;
+async function recordResendAttempt(ip: string, orderId: number): Promise<void> {
+  // Atomic upsert: reset the counter when the existing window has expired,
+  // otherwise increment. Mirrors checkLookupRateLimit / recordLookupFailure.
+  await db.execute(sql`
+    INSERT INTO resend_link_attempts (ip, order_id, count, first_at, updated_at)
+    VALUES (${ip}, ${orderId}, 1, NOW(), NOW())
+    ON CONFLICT (ip, order_id) DO UPDATE SET
+      count = CASE
+        WHEN resend_link_attempts.first_at < NOW() - (${RESEND_WINDOW_MINUTES}::int * INTERVAL '1 minute')
+          THEN 1
+        ELSE resend_link_attempts.count + 1
+      END,
+      first_at = CASE
+        WHEN resend_link_attempts.first_at < NOW() - (${RESEND_WINDOW_MINUTES}::int * INTERVAL '1 minute')
+          THEN NOW()
+        ELSE resend_link_attempts.first_at
+      END,
+      updated_at = NOW()
+  `);
 }
 
-export function __resetResendRateLimitForTests(): void {
-  resendAttempts.clear();
+export async function __resetResendRateLimitForTests(): Promise<void> {
+  await db.execute(sql`TRUNCATE TABLE resend_link_attempts`);
 }
 
 async function buildOrderResponse(orderId: number) {
@@ -647,7 +658,7 @@ router.post("/orders/:id/resend-link", async (req, res): Promise<void> => {
   // by (ip, orderId) so an attacker can't cheaply spam arbitrary inboxes by
   // flipping the email field.
   const clientIp = req.ip || "unknown";
-  const limit = checkResendRateLimit(clientIp, idNum);
+  const limit = await checkResendRateLimit(clientIp, idNum);
   if (!limit.allowed) {
     res.setHeader("Retry-After", String(limit.retryAfterSeconds));
     res.status(429).json({ error: "Too many attempts. Try again later." });
@@ -655,7 +666,7 @@ router.post("/orders/:id/resend-link", async (req, res): Promise<void> => {
   }
   // Count every attempt — including the misses — so the throttle protects
   // arbitrary inboxes from being targeted, not just the address on file.
-  recordResendAttempt(clientIp, idNum);
+  await recordResendAttempt(clientIp, idNum);
 
   const [row] = await db
     .select()

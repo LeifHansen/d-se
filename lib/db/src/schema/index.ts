@@ -13,5 +13,6 @@ export * from "./contactQuarantine";
 export * from "./newsletterRateLimits";
 export * from "./newsletterQuarantine";
 export * from "./orderLookupFailures";
+export * from "./resendLinkAttempts";
 export * from "./userProfiles";
 export * from "./customers";

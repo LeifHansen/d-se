@@ -5,6 +5,7 @@ import {
   contactSubmissionFingerprintsTable,
   newsletterRateLimitsTable,
   orderLookupFailuresTable,
+  resendLinkAttemptsTable,
 } from "@workspace/db";
 import { logger } from "./logger";
 
@@ -46,6 +47,13 @@ function orderLookupWindowMinutes(): number {
   return envInt("ORDER_LOOKUP_WINDOW_MINUTES", 10);
 }
 
+function resendLinkWindowMinutes(): number {
+  // Mirrors RESEND_WINDOW_MINUTES in routes/orders.ts. Kept hardcoded there
+  // today; expose an env override here so operators can stretch the cleanup
+  // cutoff if the route ever becomes tunable.
+  return envInt("RESEND_LINK_WINDOW_MINUTES", 60);
+}
+
 function cutoff(now: Date, windowMinutes: number): Date {
   const totalMs =
     windowMinutes * 60 * 1000 + safetyMarginHours() * 60 * 60 * 1000;
@@ -57,6 +65,7 @@ export type SpamTrackingCleanupResult = {
   contactFingerprints: number;
   newsletterRateLimits: number;
   orderLookupFailures: number;
+  resendLinkAttempts: number;
 };
 
 export type SpamTrackingCleanupStats = {
@@ -81,8 +90,9 @@ export async function cleanupSpamTracking(
   );
   const newsletterRateCutoff = cutoff(now, newsletterRateLimitWindowMinutes());
   const orderLookupCutoff = cutoff(now, orderLookupWindowMinutes());
+  const resendLinkCutoff = cutoff(now, resendLinkWindowMinutes());
 
-  const [contactRate, contactFp, newsletterRate, orderLookup] =
+  const [contactRate, contactFp, newsletterRate, orderLookup, resendLink] =
     await Promise.all([
       db
         .delete(contactRateLimitsTable)
@@ -105,6 +115,10 @@ export async function cleanupSpamTracking(
         .delete(orderLookupFailuresTable)
         .where(lt(orderLookupFailuresTable.firstAt, orderLookupCutoff))
         .returning({ ip: orderLookupFailuresTable.ip }),
+      db
+        .delete(resendLinkAttemptsTable)
+        .where(lt(resendLinkAttemptsTable.firstAt, resendLinkCutoff))
+        .returning({ ip: resendLinkAttemptsTable.ip }),
     ]);
 
   const result: SpamTrackingCleanupResult = {
@@ -112,6 +126,7 @@ export async function cleanupSpamTracking(
     contactFingerprints: contactFp.length,
     newsletterRateLimits: newsletterRate.length,
     orderLookupFailures: orderLookup.length,
+    resendLinkAttempts: resendLink.length,
   };
   lastRunAt = now;
   lastResult = result;
@@ -143,7 +158,8 @@ export function startSpamTrackingCleanupScheduler(): void {
         removed.contactRateLimits +
         removed.contactFingerprints +
         removed.newsletterRateLimits +
-        removed.orderLookupFailures;
+        removed.orderLookupFailures +
+        removed.resendLinkAttempts;
       if (total > 0) {
         logger.info(
           { ...removed, total },
