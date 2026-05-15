@@ -19,6 +19,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  BLOG_PROSE_CLASSES,
+  BlogMarkdown,
+} from "@/components/blog/BlogMarkdown";
 import {
   Dialog,
   DialogContent,
@@ -404,17 +409,51 @@ export default function AdminBlog() {
 
             <div>
               <Label htmlFor="b-content">Content (Markdown)</Label>
-              <Textarea
-                id="b-content"
-                value={form.content}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, content: e.target.value }))
-                }
-                rows={14}
-                required
-                className="font-mono text-xs"
-                data-testid="input-post-content"
-              />
+              <Tabs defaultValue="write" className="mt-1.5">
+                <TabsList>
+                  <TabsTrigger
+                    value="write"
+                    data-testid="tab-post-content-write"
+                  >
+                    Write
+                  </TabsTrigger>
+                  <TabsTrigger
+                    value="preview"
+                    data-testid="tab-post-content-preview"
+                  >
+                    Preview
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="write" className="mt-2">
+                  <Textarea
+                    id="b-content"
+                    value={form.content}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, content: e.target.value }))
+                    }
+                    rows={14}
+                    required
+                    className="font-mono text-xs"
+                    data-testid="input-post-content"
+                  />
+                </TabsContent>
+                <TabsContent value="preview" className="mt-2">
+                  <div
+                    className="min-h-[20rem] rounded-md border border-border bg-background p-4"
+                    data-testid="post-content-preview"
+                  >
+                    {form.content.trim() ? (
+                      <div className={BLOG_PROSE_CLASSES}>
+                        <BlogMarkdown content={form.content} />
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">
+                        Nothing to preview yet. Start writing in the Write tab.
+                      </p>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
             </div>
 
             <div>
