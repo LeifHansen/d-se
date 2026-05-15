@@ -55,6 +55,23 @@ describe("GET /api/blog/posts", () => {
     expect(res.body.map((p: { slug: string }) => p.slug)).toEqual(["new", "old"]);
   });
 
+  it("filters by tag", async () => {
+    await seedPost({ slug: "news1", tags: ["news", "launch"] });
+    await seedPost({ slug: "news2", tags: ["news"] });
+    await seedPost({ slug: "guide", tags: ["howto"] });
+    const res = await request(app).get("/api/blog/posts").query({ tag: "news" });
+    expect(res.status).toBe(200);
+    expect(res.body.map((p: { slug: string }) => p.slug).sort()).toEqual([
+      "news1",
+      "news2",
+    ]);
+
+    const res2 = await request(app).get("/api/blog/posts").query({ tag: "launch" });
+    expect(res2.status).toBe(200);
+    expect(res2.body).toHaveLength(1);
+    expect(res2.body[0].slug).toBe("news1");
+  });
+
   it("respects limit", async () => {
     await seedPost({ slug: "a", publishedAt: new Date("2025-01-03") });
     await seedPost({ slug: "b", publishedAt: new Date("2025-01-02") });

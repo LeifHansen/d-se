@@ -65,6 +65,40 @@ describe("GET /api/products", () => {
     expect(res.body[0].slug).toBe("f1");
   });
 
+  it("filters by tag", async () => {
+    await db.insert(productsTable).values([
+      {
+        slug: "tea",
+        name: "Tea",
+        priceCents: 100,
+        tags: ["drink", "hot"],
+      },
+      {
+        slug: "ice",
+        name: "Ice",
+        priceCents: 100,
+        tags: ["drink", "cold"],
+      },
+      {
+        slug: "rock",
+        name: "Rock",
+        priceCents: 100,
+        tags: ["solid"],
+      },
+    ]);
+    const res = await request(app).get("/api/products").query({ tag: "cold" });
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0].slug).toBe("ice");
+
+    const res2 = await request(app).get("/api/products").query({ tag: "drink" });
+    expect(res2.status).toBe(200);
+    expect(res2.body.map((p: { slug: string }) => p.slug).sort()).toEqual([
+      "ice",
+      "tea",
+    ]);
+  });
+
   it("respects limit", async () => {
     for (let i = 0; i < 5; i++) {
       await db.insert(productsTable).values({

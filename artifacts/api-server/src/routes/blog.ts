@@ -40,7 +40,9 @@ router.get("/blog/posts", blogIndexCache, async (req, res): Promise<void> => {
   }
   const conditions = [eq(blogPostsTable.published, true)];
   if (parsed.data.tag) {
-    conditions.push(sql`${blogPostsTable.tags} ?? ${parsed.data.tag}`);
+    conditions.push(
+      sql`${blogPostsTable.tags} @> jsonb_build_array(${parsed.data.tag}::text)`,
+    );
   }
   const rows = await db
     .select()

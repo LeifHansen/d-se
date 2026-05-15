@@ -76,7 +76,9 @@ router.get("/products", productsCache, async (req, res): Promise<void> => {
     conditions.push(eq(productsTable.featured, featured));
   }
   if (tag) {
-    conditions.push(sql`${productsTable.tags} ?? ${tag}`);
+    conditions.push(
+      sql`${productsTable.tags} @> jsonb_build_array(${tag}::text)`,
+    );
   }
   const rows = await db
     .select()
