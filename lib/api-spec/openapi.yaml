@@ -309,6 +309,36 @@ paths:
                   url: { type: string }
                   orderId: { type: integer }
 
+  /me/saved-address:
+    get:
+      operationId: getMySavedAddress
+      tags: [account]
+      summary: Get the signed-in shopper's saved default shipping address
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedAddressResponse" }
+    put:
+      operationId: updateMySavedAddress
+      tags: [account]
+      summary: Create or update the signed-in shopper's saved default shipping address
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address]
+              properties:
+                address: { $ref: "#/components/schemas/AddressInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SavedAddressResponse" }
   /orders/me:
     get:
       operationId: listMyOrders
@@ -1426,6 +1456,15 @@ components:
         quantity: { type: integer }
         product: { $ref: "#/components/schemas/Product" }
         lineTotalCents: { type: integer }
+
+    SavedAddressResponse:
+      type: object
+      required: [address]
+      properties:
+        address:
+          oneOf:
+            - $ref: "#/components/schemas/AddressInput"
+            - type: "null"
 
     AddressInput:
       type: object

@@ -14,6 +14,7 @@ import discountsRouter from "./discounts";
 import reviewsRouter from "./reviews";
 import newsletterRouter from "./newsletter";
 import contactRouter from "./contact";
+import accountRouter from "./account";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(imageProxyRouter);
 router.use(seoRouter);
 router.use(newsletterRouter);
 router.use(contactRouter);
+router.use(accountRouter);
 
 export default router;

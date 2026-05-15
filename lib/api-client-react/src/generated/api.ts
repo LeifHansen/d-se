@@ -77,10 +77,12 @@ import type {
   ResumeCartParams,
   Review,
   ReviewList,
+  SavedAddressResponse,
   ShippingRate,
   SubmitProductReviewBody,
   TaxSummary,
   UpdateCartItemBody,
+  UpdateMySavedAddressBody,
   UploadUrlRequest,
   UploadUrlResponse,
   ValidateDiscountBody,
@@ -1298,6 +1300,168 @@ export const useCreateCheckout = <
   TContext
 > => {
   return useMutation(getCreateCheckoutMutationOptions(options));
+};
+
+/**
+ * @summary Get the signed-in shopper's saved default shipping address
+ */
+export const getGetMySavedAddressUrl = () => {
+  return `/api/me/saved-address`;
+};
+
+export const getMySavedAddress = async (
+  options?: RequestInit,
+): Promise<SavedAddressResponse> => {
+  return customFetch<SavedAddressResponse>(getGetMySavedAddressUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetMySavedAddressQueryKey = () => {
+  return [`/api/me/saved-address`] as const;
+};
+
+export const getGetMySavedAddressQueryOptions = <
+  TData = Awaited<ReturnType<typeof getMySavedAddress>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMySavedAddress>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetMySavedAddressQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getMySavedAddress>>
+  > = ({ signal }) => getMySavedAddress({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getMySavedAddress>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetMySavedAddressQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getMySavedAddress>>
+>;
+export type GetMySavedAddressQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get the signed-in shopper's saved default shipping address
+ */
+
+export function useGetMySavedAddress<
+  TData = Awaited<ReturnType<typeof getMySavedAddress>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getMySavedAddress>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetMySavedAddressQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Create or update the signed-in shopper's saved default shipping address
+ */
+export const getUpdateMySavedAddressUrl = () => {
+  return `/api/me/saved-address`;
+};
+
+export const updateMySavedAddress = async (
+  updateMySavedAddressBody: UpdateMySavedAddressBody,
+  options?: RequestInit,
+): Promise<SavedAddressResponse> => {
+  return customFetch<SavedAddressResponse>(getUpdateMySavedAddressUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateMySavedAddressBody),
+  });
+};
+
+export const getUpdateMySavedAddressMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMySavedAddress>>,
+    TError,
+    { data: BodyType<UpdateMySavedAddressBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateMySavedAddress>>,
+  TError,
+  { data: BodyType<UpdateMySavedAddressBody> },
+  TContext
+> => {
+  const mutationKey = ["updateMySavedAddress"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMySavedAddress>>,
+    { data: BodyType<UpdateMySavedAddressBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateMySavedAddress(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateMySavedAddressMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateMySavedAddress>>
+>;
+export type UpdateMySavedAddressMutationBody =
+  BodyType<UpdateMySavedAddressBody>;
+export type UpdateMySavedAddressMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Create or update the signed-in shopper's saved default shipping address
+ */
+export const useUpdateMySavedAddress = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateMySavedAddress>>,
+    TError,
+    { data: BodyType<UpdateMySavedAddressBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateMySavedAddress>>,
+  TError,
+  { data: BodyType<UpdateMySavedAddressBody> },
+  TContext
+> => {
+  return useMutation(getUpdateMySavedAddressMutationOptions(options));
 };
 
 /**

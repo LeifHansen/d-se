@@ -4,7 +4,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useListMyOrders,
   useReorder,
+  useGetMySavedAddress,
+  useUpdateMySavedAddress,
+  getGetMySavedAddressQueryKey,
   getGetCartQueryKey,
+  type AddressInput,
   type Order,
 } from "@workspace/api-client-react";
 import { SiteShell } from "@/components/dose/SiteShell";
@@ -253,6 +257,243 @@ function OrderRow({ order }: { order: Order }) {
   );
 }
 
+const EMPTY_ADDRESS: AddressInput = {
+  name: "",
+  street1: "",
+  street2: "",
+  city: "",
+  state: "",
+  zip: "",
+  country: "US",
+  phone: "",
+};
+
+function SavedAddressCard() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data, isLoading } = useGetMySavedAddress({
+    query: { retry: false } as never,
+  });
+  const update = useUpdateMySavedAddress();
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<AddressInput>(EMPTY_ADDRESS);
+
+  const saved = data?.address ?? null;
+
+  const startEdit = () => {
+    setDraft(saved ?? EMPTY_ADDRESS);
+    setEditing(true);
+  };
+
+  const cancel = () => {
+    setEditing(false);
+    setDraft(EMPTY_ADDRESS);
+  };
+
+  const updateField =
+    <K extends keyof AddressInput>(key: K) =>
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      setDraft((a) => ({ ...a, [key]: e.target.value }));
+
+  const onSave = (e: FormEvent) => {
+    e.preventDefault();
+    update.mutate(
+      { data: { address: draft } },
+      {
+        onSuccess: ({ address }) => {
+          queryClient.setQueryData(getGetMySavedAddressQueryKey(), { address });
+          setEditing(false);
+          toast({
+            title: "Address saved",
+            description: "We'll use this for your next checkout.",
+          });
+        },
+        onError: () => {
+          toast({
+            title: "Couldn't save address",
+            description: "Please try again in a moment.",
+            variant: "destructive",
+          });
+        },
+      },
+    );
+  };
+
+  return (
+    <section
+      className="mb-10 rounded-2xl border bg-card p-6"
+      style={{ borderColor: "hsl(40 18% 80%)" }}
+      data-testid="saved-address"
+    >
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-display text-2xl">Saved shipping address</h2>
+          <p
+            className="mt-1 text-sm"
+            style={{ color: "hsl(170 18% 32%)" }}
+          >
+            Used to pre-fill your next checkout.
+          </p>
+        </div>
+        {!editing ? (
+          <Button
+            type="button"
+            onClick={startEdit}
+            disabled={isLoading}
+            className="rounded-full px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.22em]"
+            style={{
+              background: "hsl(170 58% 14%)",
+              color: "hsl(45 49% 90%)",
+            }}
+            data-testid="saved-address-edit"
+          >
+            {saved ? "Edit" : "Add address"}
+          </Button>
+        ) : null}
+      </div>
+
+      {!editing ? (
+        isLoading ? (
+          <p className="mt-4 text-sm opacity-70" data-testid="saved-address-loading">
+            Loading…
+          </p>
+        ) : saved ? (
+          <address
+            className="mt-4 not-italic text-sm leading-6"
+            style={{ color: "hsl(170 18% 28%)" }}
+            data-testid="saved-address-display"
+          >
+            <div>{saved.name}</div>
+            <div>{saved.street1}</div>
+            {saved.street2 ? <div>{saved.street2}</div> : null}
+            <div>
+              {saved.city}, {saved.state} {saved.zip}
+            </div>
+            <div>{saved.country}</div>
+            {saved.phone ? <div>{saved.phone}</div> : null}
+          </address>
+        ) : (
+          <p
+            className="mt-4 text-sm"
+            style={{ color: "hsl(170 18% 32%)" }}
+            data-testid="saved-address-empty"
+          >
+            You don't have a saved address yet.
+          </p>
+        )
+      ) : (
+        <form
+          className="mt-4 grid gap-4 sm:grid-cols-2"
+          onSubmit={onSave}
+          data-testid="saved-address-form"
+        >
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="sa-name">Full name</Label>
+            <Input
+              id="sa-name"
+              required
+              autoComplete="name"
+              value={draft.name}
+              onChange={updateField("name")}
+              data-testid="saved-address-name"
+            />
+          </div>
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="sa-street1">Address</Label>
+            <Input
+              id="sa-street1"
+              required
+              autoComplete="address-line1"
+              value={draft.street1}
+              onChange={updateField("street1")}
+              data-testid="saved-address-street1"
+            />
+          </div>
+          <div className="grid gap-2 sm:col-span-2">
+            <Label htmlFor="sa-street2">Apt / Suite (optional)</Label>
+            <Input
+              id="sa-street2"
+              autoComplete="address-line2"
+              value={draft.street2 ?? ""}
+              onChange={updateField("street2")}
+              data-testid="saved-address-street2"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="sa-city">City</Label>
+            <Input
+              id="sa-city"
+              required
+              autoComplete="address-level2"
+              value={draft.city}
+              onChange={updateField("city")}
+              data-testid="saved-address-city"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="sa-state">State</Label>
+            <Input
+              id="sa-state"
+              required
+              autoComplete="address-level1"
+              value={draft.state}
+              onChange={updateField("state")}
+              data-testid="saved-address-state"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="sa-zip">ZIP</Label>
+            <Input
+              id="sa-zip"
+              required
+              autoComplete="postal-code"
+              value={draft.zip}
+              onChange={updateField("zip")}
+              data-testid="saved-address-zip"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor="sa-country">Country</Label>
+            <Input
+              id="sa-country"
+              required
+              autoComplete="country"
+              value={draft.country}
+              onChange={updateField("country")}
+              data-testid="saved-address-country"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-3 sm:col-span-2">
+            <Button
+              type="submit"
+              disabled={update.isPending}
+              className="rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
+              style={{
+                background: "hsl(170 58% 14%)",
+                color: "hsl(45 49% 90%)",
+              }}
+              data-testid="saved-address-save"
+            >
+              {update.isPending ? "Saving…" : "Save address"}
+            </Button>
+            <button
+              type="button"
+              onClick={cancel}
+              disabled={update.isPending}
+              className="text-[11px] font-semibold uppercase tracking-[0.22em] underline underline-offset-4"
+              style={{ color: "hsl(170 18% 32%)" }}
+              data-testid="saved-address-cancel"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
+  );
+}
+
 export default function AccountPage() {
   const { data, isLoading, isError, error } = useListMyOrders({
     query: { retry: false } as never,
@@ -328,19 +569,24 @@ export default function AccountPage() {
           >
             {error instanceof Error ? error.message : "Couldn't load orders."}
           </p>
-        ) : data && data.length > 0 ? (
-          <ul className="space-y-4" data-testid="account-orders">
-            {data.map((order) => (
-              <OrderRow key={order.id} order={order} />
-            ))}
-          </ul>
         ) : (
-          <p
-            className="text-center font-display text-2xl"
-            data-testid="account-no-orders"
-          >
-            No orders yet.
-          </p>
+          <>
+            <SavedAddressCard />
+            {data && data.length > 0 ? (
+              <ul className="space-y-4" data-testid="account-orders">
+                {data.map((order) => (
+                  <OrderRow key={order.id} order={order} />
+                ))}
+              </ul>
+            ) : (
+              <p
+                className="text-center font-display text-2xl"
+                data-testid="account-no-orders"
+              >
+                No orders yet.
+              </p>
+            )}
+          </>
         )}
 
         <GuestOrderLookup />

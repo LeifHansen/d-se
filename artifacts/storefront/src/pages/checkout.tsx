@@ -9,6 +9,8 @@ import {
   useUpdateCartItem,
   useRemoveCartItem,
   getGetCartQueryKey,
+  useGetMySavedAddress,
+  useUpdateMySavedAddress,
 } from "@workspace/api-client-react";
 import type {
   AddressInput,
@@ -101,12 +103,30 @@ export default function CheckoutPage() {
   const shipping = useGetShippingRates();
   const checkout = useCreateCheckout();
 
-  // Pull the signed-in user's most recent order so we can prefill from the
-  // last server-side address. Quietly tolerate 401 for guests.
+  // Prefer the shopper's explicitly-saved default address (settable from the
+  // account page). Fall back to their most recent order's address if they
+  // haven't saved one yet. Both quietly tolerate 401 for guests.
+  const savedAddressQ = useGetMySavedAddress({
+    query: { retry: false, refetchOnWindowFocus: false } as never,
+  });
+  const updateSavedAddress = useUpdateMySavedAddress();
   const myOrders = useListMyOrders({
     query: { retry: false, refetchOnWindowFocus: false } as never,
   });
   const serverSavedAddress = useMemo<AddressInput | null>(() => {
+    const explicit = savedAddressQ.data?.address;
+    if (explicit && isAddressLike(explicit)) {
+      return {
+        name: explicit.name,
+        street1: explicit.street1,
+        street2: explicit.street2 ?? "",
+        city: explicit.city,
+        state: explicit.state,
+        zip: explicit.zip,
+        country: explicit.country || "US",
+        phone: explicit.phone ?? "",
+      };
+    }
     const list = (myOrders.data ?? []) as Array<{
       shippingAddress?: AddressInput | null;
       createdAt?: string;
@@ -126,7 +146,7 @@ export default function CheckoutPage() {
       }
     }
     return null;
-  }, [myOrders.data]);
+  }, [savedAddressQ.data, myOrders.data]);
 
   const [email, setEmail] = useState<string>(() => readSavedEmail());
   const [address, setAddress] = useState<AddressInput>(
@@ -293,6 +313,12 @@ export default function CheckoutPage() {
       } catch {
         /* ignore */
       }
+      // Best-effort: persist this address as the signed-in shopper's saved
+      // default. Fails silently for guests (401).
+      updateSavedAddress.mutate(
+        { data: { address } },
+        { onError: () => {} },
+      );
       if (result.url?.startsWith("http")) {
         window.location.href = result.url;
       } else {

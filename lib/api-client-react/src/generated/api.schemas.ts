@@ -114,6 +114,10 @@ export interface AddressInput {
   phone?: string | null;
 }
 
+export interface SavedAddressResponse {
+  address: AddressInput | null;
+}
+
 export interface ShippingRate {
   id: string;
   carrier: string;
@@ -664,6 +668,10 @@ export type CreateCheckoutBody = {
 export type CreateCheckout200 = {
   url: string;
   orderId: number;
+};
+
+export type UpdateMySavedAddressBody = {
+  address: AddressInput;
 };
 
 export type GetOrderParams = {
