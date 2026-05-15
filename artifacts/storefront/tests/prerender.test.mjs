@@ -22,6 +22,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import pg from "pg";
+import {
+  validateJsonLdBlock,
+  validateJsonLdBlocks,
+} from "./jsonld-schema-validator.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STOREFRONT_ROOT = path.resolve(__dirname, "..");
@@ -258,6 +262,14 @@ test("prerender emits per-slug shop + journal HTML with valid SEO and JSON-LD", 
   );
 
   const shopJsonLd = extractJsonLdBlocks(shopHtml);
+  {
+    const errs = validateJsonLdBlocks(shopJsonLd);
+    assert.deepEqual(
+      errs,
+      [],
+      `shop page JSON-LD failed schema.org validation:\n  - ${errs.join("\n  - ")}`,
+    );
+  }
   const product = shopJsonLd.find((b) => b["@type"] === "Product");
   assert.ok(product, "shop page must include a Product JSON-LD block");
   assert.equal(product.name, FIXTURE_PRODUCT_NAME);
@@ -304,6 +316,14 @@ test("prerender emits per-slug shop + journal HTML with valid SEO and JSON-LD", 
   );
 
   const journalJsonLd = extractJsonLdBlocks(journalHtml);
+  {
+    const errs = validateJsonLdBlocks(journalJsonLd);
+    assert.deepEqual(
+      errs,
+      [],
+      `journal page JSON-LD failed schema.org validation:\n  - ${errs.join("\n  - ")}`,
+    );
+  }
   const article = journalJsonLd.find((b) => b["@type"] === "Article");
   assert.ok(article, "journal page must include an Article JSON-LD block");
   assert.equal(article.headline, FIXTURE_POST_TITLE);
@@ -350,6 +370,26 @@ test("prerender succeeds with PRERENDER_ALLOW_NO_DB=1 and no DATABASE_URL", asyn
     "static /shop landing must have canonical",
   );
 
+  // Even on a no-db static page, the Organization + WebSite JSON-LD
+  // blocks must be valid schema.org so search previews don't degrade.
+  const landingJsonLd = extractJsonLdBlocks(shopLandingHtml);
+  assert.ok(
+    landingJsonLd.some((b) => b["@type"] === "Organization"),
+    "static /shop landing must include an Organization JSON-LD block",
+  );
+  assert.ok(
+    landingJsonLd.some((b) => b["@type"] === "WebSite"),
+    "static /shop landing must include a WebSite JSON-LD block",
+  );
+  {
+    const errs = validateJsonLdBlocks(landingJsonLd);
+    assert.deepEqual(
+      errs,
+      [],
+      `/shop landing JSON-LD failed schema.org validation:\n  - ${errs.join("\n  - ")}`,
+    );
+  }
+
   // Confirm the prerender script announced it was skipping dynamic
   // pages rather than silently fetching them.
   const out = `${result.stdout}\n${result.stderr}`;
@@ -383,4 +423,196 @@ test("prerender succeeds with PRERENDER_ALLOW_NO_DB=1 and no DATABASE_URL", asyn
     /\b0 product\b.*\b0 shop\b.*\b0 blog\b.*\b0 journal\b/,
     "no-db prerender summary should report zero dynamic outputs",
   );
+});
+
+// Sibling unit tests: prove the schema.org validator actually rejects
+// the kinds of malformed blocks Google's Rich Results test rejects, so
+// nobody can silently weaken the validator and have the assertions
+// above keep passing on broken JSON-LD.
+test("jsonld validator rejects malformed Product blocks", () => {
+  const baseGood = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: "Good Product",
+    url: "https://example.com/p",
+    image: ["https://example.com/p.jpg"],
+    sku: "good",
+    brand: { "@type": "Brand", name: "DŌSE" },
+    offers: {
+      "@type": "Offer",
+      url: "https://example.com/p",
+      priceCurrency: "USD",
+      price: "42.00",
+      availability: "https://schema.org/InStock",
+      itemCondition: "https://schema.org/NewCondition",
+    },
+  };
+  assert.deepEqual(
+    validateJsonLdBlock(baseGood),
+    [],
+    "baseline good Product must validate clean",
+  );
+
+  const cases = [
+    {
+      label: "missing offers",
+      mutate: (b) => {
+        delete b.offers;
+      },
+      expect: /offers is required/,
+    },
+    {
+      label: "wrong availability enum",
+      mutate: (b) => {
+        b.offers.availability = "InStock";
+      },
+      expect: /availability must be a schema\.org ItemAvailability URL/,
+    },
+    {
+      label: "price with currency symbol",
+      mutate: (b) => {
+        b.offers.price = "$42.00";
+      },
+      expect: /price must be a numeric string/,
+    },
+    {
+      label: "lowercase priceCurrency",
+      mutate: (b) => {
+        b.offers.priceCurrency = "usd";
+      },
+      expect: /priceCurrency must be a 3-letter ISO 4217 code/,
+    },
+    {
+      label: "wrong itemCondition enum",
+      mutate: (b) => {
+        b.offers.itemCondition = "https://schema.org/BrandNewCondition";
+      },
+      expect: /itemCondition must be a schema\.org OfferItemCondition URL/,
+    },
+    {
+      label: "non-absolute image URL",
+      mutate: (b) => {
+        b.image = ["/relative.jpg"];
+      },
+      expect: /image\[0\] must be an absolute URL/,
+    },
+    {
+      label: "missing @context",
+      mutate: (b) => {
+        delete b["@context"];
+      },
+      expect: /@context must be/,
+    },
+    {
+      label: "missing name",
+      mutate: (b) => {
+        delete b.name;
+      },
+      expect: /name is required/,
+    },
+  ];
+  for (const c of cases) {
+    const block = JSON.parse(JSON.stringify(baseGood));
+    c.mutate(block);
+    const errs = validateJsonLdBlock(block);
+    assert.ok(
+      errs.some((e) => c.expect.test(e)),
+      `[${c.label}] expected an error matching ${c.expect}, got: ${JSON.stringify(errs)}`,
+    );
+  }
+});
+
+test("jsonld validator rejects malformed Article blocks", () => {
+  const baseGood = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: "A perfectly fine headline",
+    url: "https://example.com/a",
+    image: ["https://example.com/a.jpg"],
+    author: { "@type": "Person", name: "Jane" },
+    publisher: {
+      "@type": "Organization",
+      name: "DŌSE",
+      logo: { "@type": "ImageObject", url: "https://example.com/logo.png" },
+    },
+    datePublished: "2025-01-02T03:04:05.000Z",
+    dateModified: "2025-01-03T03:04:05.000Z",
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": "https://example.com/a",
+    },
+  };
+  assert.deepEqual(
+    validateJsonLdBlock(baseGood),
+    [],
+    "baseline good Article must validate clean",
+  );
+
+  const cases = [
+    {
+      label: "missing datePublished",
+      mutate: (b) => {
+        delete b.datePublished;
+      },
+      expect: /datePublished is required and must be ISO 8601/,
+    },
+    {
+      label: "non-ISO datePublished",
+      mutate: (b) => {
+        b.datePublished = "Jan 2, 2025";
+      },
+      expect: /datePublished is required and must be ISO 8601/,
+    },
+    {
+      label: "non-ISO dateModified",
+      mutate: (b) => {
+        b.dateModified = "yesterday";
+      },
+      expect: /dateModified must be ISO 8601/,
+    },
+    {
+      label: "missing publisher.logo",
+      mutate: (b) => {
+        delete b.publisher.logo;
+      },
+      expect: /publisher\.logo is required/,
+    },
+    {
+      label: "publisher not Organization",
+      mutate: (b) => {
+        b.publisher["@type"] = "Person";
+      },
+      expect: /publisher\.@type must be "Organization"/,
+    },
+    {
+      label: "missing author",
+      mutate: (b) => {
+        delete b.author;
+      },
+      expect: /author is required/,
+    },
+    {
+      label: "headline too long",
+      mutate: (b) => {
+        b.headline = "x".repeat(150);
+      },
+      expect: /headline is 150 chars; Google requires <= 110/,
+    },
+    {
+      label: "mainEntityOfPage wrong @type",
+      mutate: (b) => {
+        b.mainEntityOfPage = { "@type": "Page", "@id": "https://example.com/a" };
+      },
+      expect: /mainEntityOfPage\.@type must be "WebPage"/,
+    },
+  ];
+  for (const c of cases) {
+    const block = JSON.parse(JSON.stringify(baseGood));
+    c.mutate(block);
+    const errs = validateJsonLdBlock(block);
+    assert.ok(
+      errs.some((e) => c.expect.test(e)),
+      `[${c.label}] expected an error matching ${c.expect}, got: ${JSON.stringify(errs)}`,
+    );
+  }
 });
