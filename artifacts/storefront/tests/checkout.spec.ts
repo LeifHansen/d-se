@@ -251,6 +251,55 @@ test.describe("cart → Stripe checkout handoff", () => {
     await expect(page.getByTestId("checkout-submit")).toBeEnabled();
   });
 
+  // Regression guard: filling out the address used to require clicking the
+  // Calculate button before any shipping rates appeared. The /checkout page
+  // now debounces an auto-fetch as soon as the required address fields are
+  // filled, and "Pay securely" enables once a rate is auto-selected. This
+  // test makes sure that auto-flow doesn't silently regress back to the
+  // old click-to-calculate behavior.
+  test("filling the shipping address auto-fetches rates and enables Pay securely without clicking Calculate", async ({
+    page,
+  }) => {
+    const calls: CheckoutCall[] = [];
+    await installCheckoutMocks(page, {
+      redirectUrl: "about:blank",
+      calls,
+    });
+    // No signed-in user — keep server prefill from interfering.
+    await page.route("**/api/orders/me", async (route: Route) => {
+      await route.fulfill({
+        status: 401,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "unauthorized" }),
+      });
+    });
+    await seedCartId(page);
+
+    await page.goto("/checkout");
+    await expect(page.getByTestId("page-checkout")).toBeVisible();
+
+    // No rates yet, and Pay securely is disabled.
+    await expect(page.locator('input[name="shipping-rate"]')).toHaveCount(0);
+    await expect(page.getByTestId("checkout-submit")).toBeDisabled();
+
+    // Fill the required address fields. Do NOT click the Calculate button.
+    await page.getByTestId("checkout-email").fill("buyer@example.com");
+    await page.getByTestId("checkout-name").fill("Test Buyer");
+    await page.getByTestId("checkout-street1").fill("1 Main St");
+    await page.getByTestId("checkout-city").fill("Town");
+    await page.getByTestId("checkout-state").fill("CA");
+    await page.getByTestId("checkout-zip").fill("90210");
+
+    // Shipping rate radio appears on its own (debounced auto-fetch) and one
+    // option is auto-selected.
+    await expect(page.locator('input[name="shipping-rate"]')).toHaveCount(1);
+    await expect(page.locator(`input[value="${RATE_ID}"]`)).toBeChecked();
+
+    // Pay securely becomes enabled automatically — no Calculate click
+    // required.
+    await expect(page.getByTestId("checkout-submit")).toBeEnabled();
+  });
+
   test("submitting /checkout posts to /api/checkout and redirects to the returned URL", async ({
     page,
     baseURL,
