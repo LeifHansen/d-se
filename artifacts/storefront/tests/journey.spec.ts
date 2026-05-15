@@ -646,6 +646,61 @@ test.describe("storefront customer journey", () => {
     await expect(page.getByTestId("success-order-delivery")).toBeVisible();
   });
 
+  test("cart shipping estimate updates total and rehydrates after reload", async ({
+    page,
+  }) => {
+    const api = new StorefrontApi();
+    await installStorefrontMocks(page, api);
+
+    // Seed the cart with one Calm Tincture by going through the PDP path so
+    // that the cart id ends up persisted in localStorage like a real shopper.
+    await page.goto("/products/calm-tincture");
+    await dismissOverlays(page);
+    await page.reload();
+    await expect(page.getByTestId("product-detail")).toBeVisible();
+    await page.getByTestId("button-add-to-cart").click();
+    await expect.poll(() => api.cart.items.length).toBeGreaterThan(0);
+
+    await page.goto("/cart");
+    await expect(page.getByTestId("cart-items")).toBeVisible();
+    await expect(page.getByTestId("summary-subtotal")).toContainText("$45.00");
+
+    // Before estimating, the shipping row shows the placeholder copy and the
+    // total equals the subtotal.
+    await expect(
+      page.getByTestId("summary-shipping-placeholder"),
+    ).toBeVisible();
+    await expect(page.getByTestId("summary-total")).toContainText("$45.00");
+
+    // Fill the ZIP/country form and submit. The mocked /api/shipping/rates
+    // returns a single $5.99 USPS Ground rate which becomes the cheapest.
+    await page.getByTestId("ship-estimate-zip").fill("97201");
+    await page.getByTestId("ship-estimate-country").fill("US");
+    await page.getByTestId("ship-estimate-apply").click();
+
+    const shipRow = page.getByTestId("summary-shipping-estimate");
+    await expect(shipRow).toBeVisible();
+    await expect(shipRow).toContainText("$5.99");
+    await expect(
+      page.getByTestId("summary-shipping-estimate-label"),
+    ).toContainText("97201");
+    await expect(page.getByTestId("ship-estimate-detail")).toContainText(
+      "USPS",
+    );
+
+    // Total should now be subtotal + shipping = $45.00 + $5.99 = $50.99.
+    await expect(page.getByTestId("summary-total")).toContainText("$50.99");
+
+    // Reload and assert the estimate rehydrates from localStorage without
+    // needing to re-submit the form.
+    await page.reload();
+    await expect(page.getByTestId("cart-items")).toBeVisible();
+    await expect(
+      page.getByTestId("summary-shipping-estimate"),
+    ).toContainText("$5.99");
+    await expect(page.getByTestId("summary-total")).toContainText("$50.99");
+  });
+
   test("blog list -> open a post -> back to list", async ({ page }) => {
     const api = new StorefrontApi();
     await installStorefrontMocks(page, api);
