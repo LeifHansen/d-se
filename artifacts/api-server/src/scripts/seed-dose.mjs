@@ -65,7 +65,7 @@ const items = [
       "Hemp-derived THC dropper with lemongrass + bergamot. 10 mg per dose, 30 doses, zero added sugar.",
   },
   {
-    src: path.join(brandDir, "bottle-hero.jpg"),
+    src: path.join(brandDir, "bottle-studio-angle.jpg"),
     publicPath: "dose/wellness-elixir.jpg",
     slug: "wellness-elixir",
     name: "Wellness Elixir",
@@ -80,7 +80,7 @@ const items = [
       "A 1:1 THC:CBD elixir with ashwagandha. Calm without couch-lock — 30 doses per bottle.",
   },
   {
-    src: path.join(brandDir, "Untitled-11_copy.jpg"),
+    src: path.join(brandDir, "bottle-label-detail.jpg"),
     publicPath: "dose/nightcap.jpg",
     slug: "nightcap",
     name: "Nightcap",
