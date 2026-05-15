@@ -424,3 +424,156 @@ test.describe("admin blog formatting reference", () => {
     ).toContainText("<product-callout");
   });
 });
+
+// ---------------------------------------------------------------------------
+// End-to-end coverage for the "Customer" link on the orders list and the
+// /admin/orders/by-email/:email destination page. Uses the storefront's
+// VITE_ADMIN_E2E_BYPASS to "sign in as admin" and mocks the admin orders
+// endpoints so the by-email handler actually filters by the normalized email
+// (mirroring the api-server's behavior). This guards against regressions in:
+//   - admin auth wiring on the OrdersByEmail page,
+//   - the wouter route /admin/orders/by-email/:email,
+//   - the case-insensitive `link-customer-<id>` href built in Orders.tsx,
+//   - the ListAdminOrdersByEmailResponse contract (orders array + email).
+// ---------------------------------------------------------------------------
+
+test.describe("admin orders → Customer link → per-email page", () => {
+  test("clicking the Customer link lists every order under that email regardless of casing", async ({
+    page,
+  }) => {
+    // Two paid orders for the same buyer, stored with different email casings
+    // (this mirrors what happens when shoppers check out twice and one of the
+    // entries was captured before email-normalization landed).
+    const mixedCaseEmail = "Repeat.Buyer@Example.COM";
+    const allCapsEmail = "REPEAT.BUYER@EXAMPLE.COM";
+    const normalized = "repeat.buyer@example.com";
+
+    const orders = [
+      makeOrder({ id: 8101, email: mixedCaseEmail, status: "paid" }),
+      makeOrder({ id: 8102, email: allCapsEmail, status: "paid" }),
+      // An unrelated order from someone else — must not show up on the per-
+      // email page even though it appears on the main orders list.
+      makeOrder({
+        id: 8103,
+        email: "someone-else@example.com",
+        status: "paid",
+      }),
+    ];
+
+    await installAdminBaseMocks(page);
+
+    await page.route("**/api/admin/orders*", async (route: Route) => {
+      const url = new URL(route.request().url());
+      // /api/admin/orders/by-email/:email is handled by a more specific
+      // route below; let it fall through.
+      if (url.pathname.includes("/by-email/")) {
+        await route.fallback();
+        return;
+      }
+      if (!url.pathname.endsWith("/api/admin/orders")) {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(orders),
+      });
+    });
+
+    const byEmailRequests: string[] = [];
+    await page.route(
+      "**/api/admin/orders/by-email/**",
+      async (route: Route) => {
+        const url = new URL(route.request().url());
+        const match = /\/api\/admin\/orders\/by-email\/([^/?#]+)/.exec(
+          url.pathname,
+        );
+        const raw = match ? decodeURIComponent(match[1]) : "";
+        const wanted = raw.trim().toLowerCase();
+        byEmailRequests.push(wanted);
+        const matched = orders.filter(
+          (o) => (o.email ?? "").trim().toLowerCase() === wanted,
+        );
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ email: wanted, orders: matched }),
+        });
+      },
+    );
+
+    await page.goto("/admin/orders");
+
+    // All three orders are visible on the list and each has its own Customer
+    // link (so we know the column actually renders for orders with an email).
+    await expect(page.getByTestId("row-order-8101")).toBeVisible();
+    await expect(page.getByTestId("row-order-8102")).toBeVisible();
+    await expect(page.getByTestId("row-order-8103")).toBeVisible();
+
+    const customerLink = page.getByTestId("link-customer-8101");
+    // The link href is built from the *normalized* email so that two orders
+    // stored under different casings collapse onto the same destination.
+    await expect(customerLink).toHaveAttribute(
+      "href",
+      `/admin/orders/by-email/${encodeURIComponent(normalized)}`,
+    );
+
+    await customerLink.click();
+
+    // Lands on the per-email page with the normalized email shown in the
+    // header and both same-customer orders listed (the unrelated one is
+    // filtered out).
+    await page.waitForURL(/\/admin\/orders\/by-email\//);
+    await expect(page.getByTestId("text-customer-email")).toContainText(
+      normalized,
+    );
+    await expect(page.getByTestId("row-order-8101")).toBeVisible();
+    await expect(page.getByTestId("row-order-8102")).toBeVisible();
+    await expect(page.getByTestId("row-order-8103")).toHaveCount(0);
+    await expect(page.getByTestId("text-orders-empty")).toHaveCount(0);
+
+    // The api was queried with the lowercased email, not the mixed-case
+    // value rendered in the orders list.
+    expect(byEmailRequests).toContain(normalized);
+
+    // Back-link returns to the main orders list.
+    await expect(page.getByTestId("link-back-to-orders")).toHaveAttribute(
+      "href",
+      "/admin/orders",
+    );
+  });
+
+  test("per-email page shows the empty state for an email with no orders", async ({
+    page,
+  }) => {
+    const lonely = "no-orders-here@example.com";
+
+    await installAdminBaseMocks(page);
+
+    await page.route(
+      "**/api/admin/orders/by-email/**",
+      async (route: Route) => {
+        const url = new URL(route.request().url());
+        const match = /\/api\/admin\/orders\/by-email\/([^/?#]+)/.exec(
+          url.pathname,
+        );
+        const raw = match ? decodeURIComponent(match[1]) : "";
+        const wanted = raw.trim().toLowerCase();
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ email: wanted, orders: [] }),
+        });
+      },
+    );
+
+    await page.goto(`/admin/orders/by-email/${encodeURIComponent(lonely)}`);
+
+    await expect(page.getByTestId("text-customer-email")).toContainText(lonely);
+    await expect(page.getByTestId("text-orders-empty")).toBeVisible();
+    await expect(page.getByTestId("text-orders-empty")).toContainText(lonely);
+    // No order rows rendered at all.
+    await expect(page.locator('[data-testid^="row-order-"]')).toHaveCount(0);
+  });
+});
