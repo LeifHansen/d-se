@@ -14,6 +14,54 @@ import { formatCurrency, formatDateTime } from "./utils";
 type MarketingRange = 7 | 30 | 90;
 const MARKETING_RANGES: MarketingRange[] = [7, 30, 90];
 
+function TrendDelta({
+  current,
+  prior,
+  rangeDays,
+  testId,
+}: {
+  current: number;
+  prior: number;
+  rangeDays: number;
+  testId: string;
+}) {
+  let label: string;
+  let tone: "up" | "down" | "neutral";
+  if (prior === 0 && current === 0) {
+    label = `No change vs prior ${rangeDays}d`;
+    tone = "neutral";
+  } else if (prior === 0) {
+    label = `New vs prior ${rangeDays}d`;
+    tone = "up";
+  } else {
+    const pct = ((current - prior) / prior) * 100;
+    const rounded = Math.round(pct);
+    if (rounded === 0) {
+      label = `0% vs prior ${rangeDays}d`;
+      tone = "neutral";
+    } else {
+      const sign = rounded > 0 ? "+" : "";
+      label = `${sign}${rounded}% vs prior ${rangeDays}d`;
+      tone = rounded > 0 ? "up" : "down";
+    }
+  }
+  const toneClass =
+    tone === "up"
+      ? "text-emerald-600 dark:text-emerald-400"
+      : tone === "down"
+        ? "text-rose-600 dark:text-rose-400"
+        : "text-muted-foreground";
+  return (
+    <p
+      className={`mt-1 text-xs font-medium tabular-nums ${toneClass}`}
+      data-testid={testId}
+      data-tone={tone}
+    >
+      {label}
+    </p>
+  );
+}
+
 function Sparkline({
   data,
   testId,
@@ -267,6 +315,12 @@ export default function AdminDashboard() {
                       "en-US",
                     )}
                   </p>
+                  <TrendDelta
+                    current={data.marketing.subscribersInRange}
+                    prior={data.marketing.priorSubscribersInRange}
+                    rangeDays={data.marketing.rangeDays}
+                    testId="marketing-subscribers-delta"
+                  />
                   <Sparkline
                     data={data.marketing.subscribersDaily}
                     testId="sparkline-subscribers"
@@ -283,6 +337,12 @@ export default function AdminDashboard() {
                   >
                     {data.marketing.ordersInRange.toLocaleString("en-US")}
                   </p>
+                  <TrendDelta
+                    current={data.marketing.ordersInRange}
+                    prior={data.marketing.priorOrdersInRange}
+                    rangeDays={data.marketing.rangeDays}
+                    testId="marketing-orders-delta"
+                  />
                   <Sparkline
                     data={data.marketing.ordersDaily}
                     testId="sparkline-orders-range"
@@ -301,6 +361,12 @@ export default function AdminDashboard() {
                   >
                     {formatCurrency(data.marketing.revenueCentsInRange)}
                   </p>
+                  <TrendDelta
+                    current={data.marketing.revenueCentsInRange}
+                    prior={data.marketing.priorRevenueCentsInRange}
+                    rangeDays={data.marketing.rangeDays}
+                    testId="marketing-revenue-delta"
+                  />
                   <Sparkline
                     data={data.marketing.revenueCentsDaily}
                     testId="sparkline-revenue-range"

@@ -1530,8 +1530,12 @@ components:
         [
           newsletterSubscribers,
           rangeDays,
+          subscribersInRange,
           ordersInRange,
           revenueCentsInRange,
+          priorSubscribersInRange,
+          priorOrdersInRange,
+          priorRevenueCentsInRange,
           ga4Url,
           subscribersDaily,
           ordersDaily,
@@ -1543,12 +1547,24 @@ components:
           type: integer
           description: The time window (in days) the totals and daily series cover.
           enum: [7, 30, 90]
+        subscribersInRange:
+          type: integer
+          description: New newsletter subscribers within the selected time window.
         ordersInRange:
           type: integer
           description: Paid orders count within the selected time window.
         revenueCentsInRange:
           type: integer
           description: Paid revenue in cents within the selected time window.
+        priorSubscribersInRange:
+          type: integer
+          description: New newsletter subscribers in the immediately preceding window of the same length.
+        priorOrdersInRange:
+          type: integer
+          description: Paid orders count in the immediately preceding window of the same length.
+        priorRevenueCentsInRange:
+          type: integer
+          description: Paid revenue in cents in the immediately preceding window of the same length.
         ga4Url: { type: ["string", "null"] }
         subscribersDaily:
           type: array

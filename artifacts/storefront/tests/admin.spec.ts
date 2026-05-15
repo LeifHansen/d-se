@@ -207,8 +207,12 @@ async function installAdminMocks(page: Page, api: AdminApi): Promise<void> {
         marketing: {
           newsletterSubscribers: 1280,
           rangeDays: 7,
+          subscribersInRange: 25,
           ordersInRange: 12,
           revenueCentsInRange: 64500,
+          priorSubscribersInRange: 20,
+          priorOrdersInRange: 10,
+          priorRevenueCentsInRange: 50000,
           ga4Url: "https://analytics.google.com/example",
           subscribersDaily: [],
           ordersDaily: [],

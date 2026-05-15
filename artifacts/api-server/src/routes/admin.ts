@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { and, count, desc, eq, gte, ilike, inArray, lte, sql, sum } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, lt, lte, sql, sum } from "drizzle-orm";
 import {
   db,
   productsTable,
@@ -176,6 +176,10 @@ router.get("/admin/stats", async (req, res): Promise<void> => {
   marketingWindowStart.setDate(
     marketingWindowStart.getDate() - (marketingRangeDays - 1),
   );
+  // Prior window: the N days ending the day before marketingWindowStart.
+  const priorWindowStart = new Date(marketingWindowStart);
+  priorWindowStart.setDate(priorWindowStart.getDate() - marketingRangeDays);
+  const priorWindowEnd = new Date(marketingWindowStart);
 
   const [{ totalOrders }] = await db
     .select({ totalOrders: count() })
@@ -236,6 +240,33 @@ router.get("/admin/stats", async (req, res): Promise<void> => {
       and(
         gte(ordersTable.createdAt, marketingWindowStart),
         eq(ordersTable.status, "paid"),
+      ),
+    );
+
+  const [{ priorOrdersInRange, priorRevenueCentsInRange }] = await db
+    .select({
+      priorOrdersInRange: count(),
+      priorRevenueCentsInRange: sum(ordersTable.totalCents),
+    })
+    .from(ordersTable)
+    .where(
+      and(
+        gte(ordersTable.createdAt, priorWindowStart),
+        lt(ordersTable.createdAt, priorWindowEnd),
+        eq(ordersTable.status, "paid"),
+      ),
+    );
+  const [{ subscribersInRange }] = await db
+    .select({ subscribersInRange: count() })
+    .from(newsletterSubscribersTable)
+    .where(gte(newsletterSubscribersTable.createdAt, marketingWindowStart));
+  const [{ priorSubscribersInRange }] = await db
+    .select({ priorSubscribersInRange: count() })
+    .from(newsletterSubscribersTable)
+    .where(
+      and(
+        gte(newsletterSubscribersTable.createdAt, priorWindowStart),
+        lt(newsletterSubscribersTable.createdAt, priorWindowEnd),
       ),
     );
 
@@ -311,8 +342,12 @@ router.get("/admin/stats", async (req, res): Promise<void> => {
       marketing: {
         newsletterSubscribers,
         rangeDays: marketingRangeDays,
+        subscribersInRange,
         ordersInRange,
         revenueCentsInRange: Number(revenueCentsInRange ?? 0),
+        priorSubscribersInRange,
+        priorOrdersInRange,
+        priorRevenueCentsInRange: Number(priorRevenueCentsInRange ?? 0),
         ga4Url,
         subscribersDaily,
         ordersDaily,

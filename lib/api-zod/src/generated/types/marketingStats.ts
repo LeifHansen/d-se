@@ -12,10 +12,18 @@ export interface MarketingStats {
   newsletterSubscribers: number;
   /** The time window (in days) the totals and daily series cover. */
   rangeDays: MarketingStatsRangeDays;
+  /** New newsletter subscribers within the selected time window. */
+  subscribersInRange: number;
   /** Paid orders count within the selected time window. */
   ordersInRange: number;
   /** Paid revenue in cents within the selected time window. */
   revenueCentsInRange: number;
+  /** New newsletter subscribers in the immediately preceding window of the same length. */
+  priorSubscribersInRange: number;
+  /** Paid orders count in the immediately preceding window of the same length. */
+  priorOrdersInRange: number;
+  /** Paid revenue in cents in the immediately preceding window of the same length. */
+  priorRevenueCentsInRange: number;
   /** @nullable */
   ga4Url: string | null;
   subscribersDaily: MarketingDailyPoint[];

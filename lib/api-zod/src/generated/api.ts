@@ -910,12 +910,30 @@ export const GetAdminStatsResponse = zod.object({
     rangeDays: zod
       .union([zod.literal(7), zod.literal(30), zod.literal(90)])
       .describe("The time window (in days) the totals and daily series cover."),
+    subscribersInRange: zod
+      .number()
+      .describe("New newsletter subscribers within the selected time window."),
     ordersInRange: zod
       .number()
       .describe("Paid orders count within the selected time window."),
     revenueCentsInRange: zod
       .number()
       .describe("Paid revenue in cents within the selected time window."),
+    priorSubscribersInRange: zod
+      .number()
+      .describe(
+        "New newsletter subscribers in the immediately preceding window of the same length.",
+      ),
+    priorOrdersInRange: zod
+      .number()
+      .describe(
+        "Paid orders count in the immediately preceding window of the same length.",
+      ),
+    priorRevenueCentsInRange: zod
+      .number()
+      .describe(
+        "Paid revenue in cents in the immediately preceding window of the same length.",
+      ),
     ga4Url: zod.string().nullable(),
     subscribersDaily: zod.array(
       zod.object({
