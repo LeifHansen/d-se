@@ -6,7 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type LookupOrderBody = {
+export interface LookupOrderBody {
   orderId: number;
   email: string;
-};
+}

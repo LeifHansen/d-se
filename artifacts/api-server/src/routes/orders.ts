@@ -117,6 +117,8 @@ export async function __resetLookupRateLimitForTests(): Promise<void> {
 // reset the brute-force budget on /lookup (and vice versa).
 const RESEND_MAX_ATTEMPTS = 3;
 const RESEND_WINDOW_MS = 60 * 60 * 1000;
+type LookupAttempt = { count: number; firstAt: number };
+const lookupKey = (ip: string, orderId: number): string => `${ip}:${orderId}`;
 const resendAttempts = new Map<string, LookupAttempt>();
 
 function checkResendRateLimit(

@@ -179,6 +179,15 @@ export interface Order {
   createdAt: string;
 }
 
+export interface LookupOrderBody {
+  orderId: number;
+  email: string;
+}
+
+export interface LookupOrderByTokenBody {
+  token: string;
+}
+
 export type ReorderResponseSkippedItemReason =
   (typeof ReorderResponseSkippedItemReason)[keyof typeof ReorderResponseSkippedItemReason];
 
@@ -683,15 +692,6 @@ export type GetOrderParams = {
    * Stripe Checkout Session id. Authorizes a non-signed-in shopper to view the order if it matches the order's stripeSessionId.
    */
   sessionId?: string;
-};
-
-export type LookupOrderBody = {
-  orderId: number;
-  email: string;
-};
-
-export type LookupOrderByTokenBody = {
-  token: string;
 };
 
 export type ResendOrderLinkBody = {

@@ -387,12 +387,7 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [orderId, email]
-              properties:
-                orderId: { type: integer }
-                email: { type: string, format: email }
+            schema: { $ref: "#/components/schemas/LookupOrderBody" }
       responses:
         "200":
           description: OK
@@ -409,11 +404,7 @@ paths:
         required: true
         content:
           application/json:
-            schema:
-              type: object
-              required: [token]
-              properties:
-                token: { type: string }
+            schema: { $ref: "#/components/schemas/LookupOrderByTokenBody" }
       responses:
         "200":
           description: OK
@@ -1513,6 +1504,17 @@ components:
         trackingUrl: { type: ["string", "null"] }
         labelUrl: { type: ["string", "null"] }
         createdAt: { type: string, format: date-time }
+    LookupOrderBody:
+      type: object
+      required: [orderId, email]
+      properties:
+        orderId: { type: integer }
+        email: { type: string, format: email }
+    LookupOrderByTokenBody:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
     OrderItem:
       type: object
       required: [id, productId, productName, quantity, priceCents, available]
