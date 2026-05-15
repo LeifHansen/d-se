@@ -29,6 +29,17 @@ function formatDate(s: string | Date): string {
   }
 }
 
+function formatShortDate(s: string | Date): string {
+  try {
+    return new Date(s).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return String(s);
+  }
+}
+
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
   const orderId = Number(params.id);
@@ -145,7 +156,7 @@ export default function OrderDetailPage() {
       <Seo
         title={
           order
-            ? `Order #${order.id} confirmed`
+            ? `Order #${order.id} · ${formatShortDate(order.createdAt)} · ${order.items.reduce((n, it) => n + it.quantity, 0)} item${order.items.reduce((n, it) => n + it.quantity, 0) === 1 ? "" : "s"} confirmed`
             : Number.isFinite(orderId)
               ? `Order #${orderId}`
               : "Order lookup"

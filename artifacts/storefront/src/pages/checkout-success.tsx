@@ -129,7 +129,13 @@ export default function CheckoutSuccessPage() {
       data-testid="checkout-success-page"
     >
       <Seo
-        title={validId ? `Order #${initial.orderId} confirmed` : "Order confirmed"}
+        title={
+          order
+            ? `Order #${order.id} · ${formatDate(new Date(order.createdAt))} · ${order.items.reduce((n, it) => n + it.quantity, 0)} item${order.items.reduce((n, it) => n + it.quantity, 0) === 1 ? "" : "s"} confirmed`
+            : validId
+              ? `Order #${initial.orderId} confirmed`
+              : "Order confirmed"
+        }
         description={
           validId
             ? `Thank you for your order. Your DŌSE order #${initial.orderId} is confirmed.`
