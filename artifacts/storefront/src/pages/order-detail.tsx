@@ -3,6 +3,7 @@ import { Link, useParams } from "wouter";
 import {
   useLookupOrder,
   useLookupOrderByToken,
+  useResendOrderLink,
 } from "@workspace/api-client-react";
 import type { Order } from "@workspace/api-client-react";
 import { SiteShell } from "@/components/dose/SiteShell";
@@ -32,10 +33,14 @@ export default function OrderDetailPage() {
   const orderId = Number(params.id);
   const lookup = useLookupOrder();
   const lookupByToken = useLookupOrderByToken();
+  const resendLink = useResendOrderLink();
   const [email, setEmail] = useState<string>("");
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tried, setTried] = useState(false);
+  const [tokenExpired, setTokenExpired] = useState(false);
+  const [resendEmail, setResendEmail] = useState<string>("");
+  const [resendStatus, setResendStatus] = useState<"idle" | "sent" | "throttled" | "error">("idle");
 
   // Auto-attempt with token from URL query, then email from URL/localStorage.
   useEffect(() => {
@@ -48,8 +53,9 @@ export default function OrderDetailPage() {
         .mutateAsync({ data: { token } })
         .then((res) => setOrder(res))
         .catch(() => {
+          setTokenExpired(true);
           setError(
-            "This link is invalid or expired. Enter the email used at checkout.",
+            "This link is invalid or expired. Enter your email below to get a fresh one — or look up your order with the email used at checkout.",
           );
         });
       return;
@@ -84,6 +90,28 @@ export default function OrderDetailPage() {
         });
     }
   }, [orderId, tried, lookup]);
+
+  const onResend = async (e: FormEvent) => {
+    e.preventDefault();
+    setResendStatus("idle");
+    if (!Number.isFinite(orderId)) return;
+    try {
+      await resendLink.mutateAsync({
+        id: orderId,
+        data: { email: resendEmail.trim() },
+      });
+      setResendStatus("sent");
+    } catch (err) {
+      // The API returns 200 even when the email doesn't match (so we never
+      // confirm whether the order/email pair exists). The only failure path
+      // we expect to surface is the throttle.
+      const msg =
+        err instanceof Error && /429|too many|rate/i.test(err.message)
+          ? "throttled"
+          : "error";
+      setResendStatus(msg);
+    }
+  };
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -268,6 +296,83 @@ export default function OrderDetailPage() {
             </Button>
           </div>
         ) : (
+          <>
+          {tokenExpired ? (
+            <form
+              onSubmit={onResend}
+              className="mb-6 rounded-2xl border bg-card p-6"
+              style={{ borderColor: "hsl(40 18% 80%)" }}
+              data-testid="order-resend-form"
+            >
+              <h2 className="font-display text-2xl">Send me a fresh link</h2>
+              <p
+                className="mt-1 text-sm"
+                style={{ color: "hsl(170 18% 32%)" }}
+              >
+                Enter the email used at checkout and we'll email you a new link
+                to this order.
+              </p>
+              <div className="mt-4 grid gap-2">
+                <Label htmlFor="resend-email">Email</Label>
+                <Input
+                  id="resend-email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  value={resendEmail}
+                  onChange={(e) => setResendEmail(e.target.value)}
+                  data-testid="order-resend-email"
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={resendLink.isPending || resendStatus === "sent"}
+                className="mt-5 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
+                style={{
+                  background: "hsl(170 58% 14%)",
+                  color: "hsl(45 49% 90%)",
+                }}
+                data-testid="order-resend-submit"
+              >
+                {resendLink.isPending
+                  ? "Sending…"
+                  : resendStatus === "sent"
+                    ? "Link sent"
+                    : "Email me a new link"}
+              </Button>
+              {resendStatus === "sent" ? (
+                <p
+                  role="status"
+                  className="mt-3 text-xs"
+                  style={{ color: "hsl(170 58% 14%)" }}
+                  data-testid="order-resend-success"
+                >
+                  If that email matches the order on file, a fresh link is on
+                  its way. Check your inbox in a minute or two.
+                </p>
+              ) : null}
+              {resendStatus === "throttled" ? (
+                <p
+                  role="alert"
+                  className="mt-3 text-xs"
+                  style={{ color: "hsl(0 70% 35%)" }}
+                  data-testid="order-resend-throttled"
+                >
+                  Too many requests. Please wait a bit before trying again.
+                </p>
+              ) : null}
+              {resendStatus === "error" ? (
+                <p
+                  role="alert"
+                  className="mt-3 text-xs"
+                  style={{ color: "hsl(0 70% 35%)" }}
+                  data-testid="order-resend-error"
+                >
+                  Couldn't send the link right now. Please try again shortly.
+                </p>
+              ) : null}
+            </form>
+          ) : null}
           <form
             onSubmit={onSubmit}
             className="rounded-2xl border bg-card p-6"
@@ -316,6 +421,7 @@ export default function OrderDetailPage() {
               </p>
             ) : null}
           </form>
+          </>
         )}
       </section>
     </SiteShell>

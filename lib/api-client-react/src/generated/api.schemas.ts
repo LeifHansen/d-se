@@ -670,6 +670,14 @@ export type LookupOrderByTokenBody = {
   token: string;
 };
 
+export type ResendOrderLinkBody = {
+  email: string;
+};
+
+export type ResendOrderLink200 = {
+  ok: boolean;
+};
+
 export type ReorderBody = {
   /** @nullable */
   cartId?: string | null;

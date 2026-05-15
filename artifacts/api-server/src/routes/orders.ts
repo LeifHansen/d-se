@@ -25,8 +25,13 @@ import { loadCart, ensureCart } from "./cart";
 import { computeShippingRates } from "./shipping";
 import { getStripe, isStripeConfigured } from "../lib/stripe";
 import { getUserId, requireAuth } from "../lib/auth";
-import { sendOrderConfirmation, buildTrackingUrl } from "../lib/email";
-import { verifyOrderToken } from "../lib/orderToken";
+import {
+  sendOrderConfirmation,
+  sendOrderLinkEmail,
+  buildTrackingUrl,
+} from "../lib/email";
+import { signOrderToken, verifyOrderToken } from "../lib/orderToken";
+import { SITE_URL } from "../lib/site-url";
 import {
   validateDiscount,
   ensureStripePromotionCode,
@@ -88,6 +93,49 @@ function clearLookupFailures(ip: string, orderId: number): void {
 
 export function __resetLookupRateLimitForTests(): void {
   lookupFailures.clear();
+}
+
+// Independent throttle for the resend-link endpoint. Bucket by (ip, orderId)
+// so an attacker can't spam an inbox by hammering arbitrary order ids, and
+// keep it separate from the lookup throttle so a successful resend doesn't
+// reset the brute-force budget on /lookup (and vice versa).
+const RESEND_MAX_ATTEMPTS = 3;
+const RESEND_WINDOW_MS = 60 * 60 * 1000;
+const resendAttempts = new Map<string, LookupAttempt>();
+
+function checkResendRateLimit(
+  ip: string,
+  orderId: number,
+): { allowed: true } | { allowed: false; retryAfterSeconds: number } {
+  const key = lookupKey(ip, orderId);
+  const now = Date.now();
+  const entry = resendAttempts.get(key);
+  if (!entry || now - entry.firstAt > RESEND_WINDOW_MS) {
+    return { allowed: true };
+  }
+  if (entry.count >= RESEND_MAX_ATTEMPTS) {
+    const retryAfterMs = RESEND_WINDOW_MS - (now - entry.firstAt);
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.max(1, Math.ceil(retryAfterMs / 1000)),
+    };
+  }
+  return { allowed: true };
+}
+
+function recordResendAttempt(ip: string, orderId: number): void {
+  const key = lookupKey(ip, orderId);
+  const now = Date.now();
+  const entry = resendAttempts.get(key);
+  if (!entry || now - entry.firstAt > RESEND_WINDOW_MS) {
+    resendAttempts.set(key, { count: 1, firstAt: now });
+    return;
+  }
+  entry.count += 1;
+}
+
+export function __resetResendRateLimitForTests(): void {
+  resendAttempts.clear();
 }
 
 async function buildOrderResponse(orderId: number) {
@@ -546,6 +594,63 @@ router.post("/orders/by-token", async (req, res): Promise<void> => {
   }
   const order = await buildOrderResponse(row.id);
   res.json(GetOrderResponse.parse(order));
+});
+
+router.post("/orders/:id/resend-link", async (req, res): Promise<void> => {
+  const idNum = Number(req.params.id);
+  if (!Number.isFinite(idNum) || idNum <= 0) {
+    res.status(400).json({ error: "Invalid order id" });
+    return;
+  }
+  const submittedEmail =
+    typeof req.body?.email === "string"
+      ? req.body.email.trim().toLowerCase()
+      : "";
+  if (!submittedEmail || !/.+@.+\..+/.test(submittedEmail)) {
+    res.status(400).json({ error: "Email is required" });
+    return;
+  }
+
+  // See note on /orders/lookup re: req.ip and trust-proxy. Bucket the throttle
+  // by (ip, orderId) so an attacker can't cheaply spam arbitrary inboxes by
+  // flipping the email field.
+  const clientIp = req.ip || "unknown";
+  const limit = checkResendRateLimit(clientIp, idNum);
+  if (!limit.allowed) {
+    res.setHeader("Retry-After", String(limit.retryAfterSeconds));
+    res.status(429).json({ error: "Too many attempts. Try again later." });
+    return;
+  }
+  // Count every attempt — including the misses — so the throttle protects
+  // arbitrary inboxes from being targeted, not just the address on file.
+  recordResendAttempt(clientIp, idNum);
+
+  const [row] = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, idNum));
+
+  // Always respond 200 so callers can't tell whether (orderId, email) matched.
+  // The email is only actually sent when the submitted address matches the one
+  // on file — this prevents the endpoint from being weaponised to send mail to
+  // arbitrary recipients, and also avoids leaking which orders exist.
+  if (row?.email && row.email === submittedEmail) {
+    try {
+      const token = signOrderToken({ orderId: idNum, email: row.email });
+      const orderUrl = `${SITE_URL}/orders/${idNum}?token=${encodeURIComponent(
+        token,
+      )}`;
+      await sendOrderLinkEmail({
+        to: row.email,
+        orderId: idNum,
+        orderUrl,
+      });
+    } catch (err) {
+      req.log.warn({ err, orderId: idNum }, "Failed to resend order link");
+    }
+  }
+
+  res.json({ ok: true });
 });
 
 router.post("/orders/:id/reorder", async (req, res): Promise<void> => {

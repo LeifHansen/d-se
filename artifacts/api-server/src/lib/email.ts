@@ -127,6 +127,24 @@ ${orderLink}`,
   });
 }
 
+export async function sendOrderLinkEmail(opts: {
+  to: string;
+  orderId: number;
+  orderUrl: string;
+}): Promise<void> {
+  const r = await getResend();
+  if (!r) return;
+  await r.client.emails.send({
+    from: `${STORE_NAME} <${r.fromEmail}>`,
+    to: opts.to,
+    subject: `Your fresh link for order #${opts.orderId}`,
+    html: `<h1>Here's a fresh link to your order</h1>
+<p>You requested a new link for order #${opts.orderId}. Use the button below to view your order details.</p>
+<p style="margin-top:24px"><a href="${opts.orderUrl}">View your order →</a></p>
+<p style="margin-top:24px;font-size:12px;color:#666">If you didn't request this email, you can safely ignore it.</p>`,
+  });
+}
+
 export async function sendAbandonedCartEmail(opts: {
   to: string;
   cartId: string;

@@ -370,6 +370,47 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Order" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /orders/{id}/resend-link:
+    post:
+      operationId: resendOrderLink
+      tags: [orders]
+      summary: Email a fresh signed magic link to the address on file for this order
+      description: >
+        Self-serve recovery for shoppers whose order confirmation magic link has
+        expired. Always returns 200 to avoid leaking which (orderId, email)
+        pairs exist; the email is only sent when the submitted address matches
+        the order's email on file. Rate-limited per (ip, orderId) to prevent
+        abuse.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "200":
+          description: Accepted (whether or not an email was actually sent)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+        "429":
+          description: Too many attempts
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
   /orders/{id}/reorder:
     post:
       operationId: reorder

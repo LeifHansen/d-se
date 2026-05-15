@@ -70,6 +70,8 @@ import type {
   RemoveCartItemParams,
   ReorderBody,
   ReorderResponse,
+  ResendOrderLink200,
+  ResendOrderLinkBody,
   ResumeCartParams,
   Review,
   ReviewList,
@@ -1553,6 +1555,95 @@ export const useLookupOrderByToken = <
   TContext
 > => {
   return useMutation(getLookupOrderByTokenMutationOptions(options));
+};
+
+/**
+ * Self-serve recovery for shoppers whose order confirmation magic link has expired. Always returns 200 to avoid leaking which (orderId, email) pairs exist; the email is only sent when the submitted address matches the order's email on file. Rate-limited per (ip, orderId) to prevent abuse.
+
+ * @summary Email a fresh signed magic link to the address on file for this order
+ */
+export const getResendOrderLinkUrl = (id: number) => {
+  return `/api/orders/${id}/resend-link`;
+};
+
+export const resendOrderLink = async (
+  id: number,
+  resendOrderLinkBody: ResendOrderLinkBody,
+  options?: RequestInit,
+): Promise<ResendOrderLink200> => {
+  return customFetch<ResendOrderLink200>(getResendOrderLinkUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(resendOrderLinkBody),
+  });
+};
+
+export const getResendOrderLinkMutationOptions = <
+  TError = ErrorType<Error>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resendOrderLink>>,
+    TError,
+    { id: number; data: BodyType<ResendOrderLinkBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof resendOrderLink>>,
+  TError,
+  { id: number; data: BodyType<ResendOrderLinkBody> },
+  TContext
+> => {
+  const mutationKey = ["resendOrderLink"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof resendOrderLink>>,
+    { id: number; data: BodyType<ResendOrderLinkBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return resendOrderLink(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ResendOrderLinkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof resendOrderLink>>
+>;
+export type ResendOrderLinkMutationBody = BodyType<ResendOrderLinkBody>;
+export type ResendOrderLinkMutationError = ErrorType<Error>;
+
+/**
+ * @summary Email a fresh signed magic link to the address on file for this order
+ */
+export const useResendOrderLink = <
+  TError = ErrorType<Error>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof resendOrderLink>>,
+    TError,
+    { id: number; data: BodyType<ResendOrderLinkBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof resendOrderLink>>,
+  TError,
+  { id: number; data: BodyType<ResendOrderLinkBody> },
+  TContext
+> => {
+  return useMutation(getResendOrderLinkMutationOptions(options));
 };
 
 /**

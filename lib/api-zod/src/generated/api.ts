@@ -756,6 +756,23 @@ export const LookupOrderByTokenResponse = zod.object({
 });
 
 /**
+ * Self-serve recovery for shoppers whose order confirmation magic link has expired. Always returns 200 to avoid leaking which (orderId, email) pairs exist; the email is only sent when the submitted address matches the order's email on file. Rate-limited per (ip, orderId) to prevent abuse.
+
+ * @summary Email a fresh signed magic link to the address on file for this order
+ */
+export const ResendOrderLinkParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ResendOrderLinkBody = zod.object({
+  email: zod.string().email(),
+});
+
+export const ResendOrderLinkResponse = zod.object({
+  ok: zod.boolean(),
+});
+
+/**
  * @summary Add every still-available item from a past order to the current cart
  */
 export const ReorderParams = zod.object({

@@ -80,6 +80,8 @@ export * from "./reorderBody";
 export * from "./reorderResponse";
 export * from "./reorderResponseSkippedItem";
 export * from "./reorderResponseSkippedItemReason";
+export * from "./resendOrderLink200";
+export * from "./resendOrderLinkBody";
 export * from "./resumeCartParams";
 export * from "./review";
 export * from "./reviewList";
