@@ -121,6 +121,14 @@ class BulkApi {
   // surfaces inline as "No shipping rates available".
   noRatesFor = new Set<number>();
   failFulfillFor = new Set<number>();
+  // Transient-failure controls: per-orderId counter of how many additional
+  // attempts on the rates / fulfill endpoint should return a transient
+  // 503 before letting the call succeed. The storefront's withRetry()
+  // helper treats 5xx as transient and retries up to MAX_ATTEMPTS=3
+  // times. Setting a counter to 1 means the 1st attempt fails and the
+  // 2nd succeeds; setting it >= 3 means every attempt fails.
+  flakyRatesFor = new Map<number, number>();
+  flakyFulfillFor = new Map<number, number>();
   // Per-order override for the labelUrl returned by the fulfill stub. Used
   // to seed a mix of PNG and PDF label URLs so the merge-pdf endpoint
   // exercises both content branches.
@@ -250,6 +258,16 @@ async function installBulkMocks(page: Page, api: BulkApi): Promise<void> {
       }
       const orderId = Number(m[1]);
       api.ratesCalls.push(orderId);
+      const flakyLeft = api.flakyRatesFor.get(orderId) ?? 0;
+      if (flakyLeft > 0) {
+        api.flakyRatesFor.set(orderId, flakyLeft - 1);
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "EasyPost rates temporarily down" }),
+        });
+        return;
+      }
       if (api.failRatesFor.has(orderId)) {
         await route.fulfill({
           status: 500,
@@ -326,6 +344,16 @@ async function installBulkMocks(page: Page, api: BulkApi): Promise<void> {
       const orderId = Number(m[1]);
       const body = JSON.parse(route.request().postData() ?? "{}");
       api.fulfillCalls.push({ orderId, body });
+      const flakyLeft = api.flakyFulfillFor.get(orderId) ?? 0;
+      if (flakyLeft > 0) {
+        api.flakyFulfillFor.set(orderId, flakyLeft - 1);
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "EasyPost fulfill temporarily down" }),
+        });
+        return;
+      }
       if (api.failFulfillFor.has(orderId)) {
         await route.fulfill({
           status: 502,
@@ -648,5 +676,102 @@ test.describe("admin orders — bulk buy cheapest label", () => {
     await expect(errors).toContainText("No shipping rates available");
     await expect(errors).not.toContainText("#9001");
     await expect(errors).not.toContainText("#9003");
+  });
+
+  test("transient carrier failure that recovers shows the retry-success banner", async ({
+    page,
+  }) => {
+    // Two eligible orders. The rates endpoint for #1101 returns a transient
+    // 503 on its first attempt and then succeeds on the retry; #1102 sails
+    // through cleanly on the first attempt. The storefront's withRetry()
+    // helper should swallow the 503, complete the bulk run successfully,
+    // and surface the retry in the dedicated "succeeded after retry" banner
+    // — calling out the affected order id and the retry count.
+    const api = new BulkApi([
+      makeOrder({ id: 1101 }),
+      makeOrder({ id: 1102 }),
+    ]);
+    api.flakyRatesFor.set(1101, 1);
+    await installBulkMocks(page, api);
+
+    await page.goto("/admin/orders");
+
+    await page.getByTestId("checkbox-select-all-paid").check();
+    await page.getByTestId("button-bulk-buy-labels").click();
+
+    // Both orders eventually fulfill — #1101 only after a single retry on
+    // its rates call. The retry burns a real backoff delay (~400ms +
+    // jitter), so give the poll some slack.
+    await expect.poll(() => api.fulfillCalls.length, { timeout: 10_000 }).toBe(
+      2,
+    );
+
+    // Two rates calls for #1101 (the failed one + the successful retry),
+    // one for #1102. Confirms withRetry actually re-hit the endpoint.
+    expect(api.ratesCalls.filter((id) => id === 1101)).toHaveLength(2);
+    expect(api.ratesCalls.filter((id) => id === 1102)).toHaveLength(1);
+
+    // The retry-success banner appears with the order id and "1×" suffix.
+    const banner = page.getByTestId("text-bulk-retry-successes");
+    await expect(banner).toBeVisible();
+    await expect(banner).toContainText("1 order succeeded after retry");
+    await expect(banner).toContainText("#1101");
+    await expect(banner).toContainText("(1×)");
+    await expect(banner).not.toContainText("#1102");
+
+    // No bulk-error panel for a run that recovered cleanly, and both rows
+    // flipped to shipped.
+    await expect(page.getByTestId("text-bulk-errors")).toHaveCount(0);
+    await expect(page.getByTestId("row-order-1101")).toContainText("shipped");
+    await expect(page.getByTestId("row-order-1102")).toContainText("shipped");
+  });
+
+  test("when every retry attempt fails transiently, the error entry includes the retry count", async ({
+    page,
+  }) => {
+    // The rates endpoint for #1201 returns a transient 503 on every
+    // attempt. withRetry uses MAX_ATTEMPTS=3, so it'll be hit 3 times
+    // (one initial + two retries — noteRetry fires twice, only between
+    // attempts) before giving up. The bulk error entry must surface the
+    // failure AND tag it with the "retried 2 times before failing" suffix
+    // so admins can tell a flaky carrier run apart from a single hard fail.
+    const api = new BulkApi([
+      makeOrder({ id: 1201 }),
+      makeOrder({ id: 1202 }),
+    ]);
+    api.flakyRatesFor.set(1201, 99);
+    await installBulkMocks(page, api);
+
+    await page.goto("/admin/orders");
+
+    await page.getByTestId("checkbox-select-all-paid").check();
+    await page.getByTestId("button-bulk-buy-labels").click();
+
+    // Wait for the bulk run to fully settle: the error panel only renders
+    // after every worker (including the one burning retries on #1201)
+    // finishes, so it's a reliable "run complete" signal that doesn't race
+    // with #1201's still-in-flight retry backoff.
+    const errors = page.getByTestId("text-bulk-errors");
+    await expect(errors).toBeVisible({ timeout: 10_000 });
+
+    // Only #1202 successfully fulfills. The rates endpoint was hit 3
+    // times for #1201 (initial + 2 retries) before withRetry gave up.
+    expect(api.fulfillCalls).toHaveLength(1);
+    expect(api.fulfillCalls[0].orderId).toBe(1202);
+    expect(api.ratesCalls.filter((id) => id === 1201)).toHaveLength(3);
+
+    // The error panel calls out #1201 with the carrier message AND the
+    // "retried N times before failing" suffix.
+    await expect(errors).toContainText("#1201");
+    await expect(errors).toContainText("retried 2 times before failing");
+    await expect(errors).not.toContainText("#1202");
+
+    // No retry-success banner since nothing recovered.
+    await expect(page.getByTestId("text-bulk-retry-successes")).toHaveCount(0);
+
+    // #1202 still flipped to shipped and #1201 stayed paid + selectable.
+    await expect(page.getByTestId("row-order-1202")).toContainText("shipped");
+    await expect(page.getByTestId("row-order-1201")).toContainText("paid");
+    await expect(page.getByTestId("checkbox-order-1201")).toBeEnabled();
   });
 });
