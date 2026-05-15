@@ -190,6 +190,54 @@ export async function sendLowStockDigest(opts: {
   });
 }
 
+export async function sendQuarantineDigest(opts: {
+  to: string;
+  items: Array<{
+    id: number;
+    name: string;
+    email: string;
+    subject: string;
+    reasons: string[];
+    createdAt: Date;
+  }>;
+  reviewUrl?: string | null;
+}): Promise<void> {
+  const r = await getResend();
+  if (!r) return;
+  const escapeHtml = (s: string) =>
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  const rows = opts.items
+    .map(
+      (i) =>
+        `<tr><td>#${i.id}</td><td>${escapeHtml(i.name)}</td><td>${escapeHtml(
+          i.email,
+        )}</td><td>${escapeHtml(i.subject)}</td><td>${i.reasons
+          .map(escapeHtml)
+          .join(", ")}</td><td>${i.createdAt.toISOString()}</td></tr>`,
+    )
+    .join("");
+  const reviewLink = opts.reviewUrl
+    ? `<p><a href="${opts.reviewUrl}">Review the quarantine inbox →</a></p>`
+    : "";
+  await r.client.emails.send({
+    from: `${STORE_NAME} <${r.fromEmail}>`,
+    to: opts.to,
+    subject: `[${STORE_NAME}] Spam quarantine digest (${opts.items.length} new)`,
+    html: `<h1>New quarantined messages</h1>
+<p>${opts.items.length} contact message(s) were quarantined in the last 24 hours and are waiting for review.</p>
+<table border="1" cellpadding="6" cellspacing="0">
+<thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Subject</th><th>Reasons</th><th>Received</th></tr></thead>
+<tbody>${rows}</tbody>
+</table>
+${reviewLink}`,
+  });
+}
+
 export async function sendWelcomeEmail(opts: {
   to: string;
   unsubscribeUrl?: string | null;

@@ -4,6 +4,7 @@ import { startAbandonedCartScheduler } from "./lib/abandonedCart";
 import { startLowStockDigestScheduler } from "./lib/digest";
 import { startStripeEventCleanupScheduler } from "./lib/stripeEventCleanup";
 import { startContactQuarantineCleanupScheduler } from "./lib/contactQuarantineCleanup";
+import { startQuarantineDigestScheduler } from "./lib/quarantineDigest";
 
 const rawPort = process.env["PORT"];
 
@@ -30,4 +31,5 @@ app.listen(port, (err) => {
   startLowStockDigestScheduler();
   startStripeEventCleanupScheduler();
   startContactQuarantineCleanupScheduler();
+  startQuarantineDigestScheduler();
 });
