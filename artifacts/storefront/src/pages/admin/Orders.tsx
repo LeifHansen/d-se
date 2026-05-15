@@ -28,6 +28,45 @@ const STATUS_OPTIONS = [
   { value: "refunded", label: "Refunded" },
 ];
 
+// Shared transient-error retry helpers used by both the bulk-buy flow and
+// the single-order drawer's get-rates / buy-label flow. Treats network-level
+// failures (TypeError) and HTTP 408 / 425 / 429 / 5xx as transient and
+// retries with exponential backoff up to MAX_ATTEMPTS=3.
+function isTransientError(err: unknown): boolean {
+  if (err instanceof TypeError) return true;
+  const status =
+    err && typeof err === "object" && "status" in err
+      ? (err as { status?: unknown }).status
+      : undefined;
+  if (typeof status !== "number") {
+    return err instanceof Error && err.name !== "ApiError";
+  }
+  if (status === 0) return true;
+  if (status === 408 || status === 425 || status === 429) return true;
+  return status >= 500 && status < 600;
+}
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  onRetry?: () => void,
+): Promise<T> {
+  const MAX_ATTEMPTS = 3;
+  const BASE_DELAY_MS = 400;
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt === MAX_ATTEMPTS || !isTransientError(err)) throw err;
+      onRetry?.();
+      const delay = BASE_DELAY_MS * 2 ** (attempt - 1) + Math.random() * 200;
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
 export default function AdminOrders() {
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
@@ -108,42 +147,6 @@ export default function AdminOrders() {
   }
 
   async function handleBulkBuyLabels() {
-    function isTransientError(err: unknown): boolean {
-      if (err instanceof TypeError) return true;
-      const status =
-        err && typeof err === "object" && "status" in err
-          ? (err as { status?: unknown }).status
-          : undefined;
-      if (typeof status !== "number") {
-        return err instanceof Error && err.name !== "ApiError";
-      }
-      if (status === 0) return true;
-      if (status === 408 || status === 425 || status === 429) return true;
-      return status >= 500 && status < 600;
-    }
-
-    async function withRetry<T>(
-      fn: () => Promise<T>,
-      onRetry?: () => void,
-    ): Promise<T> {
-      const MAX_ATTEMPTS = 3;
-      const BASE_DELAY_MS = 400;
-      let lastErr: unknown;
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        try {
-          return await fn();
-        } catch (err) {
-          lastErr = err;
-          if (attempt === MAX_ATTEMPTS || !isTransientError(err)) throw err;
-          onRetry?.();
-          const delay =
-            BASE_DELAY_MS * 2 ** (attempt - 1) + Math.random() * 200;
-          await new Promise((r) => setTimeout(r, delay));
-        }
-      }
-      throw lastErr;
-    }
-
     const targets = (data ?? []).filter(
       (o) => checkedIds.has(o.id) && eligibleIds.has(o.id),
     );
@@ -548,6 +551,13 @@ function OrderDetailDrawer({
   const [shipmentId, setShipmentId] = useState<string | null>(null);
   const [selectedRateId, setSelectedRateId] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [errorRetries, setErrorRetries] = useState(0);
+  const [retrySuccess, setRetrySuccess] = useState<{
+    stage: "rates" | "label";
+    retries: number;
+  } | null>(null);
+  const [ratesPending, setRatesPending] = useState(false);
+  const [buyPending, setBuyPending] = useState(false);
   const [fulfilled, setFulfilled] = useState<Order | null>(null);
 
   const ratesMutation = useGetAdminOrderShippingRates();
@@ -559,8 +569,18 @@ function OrderDetailDrawer({
 
   async function handleGetRates() {
     setErrorMsg(null);
+    setErrorRetries(0);
+    setRetrySuccess(null);
+    setRatesPending(true);
+    let retries = 0;
+    const noteRetry = () => {
+      retries += 1;
+    };
     try {
-      const result = await ratesMutation.mutateAsync({ id: order.id });
+      const result = await withRetry(
+        () => ratesMutation.mutateAsync({ id: order.id }),
+        noteRetry,
+      );
       setRates(result.rates);
       setShipmentId(result.shipmentId ?? null);
       if (result.rates.length > 0) {
@@ -569,28 +589,48 @@ function OrderDetailDrawer({
         )[0];
         setSelectedRateId(cheapest.id);
       }
+      if (retries > 0) {
+        setRetrySuccess({ stage: "rates", retries });
+      }
     } catch (err) {
       setErrorMsg(
         err instanceof Error ? err.message : "Failed to fetch shipping rates",
       );
+      setErrorRetries(retries);
+    } finally {
+      setRatesPending(false);
     }
   }
 
   async function handleBuyLabel() {
     if (!selectedRateId) return;
     setErrorMsg(null);
+    setErrorRetries(0);
+    setRetrySuccess(null);
+    setBuyPending(true);
+    let retries = 0;
+    const noteRetry = () => {
+      retries += 1;
+    };
     try {
-      const updated = await fulfillMutation.mutateAsync({
-        id: order.id,
-        data: {
-          shippingRateId: selectedRateId,
-          ...(shipmentId ? { shipmentId } : {}),
-        },
-      });
+      const updated = await withRetry(
+        () =>
+          fulfillMutation.mutateAsync({
+            id: order.id,
+            data: {
+              shippingRateId: selectedRateId,
+              ...(shipmentId ? { shipmentId } : {}),
+            },
+          }),
+        noteRetry,
+      );
       setFulfilled(updated);
       setRates(null);
       setShipmentId(null);
       setSelectedRateId(null);
+      if (retries > 0) {
+        setRetrySuccess({ stage: "label", retries });
+      }
       await queryClient.invalidateQueries({
         queryKey: getListAdminOrdersQueryKey(listParams),
       });
@@ -598,6 +638,9 @@ function OrderDetailDrawer({
       setErrorMsg(
         err instanceof Error ? err.message : "Failed to buy shipping label",
       );
+      setErrorRetries(retries);
+    } finally {
+      setBuyPending(false);
     }
   }
 
@@ -662,6 +705,19 @@ function OrderDetailDrawer({
               >
                 Open shipping label
               </a>
+            ) : null}
+            {retrySuccess ? (
+              <p
+                className="mt-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-300"
+                data-testid="text-fulfill-retry-success"
+              >
+                {retrySuccess.stage === "rates"
+                  ? "Shipping rates "
+                  : "Shipping label "}
+                succeeded after retry (carrier was flaky):{" "}
+                {retrySuccess.retries}× retry
+                {retrySuccess.retries === 1 ? "" : "s"}.
+              </p>
             ) : null}
           </section>
 
@@ -764,11 +820,11 @@ function OrderDetailDrawer({
                 <button
                   type="button"
                   onClick={handleGetRates}
-                  disabled={ratesMutation.isPending}
+                  disabled={ratesPending}
                   className="h-9 rounded-md bg-foreground px-3 text-sm font-medium text-background disabled:opacity-50"
                   data-testid="button-get-rates"
                 >
-                  {ratesMutation.isPending ? "Fetching rates…" : "Get rates"}
+                  {ratesPending ? "Fetching rates…" : "Get rates"}
                 </button>
               ) : rates.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
@@ -817,18 +873,18 @@ function OrderDetailDrawer({
                     <button
                       type="button"
                       onClick={handleBuyLabel}
-                      disabled={!selectedRateId || fulfillMutation.isPending}
+                      disabled={!selectedRateId || buyPending}
                       className="h-9 rounded-md bg-foreground px-3 text-sm font-medium text-background disabled:opacity-50"
                       data-testid="button-buy-label"
                     >
-                      {fulfillMutation.isPending
+                      {buyPending
                         ? "Buying label…"
                         : "Buy label & notify customer"}
                     </button>
                     <button
                       type="button"
                       onClick={handleGetRates}
-                      disabled={ratesMutation.isPending}
+                      disabled={ratesPending}
                       className="h-9 rounded-md border border-border px-3 text-sm disabled:opacity-50"
                       data-testid="button-refresh-rates"
                     >
@@ -844,6 +900,9 @@ function OrderDetailDrawer({
                   data-testid="text-fulfill-error"
                 >
                   {errorMsg}
+                  {errorRetries > 0
+                    ? ` (retried ${errorRetries} time${errorRetries === 1 ? "" : "s"} before failing)`
+                    : ""}
                 </p>
               ) : null}
             </section>

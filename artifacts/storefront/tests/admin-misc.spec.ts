@@ -325,6 +325,215 @@ test.describe("admin orders — single-order shipping label drawer", () => {
     );
     await expect(page.getByTestId("button-get-rates")).toHaveCount(0);
   });
+
+  test("transient rates failure that recovers shows the retry-success notice", async ({
+    page,
+  }) => {
+    // The rates endpoint returns a transient 503 on its first attempt and
+    // then succeeds on the retry. The drawer's withRetry helper should
+    // swallow the 503, render the rates list, and surface a small notice
+    // that the carrier was flaky — mirroring the bulk flow's banner wording.
+    const order = makeOrder({ id: 7301 });
+    let ratesCalls = 0;
+    await installAdminBaseMocks(page);
+
+    await page.route("**/api/admin/orders*", async (route: Route) => {
+      const url = new URL(route.request().url());
+      if (!url.pathname.endsWith("/api/admin/orders")) {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([order]),
+      });
+    });
+
+    await page.route(
+      "**/api/admin/orders/*/shipping-rates",
+      async (route: Route) => {
+        ratesCalls += 1;
+        if (ratesCalls === 1) {
+          await route.fulfill({
+            status: 503,
+            contentType: "application/json",
+            body: JSON.stringify({ error: "EasyPost rates temporarily down" }),
+          });
+          return;
+        }
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ shipmentId: "shp_7301", rates: RATES }),
+        });
+      },
+    );
+
+    await page.goto("/admin/orders");
+    await page.getByTestId("row-order-7301").getByText("#7301").click();
+    await page.getByTestId("button-get-rates").click();
+
+    // Rates list eventually appears (after the retry burns its ~400ms
+    // backoff + jitter).
+    await expect(page.getByTestId("list-shipping-rates")).toBeVisible({
+      timeout: 10_000,
+    });
+    expect(ratesCalls).toBe(2);
+
+    // The retry-success notice mentions the carrier was flaky and the
+    // retry count, and no error panel is shown.
+    const notice = page.getByTestId("text-fulfill-retry-success");
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText("succeeded after retry");
+    await expect(notice).toContainText("carrier was flaky");
+    await expect(notice).toContainText("1");
+    await expect(page.getByTestId("text-fulfill-error")).toHaveCount(0);
+  });
+
+  test("transient buy-label failure that recovers ships the order with a flaky-carrier notice", async ({
+    page,
+  }) => {
+    // Rates succeed first try; the fulfill endpoint returns a transient
+    // 503 on its first attempt and succeeds on the retry. The order must
+    // still flip to shipped (with a tracking code) and the drawer should
+    // surface the "succeeded after retry" notice on the buy-label step.
+    const order = makeOrder({ id: 7401 });
+    let fulfillCalls = 0;
+    await installAdminBaseMocks(page);
+
+    await page.route("**/api/admin/orders*", async (route: Route) => {
+      const url = new URL(route.request().url());
+      if (!url.pathname.endsWith("/api/admin/orders")) {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([order]),
+      });
+    });
+
+    await page.route(
+      "**/api/admin/orders/*/shipping-rates",
+      async (route: Route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ shipmentId: "shp_7401", rates: RATES }),
+        });
+      },
+    );
+
+    await page.route(
+      "**/api/admin/orders/*/fulfill",
+      async (route: Route) => {
+        fulfillCalls += 1;
+        if (fulfillCalls === 1) {
+          await route.fulfill({
+            status: 503,
+            contentType: "application/json",
+            body: JSON.stringify({
+              error: "EasyPost fulfill temporarily down",
+            }),
+          });
+          return;
+        }
+        order.status = "shipped";
+        order.trackingCode = "TRK-7401";
+        order.labelUrl = "https://labels.test/order-7401.pdf";
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify(order),
+        });
+      },
+    );
+
+    await page.goto("/admin/orders");
+    await page.getByTestId("row-order-7401").getByText("#7401").click();
+    await page.getByTestId("button-get-rates").click();
+    await expect(page.getByTestId("list-shipping-rates")).toBeVisible();
+    await page.getByTestId("button-buy-label").click();
+
+    // Order eventually flips to shipped after the retry recovers.
+    await expect(page.getByTestId("text-order-status")).toContainText(
+      "shipped",
+      { timeout: 10_000 },
+    );
+    await expect(page.getByTestId("text-tracking-code")).toContainText(
+      "TRK-7401",
+    );
+    expect(fulfillCalls).toBe(2);
+
+    // The retry-success notice explains the carrier was flaky.
+    const notice = page.getByTestId("text-fulfill-retry-success");
+    await expect(notice).toBeVisible();
+    await expect(notice).toContainText("succeeded after retry");
+    await expect(notice).toContainText("1");
+    await expect(page.getByTestId("text-fulfill-error")).toHaveCount(0);
+  });
+
+  test("when every retry attempt fails transiently, the inline error tags the retry count", async ({
+    page,
+  }) => {
+    // The rates endpoint returns a transient 503 on every attempt. The
+    // drawer's withRetry uses MAX_ATTEMPTS=3, so the endpoint is hit 3
+    // times (one initial + two retries) before withRetry gives up. The
+    // inline error must surface the carrier message AND the "retried N
+    // times before failing" suffix so admins can tell a flaky run apart
+    // from a single hard fail. The order must stay unshipped and the
+    // Get-rates button must remain available for another attempt.
+    const order = makeOrder({ id: 7501 });
+    let ratesCalls = 0;
+    await installAdminBaseMocks(page);
+
+    await page.route("**/api/admin/orders*", async (route: Route) => {
+      const url = new URL(route.request().url());
+      if (!url.pathname.endsWith("/api/admin/orders")) {
+        await route.fallback();
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([order]),
+      });
+    });
+
+    await page.route(
+      "**/api/admin/orders/*/shipping-rates",
+      async (route: Route) => {
+        ratesCalls += 1;
+        await route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "EasyPost rates temporarily down" }),
+        });
+      },
+    );
+
+    await page.goto("/admin/orders");
+    await page.getByTestId("row-order-7501").getByText("#7501").click();
+    await page.getByTestId("button-get-rates").click();
+
+    const errorMsg = page.getByTestId("text-fulfill-error");
+    await expect(errorMsg).toBeVisible({ timeout: 10_000 });
+    await expect(errorMsg).toContainText("retried 2 times before failing");
+
+    // Three attempts total (initial + 2 retries) before withRetry gave up.
+    expect(ratesCalls).toBe(3);
+
+    // No retry-success notice, no rates list, no buy button — and the
+    // Get-rates button stays so the admin can try again.
+    await expect(
+      page.getByTestId("text-fulfill-retry-success"),
+    ).toHaveCount(0);
+    await expect(page.getByTestId("list-shipping-rates")).toHaveCount(0);
+    await expect(page.getByTestId("button-buy-label")).toHaveCount(0);
+    await expect(page.getByTestId("button-get-rates")).toBeVisible();
+  });
 });
 
 // ---------------------------------------------------------------------------
