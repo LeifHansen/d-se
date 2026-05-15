@@ -134,6 +134,25 @@ async function deleteOrphanedProductImages(
   );
 }
 
+/**
+ * Best-effort delete of an uploaded blog cover image that is no longer
+ * referenced. Mirrors `deleteOrphanedProductImages`: only URLs served by
+ * us (`/api/storage/objects/<id>`) are touched; external `http(s)://…`
+ * URLs are left alone. Failures are logged but never thrown so they
+ * cannot break the surrounding blog save/delete flow.
+ */
+async function deleteOrphanedBlogCoverImage(
+  url: string | null | undefined,
+  log: { error: (obj: unknown, msg?: string) => void },
+): Promise<void> {
+  if (!url) return;
+  try {
+    await objectStorageService.deleteObjectEntityByUrl(url);
+  } catch (err) {
+    log.error({ err, url }, "Failed to delete uploaded blog cover image");
+  }
+}
+
 import {
   getEasyPost,
   isEasyPostConfigured,
@@ -1278,6 +1297,9 @@ router.patch("/admin/blog/posts/:id", async (req, res): Promise<void> => {
     })
     .where(eq(blogPostsTable.id, params.data.id))
     .returning();
+  if (existing.coverImage && existing.coverImage !== coverImage) {
+    await deleteOrphanedBlogCoverImage(existing.coverImage, req.log);
+  }
   res.json(UpdateBlogPostResponse.parse(serializeBlog(row)));
 });
 
@@ -1287,9 +1309,16 @@ router.delete("/admin/blog/posts/:id", async (req, res): Promise<void> => {
     res.status(400).json({ error: params.error.message });
     return;
   }
+  const [existing] = await db
+    .select()
+    .from(blogPostsTable)
+    .where(eq(blogPostsTable.id, params.data.id));
   await db
     .delete(blogPostsTable)
     .where(eq(blogPostsTable.id, params.data.id));
+  if (existing?.coverImage) {
+    await deleteOrphanedBlogCoverImage(existing.coverImage, req.log);
+  }
   res.sendStatus(204);
 });
 
