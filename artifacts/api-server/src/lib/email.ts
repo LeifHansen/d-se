@@ -256,6 +256,64 @@ ${reviewLink}`,
   });
 }
 
+export async function sendWeeklySpamDigest(opts: {
+  to: string;
+  summary: {
+    contactTotal: number;
+    newsletterTotal: number;
+    unreviewed: number;
+    markedLegit: number;
+    topReasons: Array<{ reason: string; count: number }>;
+  };
+  reviewUrl?: string | null;
+  periodStart: Date;
+  periodEnd: Date;
+}): Promise<void> {
+  const r = await getResend();
+  if (!r) return;
+  const esc = (s: string) =>
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  const total = opts.summary.contactTotal + opts.summary.newsletterTotal;
+  const reasonRows = opts.summary.topReasons.length
+    ? opts.summary.topReasons
+        .map(
+          (r) =>
+            `<tr><td>${esc(r.reason)}</td><td style="text-align:right">${r.count}</td></tr>`,
+        )
+        .join("")
+    : `<tr><td colspan="2"><em>No reasons recorded.</em></td></tr>`;
+  const fmtDate = (d: Date) => d.toISOString().slice(0, 10);
+  const reviewLink = opts.reviewUrl
+    ? `<p style="margin-top:24px"><a href="${opts.reviewUrl}">Review the spam quarantine →</a></p>`
+    : "";
+  await r.client.emails.send({
+    from: `${STORE_NAME} <${r.fromEmail}>`,
+    to: opts.to,
+    subject: `[${STORE_NAME}] Weekly spam digest (${total} filtered)`,
+    html: `<h1>Weekly spam digest</h1>
+<p>${fmtDate(opts.periodStart)} – ${fmtDate(opts.periodEnd)}</p>
+<table border="1" cellpadding="6" cellspacing="0">
+<tbody>
+<tr><td>Contact submissions filtered</td><td style="text-align:right">${opts.summary.contactTotal}</td></tr>
+<tr><td>Newsletter signups filtered</td><td style="text-align:right">${opts.summary.newsletterTotal}</td></tr>
+<tr><td>Not yet reviewed</td><td style="text-align:right">${opts.summary.unreviewed}</td></tr>
+<tr><td>Marked as legitimate</td><td style="text-align:right">${opts.summary.markedLegit}</td></tr>
+</tbody>
+</table>
+<h2 style="margin-top:24px">Top reasons (last 7 days)</h2>
+<table border="1" cellpadding="6" cellspacing="0">
+<thead><tr><th>Reason</th><th>Count</th></tr></thead>
+<tbody>${reasonRows}</tbody>
+</table>
+${reviewLink}`,
+  });
+}
+
 export async function sendWelcomeEmail(opts: {
   to: string;
   unsubscribeUrl?: string | null;
