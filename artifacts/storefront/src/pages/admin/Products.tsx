@@ -221,6 +221,20 @@ export default function AdminProducts() {
     return owner;
   }, [form.slug, data, editing]);
 
+  const slugSuggestion = useMemo(() => {
+    if (!slugConflict) return null;
+    const slug = form.slug.trim().toLowerCase();
+    const base = slug.replace(/-\d+$/, "") || slug;
+    const taken = new Set(
+      (data ?? [])
+        .filter((p) => !editing || p.id !== editing.id)
+        .map((p) => p.slug),
+    );
+    let n = 2;
+    while (taken.has(`${base}-${n}`)) n++;
+    return `${base}-${n}`;
+  }, [slugConflict, form.slug, data, editing]);
+
   // Seed drafts whenever the product list changes, and prune any
   // selected ids that no longer correspond to a product (e.g. after a
   // delete).
@@ -704,6 +718,22 @@ export default function AdminProducts() {
                   >
                     Already used by &ldquo;{slugConflict.name}&rdquo;. Pick a
                     different slug.
+                    {slugSuggestion ? (
+                      <>
+                        {" "}
+                        <button
+                          type="button"
+                          className="underline underline-offset-2 hover:no-underline"
+                          onClick={() => {
+                            setSlugTouched(true);
+                            setForm((f) => ({ ...f, slug: slugSuggestion }));
+                          }}
+                          data-testid="button-use-slug-suggestion"
+                        >
+                          Use {slugSuggestion}
+                        </button>
+                      </>
+                    ) : null}
                   </p>
                 ) : null}
               </div>
