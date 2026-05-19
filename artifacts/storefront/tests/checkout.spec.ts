@@ -15,7 +15,6 @@ import { test, expect, type Page, type Route } from "@playwright/test";
 const STORED_CART_KEY = "dose-cart-id";
 const AGE_CONFIRMED_KEY = "dose-age-confirmed";
 const CART_ID = "cart_e2e_handoff";
-const STRIPE_STUB_PATH = "/__stripe-stub";
 const ORDER_ID = 4242;
 const RATE_ID = "usps_priority";
 
@@ -129,16 +128,6 @@ async function installCheckoutMocks(
     });
   });
 
-  // Same-origin stub so Playwright can wait for the navigation triggered by
-  // window.location.href = result.url. A real Stripe URL would be
-  // cross-origin and produce flaky network behavior in a test environment.
-  await page.route("**" + STRIPE_STUB_PATH + "*", async (route: Route) => {
-    await route.fulfill({
-      status: 200,
-      contentType: "text/html",
-      body: '<!doctype html><title>stripe-stub</title><h1 data-testid="stripe-stub">Stripe stub</h1>',
-    });
-  });
 }
 
 async function seedCartId(page: Page): Promise<void> {
@@ -302,10 +291,17 @@ test.describe("cart → Stripe checkout handoff", () => {
 
   test("submitting /checkout posts to /api/checkout and redirects to the returned URL", async ({
     page,
-    baseURL,
   }) => {
     const calls: CheckoutCall[] = [];
-    const redirectUrl = `${baseURL}${STRIPE_STUB_PATH}?cs=cs_test_e2e`;
+    // Use about:blank as the redirect target instead of a same-origin HTML
+    // stub. The previous flow served an HTML stub at STRIPE_STUB_PATH and
+    // asserted via getByTestId('stripe-stub'), which was flaky under load
+    // because the stubbed HTML occasionally never rendered between
+    // waitForURL and the visibility check. about:blank matches what the
+    // sibling "returning to /checkout after a guest order pre-fills the
+    // saved address" test does, and lets us verify the redirect via the
+    // /api/checkout response + the navigation away from /checkout instead.
+    const redirectUrl = "about:blank";
     await installCheckoutMocks(page, { redirectUrl, calls });
     await seedCartId(page);
 
@@ -323,10 +319,23 @@ test.describe("cart → Stripe checkout handoff", () => {
     // Wait for the rate to render and be auto-selected.
     await expect(page.locator(`input[value="${RATE_ID}"]`)).toBeChecked();
 
-    await page.getByTestId("checkout-submit").click();
+    // Submit and wait for the /api/checkout POST to resolve. We don't
+    // depend on a same-origin HTML stub for the redirect target — the
+    // request body + the subsequent navigation away from /checkout is
+    // enough to prove the page handed the shopper off to result.url.
+    const [response] = await Promise.all([
+      page.waitForResponse(
+        (r) =>
+          r.url().includes("/api/checkout") &&
+          r.request().method() === "POST",
+      ),
+      page.getByTestId("checkout-submit").click(),
+    ]);
+    expect(response.status()).toBe(200);
 
-    await page.waitForURL(redirectUrl);
-    await expect(page.getByTestId("stripe-stub")).toBeVisible();
+    // The page sets window.location.href to the URL returned by the API,
+    // which navigates the browser to about:blank.
+    await page.waitForURL("about:blank");
 
     // Exactly one /api/checkout call carrying the persisted cart id, the
     // chosen shipping rate, and a non-empty address.
