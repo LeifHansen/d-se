@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { useGetOrder } from "@workspace/api-client-react";
+import {
+  useGetOrder,
+  useReorder,
+  getGetCartQueryKey,
+} from "@workspace/api-client-react";
 import { PromoBanner } from "@/components/dose/PromoBanner";
 import { Header } from "@/components/dose/Header";
 import { Footer } from "@/components/dose/Footer";
@@ -10,7 +14,13 @@ import { AgeGate } from "@/components/dose/AgeGate";
 import { Button } from "@/components/ui/button";
 import { Seo } from "@/components/seo/Seo";
 import { clearCartId, getCartId } from "@/lib/cart-id";
-import { formatMoney } from "@/lib/cart";
+import {
+  formatMoney,
+  getStoredCartId,
+  setStoredCartId,
+  requestOpenCartDrawer,
+} from "@/lib/cart";
+import { useToast } from "@/hooks/use-toast";
 
 const CREAM = "hsl(45 49% 90%)";
 const FOREST = "hsl(170 58% 14%)";
@@ -37,6 +47,8 @@ function estimatedDeliveryWindow(placedAt: Date): string {
 
 export default function CheckoutSuccessPage() {
   const qc = useQueryClient();
+  const { toast } = useToast();
+  const reorderMutation = useReorder();
 
   // Read URL + cart-id ONCE on first render, before we wipe local cart state.
   // The cartId acts as the guest receipt token so non-signed-in shoppers can
@@ -109,6 +121,53 @@ export default function CheckoutSuccessPage() {
   }, [order]);
 
   const processing = !!order && order.status === "pending";
+
+  const handleReorder = () => {
+    if (!order) return;
+    reorderMutation.mutate(
+      { id: order.id, data: { cartId: getStoredCartId() } },
+      {
+        onSuccess: ({ cart, skipped }) => {
+          if (cart?.id) setStoredCartId(cart.id);
+          qc.invalidateQueries({
+            queryKey: getGetCartQueryKey({ cartId: cart?.id }),
+          });
+          qc.invalidateQueries({ queryKey: getGetCartQueryKey() });
+          const added = order.items.length - skipped.length;
+          if (added <= 0) {
+            toast({
+              title: "Nothing could be reordered",
+              description:
+                skipped.length > 0
+                  ? `${skipped.map((s) => s.productName).join(", ")} ${skipped.length === 1 ? "is" : "are"} no longer available.`
+                  : "This order has no items to reorder.",
+              variant: "destructive",
+            });
+            return;
+          }
+          if (skipped.length > 0) {
+            toast({
+              title: "Some items were skipped",
+              description: `${skipped.map((s) => `${s.productName} (${s.reason === "out_of_stock" ? "out of stock" : "unavailable"})`).join("; ")}.`,
+            });
+          } else {
+            toast({
+              title: "Added to cart",
+              description: "Your past order is back in your cart.",
+            });
+          }
+          requestOpenCartDrawer();
+        },
+        onError: () => {
+          toast({
+            title: "Couldn't reorder",
+            description: "Please try again in a moment.",
+            variant: "destructive",
+          });
+        },
+      },
+    );
+  };
   const errorStatus =
     isError && error && typeof (error as { status?: unknown }).status === "number"
       ? ((error as { status: number }).status)
@@ -417,7 +476,23 @@ export default function CheckoutSuccessPage() {
             </div>
           ) : null}
 
-          <div className="mt-12 flex justify-center">
+          <div className="mt-12 flex flex-wrap items-center justify-center gap-3">
+            {order && order.items.length > 0 ? (
+              <Button
+                type="button"
+                onClick={handleReorder}
+                disabled={reorderMutation.isPending}
+                className="rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
+                style={{
+                  background: "transparent",
+                  color: FOREST,
+                  border: `1px solid ${FOREST}`,
+                }}
+                data-testid="button-reorder"
+              >
+                {reorderMutation.isPending ? "Adding to cart…" : "Reorder"}
+              </Button>
+            ) : null}
             <Link href="/shop">
               <Button
                 className="rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
