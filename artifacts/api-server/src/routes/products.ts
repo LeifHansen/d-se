@@ -19,6 +19,27 @@ const router: IRouter = Router();
 const productsCache = publicCache({ sMaxAge: 60, staleWhileRevalidate: 600 });
 const productCache = publicCache({ sMaxAge: 300, staleWhileRevalidate: 86400 });
 
+function parseTagList(
+  tagsParam: string | undefined,
+  legacyTagParam: unknown,
+): string[] {
+  const out: string[] = [];
+  const push = (v: unknown) => {
+    if (typeof v !== "string") return;
+    for (const part of v.split(",")) {
+      const trimmed = part.trim();
+      if (trimmed && !out.includes(trimmed)) out.push(trimmed);
+    }
+  };
+  push(tagsParam);
+  if (Array.isArray(legacyTagParam)) {
+    for (const v of legacyTagParam) push(v);
+  } else {
+    push(legacyTagParam);
+  }
+  return out;
+}
+
 function serialize(
   p: typeof productsTable.$inferSelect,
   rating?: { averageRating: number | null; count: number },
@@ -62,7 +83,7 @@ router.get("/products", productsCache, async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
-  const { search, tag, featured, limit } = parsed.data;
+  const { search, tags, featured, limit } = parsed.data;
   const conditions = [eq(productsTable.published, true)];
   if (search) {
     conditions.push(
@@ -75,9 +96,10 @@ router.get("/products", productsCache, async (req, res): Promise<void> => {
   if (featured !== undefined) {
     conditions.push(eq(productsTable.featured, featured));
   }
-  if (tag) {
+  const tagList = parseTagList(tags, req.query.tag);
+  for (const t of tagList) {
     conditions.push(
-      sql`${productsTable.tags} @> jsonb_build_array(${tag}::text)`,
+      sql`${productsTable.tags} @> jsonb_build_array(${t}::text)`,
     );
   }
   const rows = await db

@@ -43,7 +43,12 @@ export const listProductsQueryLimitMax = 100;
 
 export const ListProductsQueryParams = zod.object({
   search: zod.coerce.string().optional(),
-  tag: zod.coerce.string().optional(),
+  tags: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Comma-separated list of tag slugs. Items must match ALL provided tags.",
+    ),
   featured: zod.coerce.boolean().optional(),
   limit: zod.coerce
     .number()
@@ -928,7 +933,12 @@ export const ReorderResponse = zod.object({
 export const listBlogPostsQueryLimitDefault = 20;
 
 export const ListBlogPostsQueryParams = zod.object({
-  tag: zod.coerce.string().optional(),
+  tags: zod.coerce
+    .string()
+    .optional()
+    .describe(
+      "Comma-separated list of tag slugs. Posts must match ALL provided tags.",
+    ),
   limit: zod.coerce.number().default(listBlogPostsQueryLimitDefault),
 });
 

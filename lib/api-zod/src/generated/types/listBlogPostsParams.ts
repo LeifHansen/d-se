@@ -7,6 +7,9 @@
  */
 
 export type ListBlogPostsParams = {
-  tag?: string;
+  /**
+   * Comma-separated list of tag slugs. Posts must match ALL provided tags.
+   */
+  tags?: string;
   limit?: number;
 };

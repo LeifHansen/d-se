@@ -8,7 +8,10 @@
 
 export type ListProductsParams = {
   search?: string;
-  tag?: string;
+  /**
+   * Comma-separated list of tag slugs. Items must match ALL provided tags.
+   */
+  tags?: string;
   featured?: boolean;
   /**
    * @minimum 1

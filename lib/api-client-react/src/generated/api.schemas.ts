@@ -682,7 +682,10 @@ export type ForbiddenResponse = Error;
 
 export type ListProductsParams = {
   search?: string;
-  tag?: string;
+  /**
+   * Comma-separated list of tag slugs. Items must match ALL provided tags.
+   */
+  tags?: string;
   featured?: boolean;
   /**
    * @minimum 1
@@ -788,7 +791,10 @@ export type ReorderBody = {
 };
 
 export type ListBlogPostsParams = {
-  tag?: string;
+  /**
+   * Comma-separated list of tag slugs. Posts must match ALL provided tags.
+   */
+  tags?: string;
   limit?: number;
 };
 

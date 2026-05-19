@@ -14,6 +14,27 @@ const router: IRouter = Router();
 const blogIndexCache = publicCache({ sMaxAge: 300, staleWhileRevalidate: 3600 });
 const blogPostCache = publicCache({ sMaxAge: 600, staleWhileRevalidate: 86400 });
 
+function parseTagList(
+  tagsParam: string | undefined,
+  legacyTagParam: unknown,
+): string[] {
+  const out: string[] = [];
+  const push = (v: unknown) => {
+    if (typeof v !== "string") return;
+    for (const part of v.split(",")) {
+      const trimmed = part.trim();
+      if (trimmed && !out.includes(trimmed)) out.push(trimmed);
+    }
+  };
+  push(tagsParam);
+  if (Array.isArray(legacyTagParam)) {
+    for (const v of legacyTagParam) push(v);
+  } else {
+    push(legacyTagParam);
+  }
+  return out;
+}
+
 function serialize(p: typeof blogPostsTable.$inferSelect) {
   return {
     id: p.id,
@@ -39,9 +60,10 @@ router.get("/blog/posts", blogIndexCache, async (req, res): Promise<void> => {
     return;
   }
   const conditions = [eq(blogPostsTable.published, true)];
-  if (parsed.data.tag) {
+  const tagList = parseTagList(parsed.data.tags, req.query.tag);
+  for (const t of tagList) {
     conditions.push(
-      sql`${blogPostsTable.tags} @> jsonb_build_array(${parsed.data.tag}::text)`,
+      sql`${blogPostsTable.tags} @> jsonb_build_array(${t}::text)`,
     );
   }
   const rows = await db

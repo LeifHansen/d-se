@@ -42,8 +42,9 @@ paths:
         - name: search
           in: query
           schema: { type: string }
-        - name: tag
+        - name: tags
           in: query
+          description: Comma-separated list of tag slugs. Items must match ALL provided tags.
           schema: { type: string }
         - name: featured
           in: query
@@ -496,8 +497,9 @@ paths:
       tags: [blog]
       summary: List published blog posts
       parameters:
-        - name: tag
+        - name: tags
           in: query
+          description: Comma-separated list of tag slugs. Posts must match ALL provided tags.
           schema: { type: string }
         - name: limit
           in: query

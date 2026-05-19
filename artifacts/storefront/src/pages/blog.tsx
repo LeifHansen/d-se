@@ -4,6 +4,7 @@ import { ArrowUpRight } from "lucide-react";
 import { useListBlogPosts } from "@workspace/api-client-react";
 import { SiteShell } from "@/components/dose/SiteShell";
 import { Seo } from "@/components/seo/Seo";
+import { parseTagsFromSearch, buildBlogHref, toggleTag } from "@/lib/tagFilter";
 
 function formatDate(s?: string | null): string {
   if (!s) return "";
@@ -20,15 +21,11 @@ function formatDate(s?: string | null): string {
 
 export default function BlogIndex() {
   const search = useSearch();
-  const activeTag = useMemo(() => {
-    const sp = new URLSearchParams(search);
-    const t = sp.get("tag");
-    return t && t.length > 0 ? t : null;
-  }, [search]);
+  const activeTags = useMemo(() => parseTagsFromSearch(search), [search]);
 
   const { data: allPosts } = useListBlogPosts();
   const { data, isLoading, isError } = useListBlogPosts(
-    activeTag ? { tag: activeTag } : undefined,
+    activeTags.length > 0 ? { tags: activeTags.join(",") } : undefined,
   );
 
   const allTags = useMemo(() => {
@@ -76,10 +73,10 @@ export default function BlogIndex() {
             aria-label="Filter posts by tag"
           >
             <Link
-              href="/blog"
+              href={buildBlogHref([])}
               className="inline-flex items-center rounded-full border px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] transition-colors"
               style={
-                activeTag === null
+                activeTags.length === 0
                   ? {
                       background: "hsl(170 58% 14%)",
                       color: "hsl(45 49% 90%)",
@@ -91,17 +88,18 @@ export default function BlogIndex() {
                       borderColor: "hsl(40 18% 80%)",
                     }
               }
-              aria-pressed={activeTag === null}
+              aria-pressed={activeTags.length === 0}
               data-testid="blog-tag-all"
             >
               All
             </Link>
             {allTags.map((t) => {
-              const isActive = t === activeTag;
+              const isActive = activeTags.includes(t);
+              const nextTags = toggleTag(activeTags, t);
               return (
                 <Link
                   key={t}
-                  href={`/blog?tag=${encodeURIComponent(t)}`}
+                  href={buildBlogHref(nextTags)}
                   className="inline-flex items-center rounded-full border px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] transition-colors"
                   style={
                     isActive
@@ -213,8 +211,10 @@ export default function BlogIndex() {
             className="text-center font-display text-2xl"
             data-testid="blog-empty"
           >
-            {activeTag
-              ? `No posts tagged "${activeTag}" yet.`
+            {activeTags.length > 0
+              ? `No posts tagged ${activeTags
+                  .map((t) => `"${t}"`)
+                  .join(" + ")} yet.`
               : "New journal entries coming soon."}
           </p>
         )}

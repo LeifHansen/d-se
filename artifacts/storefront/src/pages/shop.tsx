@@ -7,18 +7,15 @@ import { Seo } from "@/components/seo/Seo";
 import { formatMoney } from "@/lib/cart";
 import { Stars } from "@/components/dose/Stars";
 import { Image } from "@/components/dose/Image";
+import { parseTagsFromSearch, buildShopHref, toggleTag } from "@/lib/tagFilter";
 
 export default function Shop() {
   const search = useSearch();
-  const activeTag = useMemo(() => {
-    const sp = new URLSearchParams(search);
-    const t = sp.get("tag");
-    return t && t.length > 0 ? t : null;
-  }, [search]);
+  const activeTags = useMemo(() => parseTagsFromSearch(search), [search]);
 
   const { data: allProducts } = useListProducts();
   const { data, isLoading, isError, error, refetch } = useListProducts(
-    activeTag ? { tag: activeTag } : undefined,
+    activeTags.length > 0 ? { tags: activeTags.join(",") } : undefined,
   );
 
   const allTags = useMemo(() => {
@@ -77,10 +74,10 @@ export default function Shop() {
               aria-label="Filter products by tag"
             >
               <Link
-                href="/shop"
+                href={buildShopHref([])}
                 className="inline-flex items-center rounded-full border px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] transition-colors"
                 style={
-                  activeTag === null
+                  activeTags.length === 0
                     ? {
                         background: "hsl(170 58% 14%)",
                         color: "hsl(45 49% 90%)",
@@ -92,17 +89,18 @@ export default function Shop() {
                         borderColor: "hsl(40 18% 80%)",
                       }
                 }
-                aria-pressed={activeTag === null}
+                aria-pressed={activeTags.length === 0}
                 data-testid="shop-tag-all"
               >
                 All
               </Link>
               {allTags.map((t) => {
-                const isActive = t === activeTag;
+                const isActive = activeTags.includes(t);
+                const nextTags = toggleTag(activeTags, t);
                 return (
                   <Link
                     key={t}
-                    href={`/shop?tag=${encodeURIComponent(t)}`}
+                    href={buildShopHref(nextTags)}
                     className="inline-flex items-center rounded-full border px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.22em] transition-colors"
                     style={
                       isActive
@@ -247,8 +245,10 @@ export default function Shop() {
               className="text-center font-display text-2xl"
               data-testid="shop-empty"
             >
-              {activeTag
-                ? `No products tagged "${activeTag}" yet.`
+              {activeTags.length > 0
+                ? `No products match ${activeTags
+                    .map((t) => `"${t}"`)
+                    .join(" + ")} yet.`
                 : "No products available yet — check back soon."}
             </p>
           )}

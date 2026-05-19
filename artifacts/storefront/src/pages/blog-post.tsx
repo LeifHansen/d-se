@@ -161,7 +161,7 @@ function RelatedPosts({
 }) {
   const enabled = !!tag;
   const { data } = useListBlogPosts(
-    { tag, limit: 4 } as never,
+    { tags: tag, limit: 4 } as never,
     { query: { enabled } as never },
   );
   const items = (data ?? [])
