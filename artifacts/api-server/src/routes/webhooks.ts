@@ -512,19 +512,6 @@ router.post(
       if (ctx.email) {
         try {
           const lookupToken = signOrderToken({ orderId, email: ctx.email });
-          // Persist the issued token so admins can see when it was issued
-          // and revoke it (rotate) without our customer needing to email
-          // support. Stored alongside the order; the `/orders/by-token`
-          // route checks against this column so a cleared value invalidates
-          // the previously emailed link.
-          await db
-            .update(ordersTable)
-            .set({
-              lookupToken,
-              lookupTokenIssuedAt: new Date(),
-              lookupTokenLastUsedAt: null,
-            })
-            .where(eq(ordersTable.id, orderId));
           await sendOrderConfirmation({
             to: ctx.email,
             orderId,
@@ -800,18 +787,7 @@ router.post(
           .returning({ id: ordersTable.id });
         if (claimed.length > 0) {
           const email = order.email;
-          const lookupToken =
-            order.lookupToken ?? signOrderToken({ orderId: order.id, email });
-          if (!order.lookupToken) {
-            await db
-              .update(ordersTable)
-              .set({
-                lookupToken,
-                lookupTokenIssuedAt: new Date(),
-                lookupTokenLastUsedAt: null,
-              })
-              .where(eq(ordersTable.id, order.id));
-          }
+          const lookupToken = signOrderToken({ orderId: order.id, email });
           try {
             await sendDeliveryEmail({
               to: email,

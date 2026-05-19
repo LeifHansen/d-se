@@ -1586,56 +1586,6 @@ export const FulfillOrderResponse = zod.object({
   createdAt: zod.coerce.date(),
 });
 
-/**
- * @summary Get the customer's magic-link timestamps for an order
- */
-export const GetAdminOrderLinkParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const GetAdminOrderLinkResponse = zod.object({
-  orderId: zod.number(),
-  active: zod.boolean(),
-  issuedAt: zod.coerce.date().nullish(),
-  lastUsedAt: zod.coerce.date().nullish(),
-  lastChannel: zod
-    .union([
-      zod.literal("token"),
-      zod.literal("lookup"),
-      zod.literal("signed_in"),
-      zod.literal(null),
-    ])
-    .nullish()
-    .describe(
-      "How the customer most recently reached their order page — via the emailed magic link (token), the email + order id lookup form (lookup), or by signing in to their account (signed_in).",
-    ),
-});
-
-/**
- * @summary Revoke the order's magic link so the previously emailed URL stops working
- */
-export const RotateAdminOrderLinkParams = zod.object({
-  id: zod.coerce.number(),
-});
-
-export const RotateAdminOrderLinkResponse = zod.object({
-  orderId: zod.number(),
-  active: zod.boolean(),
-  issuedAt: zod.coerce.date().nullish(),
-  lastUsedAt: zod.coerce.date().nullish(),
-  lastChannel: zod
-    .union([
-      zod.literal("token"),
-      zod.literal("lookup"),
-      zod.literal("signed_in"),
-      zod.literal(null),
-    ])
-    .nullish()
-    .describe(
-      "How the customer most recently reached their order page — via the emailed magic link (token), the email + order id lookup form (lookup), or by signing in to their account (signed_in).",
-    ),
-});
-
 export const ListAdminBlogPostsResponseItem = zod.object({
   id: zod.number(),
   slug: zod.string(),

@@ -33,6 +33,21 @@ if [ -n "$DATABASE_URL" ]; then
     || echo "Abandoned-cart malformed-email cleanup skipped (psql failed)."
 fi
 
+if [ -n "$DATABASE_URL" ]; then
+  # One-shot migration: drop the legacy per-order lookup-token columns.
+  # The route used to compare an emailed token against `orders.lookup_token`,
+  # but verification is now purely HMAC (see lib/orderToken.ts) and the
+  # admin "rotate link" UI is gone. Use IF EXISTS so this is idempotent and
+  # safe on databases where drizzle-kit has already dropped the columns.
+  psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -c \
+    "ALTER TABLE orders
+       DROP COLUMN IF EXISTS lookup_token,
+       DROP COLUMN IF EXISTS lookup_token_issued_at,
+       DROP COLUMN IF EXISTS lookup_token_last_used_at,
+       DROP COLUMN IF EXISTS lookup_token_last_channel;" \
+    || echo "Legacy lookup-token column drop skipped (psql failed)."
+fi
+
 pnpm --filter db push
 
 if [ -n "$DATABASE_URL" ]; then

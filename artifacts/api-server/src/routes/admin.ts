@@ -67,7 +67,6 @@ import {
   MarkAdminNewsletterQuarantineLegitResponse,
   ListAdminSpamQuarantineResponse,
   GetAdminSpamTrackingStatsResponse,
-  GetAdminOrderLinkResponse,
   ListAdminCustomersQueryParams,
   ListAdminCustomersResponse,
   CreateAdminCustomerBody,
@@ -1074,86 +1073,6 @@ router.post(
 
     const updated = await buildOrderResponse(params.data.id);
     res.json(FulfillOrderResponse.parse(updated));
-  },
-);
-
-function serializeOrderLink(row: {
-  id: number;
-  lookupToken: string | null;
-  lookupTokenIssuedAt: Date | null;
-  lookupTokenLastUsedAt: Date | null;
-  lookupTokenLastChannel: string | null;
-}) {
-  // Only surface known channel values — guard against legacy or stray rows
-  // so the admin UI never has to deal with an unexpected string.
-  const KNOWN_CHANNELS = ["token", "lookup", "signed_in"] as const;
-  const lastChannel =
-    row.lookupTokenLastChannel &&
-    (KNOWN_CHANNELS as readonly string[]).includes(row.lookupTokenLastChannel)
-      ? (row.lookupTokenLastChannel as (typeof KNOWN_CHANNELS)[number])
-      : null;
-  return {
-    orderId: row.id,
-    active: Boolean(row.lookupToken),
-    issuedAt: row.lookupTokenIssuedAt,
-    lastUsedAt: row.lookupTokenLastUsedAt,
-    lastChannel,
-  };
-}
-
-router.get(
-  "/admin/orders/:id/order-link",
-  async (req, res): Promise<void> => {
-    const idNum = Number(req.params.id);
-    if (!Number.isInteger(idNum) || idNum <= 0) {
-      res.status(400).json({ error: "Invalid order id" });
-      return;
-    }
-    const [row] = await db
-      .select({
-        id: ordersTable.id,
-        lookupToken: ordersTable.lookupToken,
-        lookupTokenIssuedAt: ordersTable.lookupTokenIssuedAt,
-        lookupTokenLastUsedAt: ordersTable.lookupTokenLastUsedAt,
-        lookupTokenLastChannel: ordersTable.lookupTokenLastChannel,
-      })
-      .from(ordersTable)
-      .where(eq(ordersTable.id, idNum));
-    if (!row) {
-      res.status(404).json({ error: "Order not found" });
-      return;
-    }
-    res.json(GetAdminOrderLinkResponse.parse(serializeOrderLink(row)));
-  },
-);
-
-router.delete(
-  "/admin/orders/:id/order-link",
-  async (req, res): Promise<void> => {
-    const idNum = Number(req.params.id);
-    if (!Number.isInteger(idNum) || idNum <= 0) {
-      res.status(400).json({ error: "Invalid order id" });
-      return;
-    }
-    // Clear only the token itself; keep the issued / last-used timestamps
-    // so support staff retain the audit trail of when the now-revoked link
-    // had been opened by the customer.
-    const [row] = await db
-      .update(ordersTable)
-      .set({ lookupToken: null })
-      .where(eq(ordersTable.id, idNum))
-      .returning({
-        id: ordersTable.id,
-        lookupToken: ordersTable.lookupToken,
-        lookupTokenIssuedAt: ordersTable.lookupTokenIssuedAt,
-        lookupTokenLastUsedAt: ordersTable.lookupTokenLastUsedAt,
-        lookupTokenLastChannel: ordersTable.lookupTokenLastChannel,
-      });
-    if (!row) {
-      res.status(404).json({ error: "Order not found" });
-      return;
-    }
-    res.json(GetAdminOrderLinkResponse.parse(serializeOrderLink(row)));
   },
 );
 

@@ -5,19 +5,16 @@ import {
   useListAdminOrders,
   useGetAdminOrderShippingRates,
   useFulfillOrder,
-  useGetAdminOrderLink,
-  useRotateAdminOrderLink,
   getAdminOrderShippingRates,
   fulfillOrder,
   mergeOrderLabelsPdf,
   getListAdminOrdersQueryKey,
-  getGetAdminOrderLinkQueryKey,
   type ListAdminOrdersParams,
   type Order,
   type ShippingRate,
 } from "@workspace/api-client-react";
 import { AdminLayout } from "./AdminLayout";
-import { formatCurrency, formatDateTime, formatOrderLinkChannel } from "./utils";
+import { formatCurrency, formatDateTime } from "./utils";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All statuses" },
@@ -721,8 +718,6 @@ function OrderDetailDrawer({
             ) : null}
           </section>
 
-          <OrderLinkPanel orderId={order.id} />
-
           <section>
             <h3 className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
               Items ({itemCount})
@@ -910,119 +905,6 @@ function OrderDetailDrawer({
         </div>
       </div>
     </div>
-  );
-}
-
-function OrderLinkPanel({ orderId }: { orderId: number }) {
-  const queryClient = useQueryClient();
-  const { data, isLoading, error } = useGetAdminOrderLink(orderId);
-  const rotateMutation = useRotateAdminOrderLink();
-  const [confirming, setConfirming] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-
-  async function handleRotate() {
-    setErrorMsg(null);
-    try {
-      await rotateMutation.mutateAsync({ id: orderId });
-      await queryClient.invalidateQueries({
-        queryKey: getGetAdminOrderLinkQueryKey(orderId),
-      });
-      setConfirming(false);
-    } catch (err) {
-      setErrorMsg(
-        err instanceof Error ? err.message : "Failed to rotate order link",
-      );
-    }
-  }
-
-  return (
-    <section data-testid="panel-order-link">
-      <h3 className="mb-2 text-xs uppercase tracking-wider text-muted-foreground">
-        Order link
-      </h3>
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
-      ) : error ? (
-        <p className="text-sm text-destructive">Failed to load order link.</p>
-      ) : data ? (
-        <div className="space-y-2 text-sm">
-          <dl className="space-y-1">
-            <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Status</dt>
-              <dd data-testid="text-order-link-status">
-                {data.active ? "Active" : "Revoked"}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Issued</dt>
-              <dd data-testid="text-order-link-issued-at">
-                {data.issuedAt ? formatDateTime(data.issuedAt) : "—"}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Last opened</dt>
-              <dd data-testid="text-order-link-last-used-at">
-                {data.lastUsedAt ? formatDateTime(data.lastUsedAt) : "Never"}
-              </dd>
-            </div>
-            <div className="flex justify-between gap-2">
-              <dt className="text-muted-foreground">Via</dt>
-              <dd data-testid="text-order-link-last-channel">
-                {formatOrderLinkChannel(data.lastChannel)}
-              </dd>
-            </div>
-          </dl>
-          {data.active ? (
-            confirming ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-muted-foreground">
-                  Revoke the emailed link?
-                </span>
-                <button
-                  type="button"
-                  onClick={handleRotate}
-                  disabled={rotateMutation.isPending}
-                  className="h-8 rounded-md bg-destructive px-3 text-xs font-medium text-destructive-foreground disabled:opacity-50"
-                  data-testid="button-confirm-rotate-order-link"
-                >
-                  {rotateMutation.isPending ? "Revoking…" : "Yes, revoke"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirming(false)}
-                  disabled={rotateMutation.isPending}
-                  className="h-8 rounded-md border border-border px-3 text-xs disabled:opacity-50"
-                  data-testid="button-cancel-rotate-order-link"
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setConfirming(true)}
-                className="h-8 rounded-md border border-border px-3 text-xs"
-                data-testid="button-rotate-order-link"
-              >
-                Rotate / revoke link
-              </button>
-            )
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              The customer will need a fresh email to open their order page.
-            </p>
-          )}
-          {errorMsg ? (
-            <p
-              className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive"
-              data-testid="text-order-link-error"
-            >
-              {errorMsg}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-    </section>
   );
 }
 

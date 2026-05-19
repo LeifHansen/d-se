@@ -17,8 +17,6 @@ export * from "./adminNewsletterQuarantineEntry";
 export * from "./adminNewsletterSubscriber";
 export * from "./adminNewsletterSubscriberList";
 export * from "./adminNewsletterSubscriberStatus";
-export * from "./adminOrderLink";
-export * from "./adminOrderLinkLastChannel";
 export * from "./adminQuarantineDigestSettings";
 export * from "./adminQuarantineDigestSettingsFrequency";
 export * from "./adminSpamQuarantineSummary";
