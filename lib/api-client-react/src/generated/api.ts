@@ -35,6 +35,7 @@ import type {
   BlogPost,
   BlogPostInput,
   BulkInventoryInput,
+  CancelOrder409,
   Cart,
   CreateCheckout200,
   CreateCheckoutBody,
@@ -3678,6 +3679,92 @@ export const useFulfillOrder = <
   TContext
 > => {
   return useMutation(getFulfillOrderMutationOptions(options));
+};
+
+/**
+ * @summary Cancel an order out-of-band and restock its line items
+ */
+export const getCancelOrderUrl = (id: number) => {
+  return `/api/admin/orders/${id}/cancel`;
+};
+
+export const cancelOrder = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Order> => {
+  return customFetch<Order>(getCancelOrderUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getCancelOrderMutationOptions = <
+  TError = ErrorType<NotFoundResponse | CancelOrder409>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelOrder>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof cancelOrder>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["cancelOrder"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof cancelOrder>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return cancelOrder(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CancelOrderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof cancelOrder>>
+>;
+
+export type CancelOrderMutationError = ErrorType<
+  NotFoundResponse | CancelOrder409
+>;
+
+/**
+ * @summary Cancel an order out-of-band and restock its line items
+ */
+export const useCancelOrder = <
+  TError = ErrorType<NotFoundResponse | CancelOrder409>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof cancelOrder>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof cancelOrder>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getCancelOrderMutationOptions(options));
 };
 
 export const getListAdminBlogPostsUrl = () => {

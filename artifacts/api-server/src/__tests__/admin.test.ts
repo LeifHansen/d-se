@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { db, resetDb } from "./testDb";
 import { makeApp, seedDiscount, seedProduct } from "./helpers";
-import { ordersTable, blogPostsTable, productsTable } from "@workspace/db";
+import {
+  ordersTable,
+  orderItemsTable,
+  productsTable,
+  blogPostsTable,
+} from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 const storageMock = vi.hoisted(() => ({
@@ -565,6 +570,149 @@ describe("POST /admin/orders/:id/fulfill (EasyPost configured)", () => {
     expect(after.status).toBe("paid");
     expect(after.trackingCode).toBeNull();
     expect(after.labelUrl).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/admin/orders/:id/cancel — when an admin cancels a paid order out
+// of band, each line item's quantity must be added back to inventory. The
+// restore must be atomic and idempotent on repeated saves.
+// ---------------------------------------------------------------------------
+describe("POST /admin/orders/:id/cancel", () => {
+  beforeEach(async () => {
+    await resetDb();
+    __setAuth("user_admin", ADMIN_USER);
+  });
+
+  async function seedPaidOrderWithItems(opts: {
+    inventory?: number;
+    quantity?: number;
+  }) {
+    const product = await seedProduct({ inventory: opts.inventory ?? 5 });
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "paid",
+        subtotalCents: 5_000,
+        totalCents: 5_000,
+        currency: "usd",
+      })
+      .returning();
+    await db.insert(orderItemsTable).values({
+      orderId: order.id,
+      productId: product.id,
+      productName: "Test Product",
+      quantity: opts.quantity ?? 2,
+      priceCents: 5_000,
+    });
+    return { order, product };
+  }
+
+  it("restores inventory and flips the paid order to cancelled", async () => {
+    const { order, product } = await seedPaidOrderWithItems({
+      inventory: 3,
+      quantity: 2,
+    });
+
+    const res = await request(app).post(`/api/admin/orders/${order.id}/cancel`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("cancelled");
+
+    const [after] = await db
+      .select()
+      .from(ordersTable)
+      .where(eq(ordersTable.id, order.id));
+    expect(after.status).toBe("cancelled");
+
+    const [p] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, product.id));
+    expect(p.inventory).toBe(5);
+  });
+
+  it("does not double-restore when cancel is called twice", async () => {
+    const { order, product } = await seedPaidOrderWithItems({
+      inventory: 3,
+      quantity: 2,
+    });
+
+    const first = await request(app).post(
+      `/api/admin/orders/${order.id}/cancel`,
+    );
+    expect(first.status).toBe(200);
+
+    const second = await request(app).post(
+      `/api/admin/orders/${order.id}/cancel`,
+    );
+    expect(second.status).toBe(200);
+    expect(second.body.status).toBe("cancelled");
+
+    const [p] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, product.id));
+    expect(p.inventory).toBe(5);
+  });
+
+  it("cancels a pending order without touching inventory", async () => {
+    const product = await seedProduct({ inventory: 4 });
+    const [order] = await db
+      .insert(ordersTable)
+      .values({
+        email: "buyer@example.com",
+        status: "pending",
+        subtotalCents: 5_000,
+        totalCents: 5_000,
+        currency: "usd",
+      })
+      .returning();
+    await db.insert(orderItemsTable).values({
+      orderId: order.id,
+      productId: product.id,
+      productName: "Test Product",
+      quantity: 2,
+      priceCents: 5_000,
+    });
+
+    const res = await request(app).post(`/api/admin/orders/${order.id}/cancel`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.status).toBe("cancelled");
+
+    const [p] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, product.id));
+    expect(p.inventory).toBe(4);
+  });
+
+  it("returns 409 when cancelling an already-shipped order", async () => {
+    const { order, product } = await seedPaidOrderWithItems({
+      inventory: 3,
+      quantity: 2,
+    });
+    await db
+      .update(ordersTable)
+      .set({ status: "shipped" })
+      .where(eq(ordersTable.id, order.id));
+
+    const res = await request(app).post(`/api/admin/orders/${order.id}/cancel`);
+
+    expect(res.status).toBe(409);
+
+    const [p] = await db
+      .select()
+      .from(productsTable)
+      .where(eq(productsTable.id, product.id));
+    expect(p.inventory).toBe(3);
+  });
+
+  it("returns 404 when the order does not exist", async () => {
+    const res = await request(app).post(`/api/admin/orders/999999/cancel`);
+    expect(res.status).toBe(404);
   });
 });
 

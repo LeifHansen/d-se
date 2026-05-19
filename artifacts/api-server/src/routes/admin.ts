@@ -39,6 +39,8 @@ import {
   FulfillOrderParams,
   FulfillOrderBody,
   FulfillOrderResponse,
+  CancelOrderParams,
+  CancelOrderResponse,
   MergeOrderLabelsPdfBody,
   ListAdminDiscountCodesResponse,
   CreateDiscountCodeBody,
@@ -1127,6 +1129,98 @@ router.post(
     res.json(FulfillOrderResponse.parse(updated));
   },
 );
+
+// ---------------------------------------------------------------------------
+// POST /admin/orders/:id/cancel — admins can cancel an order out-of-band
+// (fulfilment problem, customer change-of-mind handled by email/phone) without
+// going through Stripe. When the order is still in `paid` (stock was already
+// decremented at payment time) we must add the line quantities back to
+// `products.inventory`, mirroring the refund webhook. We do the status flip
+// and the inventory restore inside a single transaction so the work is
+// atomic, and we key idempotency off the status transition — the second save
+// finds the order in `cancelled` already, the UPDATE matches nothing, and we
+// skip the restock instead of double-counting. `pending` orders never had
+// their stock decremented, so we accept the cancel but don't restore.
+// ---------------------------------------------------------------------------
+router.post(
+  "/admin/orders/:id/cancel",
+  async (req, res): Promise<void> => {
+    const params = CancelOrderParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const orderId = params.data.id;
+
+    const [existing] = await db
+      .select({ id: ordersTable.id, status: ordersTable.status })
+      .from(ordersTable)
+      .where(eq(ordersTable.id, orderId));
+    if (!existing) {
+      res.status(404).json({ error: "Order not found" });
+      return;
+    }
+    if (existing.status === "cancelled") {
+      const current = await buildOrderResponse(orderId);
+      res.json(CancelOrderResponse.parse(current));
+      return;
+    }
+    if (existing.status !== "paid" && existing.status !== "pending") {
+      res.status(409).json({
+        error: `Cannot cancel an order in status "${existing.status}"`,
+      });
+      return;
+    }
+
+    try {
+      await db.transaction(async (tx) => {
+        const restocked = await tx
+          .update(ordersTable)
+          .set({ status: "cancelled", updatedAt: new Date() })
+          .where(
+            and(
+              eq(ordersTable.id, orderId),
+              eq(ordersTable.status, "paid"),
+            ),
+          )
+          .returning({ id: ordersTable.id });
+        if (restocked.length > 0) {
+          const items = await tx
+            .select()
+            .from(orderItemsTable)
+            .where(eq(orderItemsTable.orderId, orderId));
+          for (const it of items) {
+            await tx
+              .update(productsTable)
+              .set({
+                inventory: sql`${productsTable.inventory} + ${it.quantity}`,
+              })
+              .where(eq(productsTable.id, it.productId));
+          }
+          return;
+        }
+        // Wasn't paid — flip pending → cancelled with no restock.
+        await tx
+          .update(ordersTable)
+          .set({ status: "cancelled", updatedAt: new Date() })
+          .where(
+            and(
+              eq(ordersTable.id, orderId),
+              eq(ordersTable.status, "pending"),
+            ),
+          );
+      });
+    } catch (err) {
+      req.log.error({ err }, "Admin order cancel failed");
+      res.status(500).json({ error: "Failed to cancel order" });
+      return;
+    }
+
+    const updated = await buildOrderResponse(orderId);
+    res.json(CancelOrderResponse.parse(updated));
+  },
+);
+
 
 router.post(
   "/admin/orders/labels/merge-pdf",

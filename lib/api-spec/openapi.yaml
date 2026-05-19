@@ -838,6 +838,32 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Order" }
+  /admin/orders/{id}/cancel:
+    post:
+      operationId: cancelOrder
+      tags: [admin]
+      summary: Cancel an order out-of-band and restock its line items
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Order cannot be cancelled from its current status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error: { type: string }
   /admin/blog/posts:
     get:
       operationId: listAdminBlogPosts

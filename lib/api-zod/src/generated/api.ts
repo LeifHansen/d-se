@@ -1622,6 +1622,63 @@ export const FulfillOrderResponse = zod.object({
   createdAt: zod.coerce.date(),
 });
 
+/**
+ * @summary Cancel an order out-of-band and restock its line items
+ */
+export const CancelOrderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CancelOrderResponse = zod.object({
+  id: zod.number(),
+  status: zod.string(),
+  email: zod.string().nullish(),
+  items: zod.array(
+    zod.object({
+      id: zod.number(),
+      productId: zod.number(),
+      productName: zod.string(),
+      productImage: zod.string().nullish(),
+      quantity: zod.number(),
+      priceCents: zod.number(),
+      available: zod.boolean(),
+      unavailableReason: zod
+        .union([
+          zod.literal("unavailable"),
+          zod.literal("out_of_stock"),
+          zod.literal(null),
+        ])
+        .nullish(),
+    }),
+  ),
+  subtotalCents: zod.number(),
+  shippingCents: zod.number(),
+  taxCents: zod.number(),
+  discountCents: zod.number().optional(),
+  discountCode: zod.string().nullish(),
+  totalCents: zod.number(),
+  currency: zod.string(),
+  shippingAddress: zod
+    .object({
+      name: zod.string(),
+      street1: zod.string(),
+      street2: zod.string().nullish(),
+      city: zod.string(),
+      state: zod.string(),
+      zip: zod.string(),
+      country: zod.string(),
+      phone: zod.string().nullish(),
+    })
+    .optional(),
+  trackingCode: zod.string().nullish(),
+  carrier: zod.string().nullish(),
+  trackingUrl: zod.string().nullish(),
+  labelUrl: zod.string().nullish(),
+  customerId: zod.number().nullish(),
+  deliveredEmailSentAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+});
+
 export const ListAdminBlogPostsResponseItem = zod.object({
   id: zod.number(),
   slug: zod.string(),

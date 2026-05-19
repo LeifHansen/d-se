@@ -847,6 +847,10 @@ export type FulfillOrderBody = {
   shipmentId?: string | null;
 };
 
+export type CancelOrder409 = {
+  error: string;
+};
+
 export type ValidateDiscountBody = {
   code: string;
   cartId: string;
