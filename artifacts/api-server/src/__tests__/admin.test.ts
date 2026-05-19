@@ -2,8 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { db, resetDb } from "./testDb";
 import { makeApp, seedDiscount, seedProduct } from "./helpers";
-import { ordersTable, blogPostsTable } from "@workspace/db";
+import { ordersTable, blogPostsTable, productsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+
+const storageMock = vi.hoisted(() => ({
+  deleteObjectEntityByUrl: vi.fn(async (_url: string) => true),
+  trySetObjectEntityAclPolicy: vi.fn(async (raw: string, _acl: unknown) => raw),
+}));
+
+vi.mock("../lib/objectStorage", () => ({
+  ObjectStorageService: class {
+    deleteObjectEntityByUrl = storageMock.deleteObjectEntityByUrl;
+    trySetObjectEntityAclPolicy = storageMock.trySetObjectEntityAclPolicy;
+  },
+}));
 
 vi.mock("../lib/email", () => ({
   sendOrderConfirmation: vi.fn(async () => {}),
@@ -728,7 +740,7 @@ describe("POST /admin/orders/:id/shipping-rates (EasyPost not configured)", () =
     easypostState.createImpl.mockReset();
   });
 
-  it("returns the flat-rate fallback without calling EasyPost", async () => {
+  it("returns the flat-rate fallback without calling EasyPost (sentinel)", async () => {
     const [order] = await db
       .insert(ordersTable)
       .values({
@@ -775,5 +787,228 @@ describe("POST /admin/orders/:id/shipping-rates (EasyPost not configured)", () =
       },
     ]);
     expect(easypostState.createImpl).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Blog cover image cleanup — PATCH and DELETE on /admin/blog/posts/:id should
+// best-effort delete the previously uploaded cover via
+// objectStorageService.deleteObjectEntityByUrl. External http(s) URLs are
+// handed to the same helper but the underlying storage layer leaves them
+// alone (covered separately in storage.test.ts). The product image cleanup
+// path is verified with the same mocking pattern.
+// ---------------------------------------------------------------------------
+describe("blog cover image cleanup on PATCH/DELETE /admin/blog/posts/:id", () => {
+  beforeEach(async () => {
+    await resetDb();
+    __setAuth("user_admin", ADMIN_USER);
+    storageMock.deleteObjectEntityByUrl.mockClear();
+    storageMock.trySetObjectEntityAclPolicy.mockClear();
+  });
+
+  async function seedBlogPost(coverImage: string | null): Promise<number> {
+    const [row] = await db
+      .insert(blogPostsTable)
+      .values({
+        slug: "cover-test",
+        title: "Cover Test",
+        excerpt: "ex",
+        content: "body",
+        coverImage,
+        published: true,
+        publishedAt: new Date(),
+      })
+      .returning();
+    return row.id;
+  }
+
+  function basePatchBody(overrides: Record<string, unknown> = {}) {
+    return {
+      slug: "cover-test",
+      title: "Cover Test",
+      excerpt: "ex",
+      content: "body",
+      published: true,
+      ...overrides,
+    };
+  }
+
+  it("PATCH deletes the prior uploaded cover when it is replaced", async () => {
+    const oldUrl = "/api/storage/objects/old-cover";
+    const newUrl = "/api/storage/objects/new-cover";
+    const id = await seedBlogPost(oldUrl);
+
+    const res = await request(app)
+      .patch(`/api/admin/blog/posts/${id}`)
+      .send(basePatchBody({ coverImage: newUrl }));
+
+    expect(res.status).toBe(200);
+    expect(res.body.coverImage).toBe(newUrl);
+    expect(storageMock.deleteObjectEntityByUrl).toHaveBeenCalledTimes(1);
+    expect(storageMock.deleteObjectEntityByUrl).toHaveBeenCalledWith(oldUrl);
+  });
+
+  it("PATCH deletes the prior uploaded cover when it is cleared (set to null)", async () => {
+    const oldUrl = "/api/storage/objects/old-cover";
+    const id = await seedBlogPost(oldUrl);
+
+    const res = await request(app)
+      .patch(`/api/admin/blog/posts/${id}`)
+      .send(basePatchBody({ coverImage: null }));
+
+    expect(res.status).toBe(200);
+    expect(res.body.coverImage).toBeNull();
+    expect(storageMock.deleteObjectEntityByUrl).toHaveBeenCalledTimes(1);
+    expect(storageMock.deleteObjectEntityByUrl).toHaveBeenCalledWith(oldUrl);
+  });
+
+  it("PATCH does not call delete when the cover URL is unchanged", async () => {
+    const url = "/api/storage/objects/same-cover";
+    const id = await seedBlogPost(url);
+
+    const res = await request(app)
+      .patch(`/api/admin/blog/posts/${id}`)
+      .send(basePatchBody({ coverImage: url, title: "Renamed" }));
+
+    expect(res.status).toBe(200);
+    expect(storageMock.deleteObjectEntityByUrl).not.toHaveBeenCalled();
+  });
+
+  it("PATCH does not call delete when there was no prior cover", async () => {
+    const id = await seedBlogPost(null);
+
+    const res = await request(app)
+      .patch(`/api/admin/blog/posts/${id}`)
+      .send(basePatchBody({ coverImage: "/api/storage/objects/new-cover" }));
+
+    expect(res.status).toBe(200);
+    expect(storageMock.deleteObjectEntityByUrl).not.toHaveBeenCalled();
+  });
+
+  it("PATCH leaves external http(s) URLs alone (real storage layer no-ops on them)", async () => {
+    storageMock.deleteObjectEntityByUrl.mockImplementationOnce(
+      async (url: string) => url.startsWith("/api/storage/objects/"),
+    );
+    const externalUrl = "https://cdn.example.com/cover.jpg";
+    const id = await seedBlogPost(externalUrl);
+
+    const res = await request(app)
+      .patch(`/api/admin/blog/posts/${id}`)
+      .send(basePatchBody({ coverImage: "/api/storage/objects/new-cover" }));
+
+    expect(res.status).toBe(200);
+    expect(storageMock.deleteObjectEntityByUrl).toHaveBeenCalledTimes(1);
+    expect(storageMock.deleteObjectEntityByUrl).toHaveBeenCalledWith(externalUrl);
+    expect(
+      await storageMock.deleteObjectEntityByUrl.mock.results[0].value,
+    ).toBe(false);
+  });
+
+  it("DELETE deletes the post's uploaded cover", async () => {
+    const url = "/api/storage/objects/to-be-deleted";
+    const id = await seedBlogPost(url);
+
+    const res = await request(app).delete(`/api/admin/blog/posts/${id}`);
+
+    expect(res.status).toBe(204);
+    expect(storageMock.deleteObjectEntityByUrl).toHaveBeenCalledTimes(1);
+    expect(storageMock.deleteObjectEntityByUrl).toHaveBeenCalledWith(url);
+  });
+
+  it("DELETE does not call delete when the post had no cover", async () => {
+    const id = await seedBlogPost(null);
+
+    const res = await request(app).delete(`/api/admin/blog/posts/${id}`);
+
+    expect(res.status).toBe(204);
+    expect(storageMock.deleteObjectEntityByUrl).not.toHaveBeenCalled();
+  });
+
+  it("PATCH still succeeds when the storage delete throws (best-effort)", async () => {
+    storageMock.deleteObjectEntityByUrl.mockRejectedValueOnce(
+      new Error("boom"),
+    );
+    const id = await seedBlogPost("/api/storage/objects/old-cover");
+
+    const res = await request(app)
+      .patch(`/api/admin/blog/posts/${id}`)
+      .send(basePatchBody({ coverImage: "/api/storage/objects/new-cover" }));
+
+    expect(res.status).toBe(200);
+    expect(storageMock.deleteObjectEntityByUrl).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Same mocking pattern, applied to the existing product image cleanup so the
+// PATCH/DELETE handlers' best-effort cleanup is also pinned.
+// ---------------------------------------------------------------------------
+describe("product image cleanup on PATCH/DELETE /admin/products/:id", () => {
+  beforeEach(async () => {
+    await resetDb();
+    __setAuth("user_admin", ADMIN_USER);
+    storageMock.deleteObjectEntityByUrl.mockClear();
+    storageMock.trySetObjectEntityAclPolicy.mockClear();
+  });
+
+  async function seedProductWithImages(images: string[]): Promise<number> {
+    const { id } = await seedProduct({ slug: "img-test", name: "Img Test" });
+    await db
+      .update(productsTable)
+      .set({ images })
+      .where(eq(productsTable.id, id));
+    return id;
+  }
+
+  function baseProductPatchBody(images: string[]) {
+    return {
+      slug: "img-test",
+      name: "Img Test",
+      description: "d",
+      priceCents: 5000,
+      images,
+      inventory: 10,
+    };
+  }
+
+  it("PATCH deletes only the images that were removed", async () => {
+    const kept = "/api/storage/objects/kept";
+    const removed = "/api/storage/objects/removed";
+    const id = await seedProductWithImages([kept, removed]);
+
+    const res = await request(app)
+      .patch(`/api/admin/products/${id}`)
+      .send(baseProductPatchBody([kept]));
+
+    expect(res.status).toBe(200);
+    expect(storageMock.deleteObjectEntityByUrl).toHaveBeenCalledTimes(1);
+    expect(storageMock.deleteObjectEntityByUrl).toHaveBeenCalledWith(removed);
+  });
+
+  it("PATCH does not call delete when the image set is unchanged", async () => {
+    const url = "/api/storage/objects/unchanged";
+    const id = await seedProductWithImages([url]);
+
+    const res = await request(app)
+      .patch(`/api/admin/products/${id}`)
+      .send(baseProductPatchBody([url]));
+
+    expect(res.status).toBe(200);
+    expect(storageMock.deleteObjectEntityByUrl).not.toHaveBeenCalled();
+  });
+
+  it("DELETE deletes every image attached to the product", async () => {
+    const a = "/api/storage/objects/a";
+    const b = "/api/storage/objects/b";
+    const id = await seedProductWithImages([a, b]);
+
+    const res = await request(app).delete(`/api/admin/products/${id}`);
+
+    expect(res.status).toBe(204);
+    expect(storageMock.deleteObjectEntityByUrl).toHaveBeenCalledTimes(2);
+    const called = storageMock.deleteObjectEntityByUrl.mock.calls
+      .map((c) => c[0])
+      .sort();
+    expect(called).toEqual([a, b]);
   });
 });
