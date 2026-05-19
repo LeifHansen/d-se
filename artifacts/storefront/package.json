@@ -11,11 +11,12 @@
     "typecheck": "tsc -b ../../lib/api-client-react && tsc -p tsconfig.json --noEmit",
     "test": "pnpm run test:e2e && pnpm run test:journey",
     "test:a11y": "playwright test --config=playwright.config.ts",
-    "test:e2e": "playwright test --config=playwright.admin.config.ts",
+    "test:e2e": "playwright test --config=playwright.admin.config.ts && playwright test --config=playwright.webhook-delivery.config.ts",
     "test:journey": "playwright test --config=playwright.journey.config.ts",
     "test:account": "playwright test --config=playwright.account.config.ts",
     "test:checkout-real": "playwright test --config=playwright.checkout-real.config.ts",
     "test:admin-by-email-real": "playwright test --config=playwright.admin-by-email-real.config.ts",
+    "test:webhook-delivery": "playwright test --config=playwright.webhook-delivery.config.ts",
     "test:prerender": "node --test tests/prerender.test.mjs"
   },
   "devDependencies": {
