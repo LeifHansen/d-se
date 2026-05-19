@@ -13,7 +13,7 @@ import {
 } from "./lib/sentry";
 import { RootErrorBoundary } from "./components/RootErrorBoundary";
 import { startWebVitals } from "./lib/web-vitals";
-import heroBottleSrc from "@/assets/brand/bottle-hero-transparent.png";
+import heroBottleSrc from "@/assets/brand/bottle-studio-angle.jpg";
 
 initSentry();
 installFetchRequestIdBreadcrumbs();
@@ -39,7 +39,7 @@ function preloadHero() {
   link.rel = "preload";
   link.as = "image";
   link.fetchPriority = "high";
-  link.type = "image/png";
+  link.type = "image/jpeg";
   link.href = heroBottleSrc;
   document.head.appendChild(link);
 }

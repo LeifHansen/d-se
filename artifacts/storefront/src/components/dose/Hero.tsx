@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Image } from "./Image";
 import bottleClose from "@/assets/brand/bottle-droplet.png?picture";
 import packaging from "@/assets/brand/bottle-moody-interior.png?picture";
-import bottleTransparent from "@/assets/brand/bottle-hero-transparent.png";
-import goldEmblem from "@/assets/brand/bottle-studio-angle.jpg";
+import bottleStudio from "@/assets/brand/bottle-studio-angle.jpg";
+import goldEmblem from "@/assets/brand/emblem-large-on-teal.jpg";
 
 export function Hero() {
   return (
@@ -113,32 +113,77 @@ export function Hero() {
               src={goldEmblem}
               alt=""
               aria-hidden
-              className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-25 mix-blend-screen"
-              style={{ filter: "blur(1px) saturate(1.1)" }}
+              className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-30"
+              style={{ filter: "blur(2px) saturate(1.15)", mixBlendMode: "screen" }}
             />
-            {/* Soft vignette so the bottle pops */}
+            {/* Cinematic studio bottle photo */}
+            <img
+              src={bottleStudio}
+              alt="DŌSE THC Infused Beverage Dropper bottle"
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{
+                mixBlendMode: "luminosity",
+                filter: "contrast(1.08) brightness(0.92) saturate(0.95)",
+              }}
+              fetchPriority="high"
+            />
+            {/* Teal color wash to harmonize the studio photo with the brand frame */}
             <div
               aria-hidden
               className="pointer-events-none absolute inset-0"
               style={{
                 background:
-                  "radial-gradient(60% 50% at 50% 55%, hsla(0,0%,0%,0) 0%, hsla(170,60%,9%,0.55) 100%)",
+                  "radial-gradient(120% 100% at 50% 40%, hsla(173,50%,22%,0.55) 0%, hsla(170,60%,11%,0.85) 100%)",
+                mixBlendMode: "multiply",
               }}
             />
-            {/* Bottle */}
+            {/* Crisp pass of the bottle on top so labels and gold stay sharp */}
             <img
-              src={bottleTransparent}
-              alt="DŌSE THC Infused Beverage Dropper bottle"
-              className="absolute inset-0 m-auto h-[88%] w-[88%] object-contain drop-shadow-2xl"
-              fetchPriority="high"
+              src={bottleStudio}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 m-auto h-[92%] w-[92%] object-contain drop-shadow-2xl"
+              style={{
+                filter:
+                  "drop-shadow(0 30px 40px hsla(170,60%,4%,0.55)) saturate(1.05) contrast(1.05)",
+                mixBlendMode: "lighten",
+              }}
             />
-            {/* subtle bottom fade */}
+            {/* Edge vignette so the photo bleeds softly into the frame */}
             <div
               aria-hidden
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-1/4"
+              className="pointer-events-none absolute inset-0"
               style={{
                 background:
-                  "linear-gradient(to top, hsla(170,60%,9%,0.7), transparent)",
+                  "radial-gradient(70% 60% at 50% 50%, hsla(0,0%,0%,0) 35%, hsla(170,60%,7%,0.75) 100%)",
+              }}
+            />
+            {/* Top highlight band — film-still feel */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 h-1/3"
+              style={{
+                background:
+                  "linear-gradient(to bottom, hsla(173,50%,30%,0.35), transparent)",
+              }}
+            />
+            {/* Warm gold light wash from the upper-left */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(60% 45% at 20% 15%, hsla(42,53%,54%,0.18), transparent 60%)",
+                mixBlendMode: "screen",
+              }}
+            />
+            {/* Bottom fade grounds the bottle */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3"
+              style={{
+                background:
+                  "linear-gradient(to top, hsla(170,60%,7%,0.85), transparent)",
               }}
             />
           </div>
