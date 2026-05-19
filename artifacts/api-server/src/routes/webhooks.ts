@@ -23,6 +23,7 @@ import { markCartRecovered } from "../lib/abandonedCart";
 import { recordStripeWebhookReceived } from "../lib/metrics";
 import { trackPurchaseServerSide } from "../lib/serverAnalytics";
 import { normaliseEmail } from "../lib/normaliseEmail";
+import { applyInventoryDelta } from "../lib/stockEvents";
 
 const router: IRouter = Router();
 
@@ -121,12 +122,12 @@ router.post(
             .from(orderItemsTable)
             .where(eq(orderItemsTable.orderId, refundedOrderId));
           for (const it of items) {
-            await tx
-              .update(productsTable)
-              .set({
-                inventory: sql`${productsTable.inventory} + ${it.quantity}`,
-              })
-              .where(eq(productsTable.id, it.productId));
+            await applyInventoryDelta(tx, {
+              productId: it.productId,
+              delta: it.quantity,
+              reason: "order_refunded",
+              orderId: refundedOrderId,
+            });
           }
         });
       } catch (err) {
@@ -197,12 +198,12 @@ router.post(
             .from(orderItemsTable)
             .where(eq(orderItemsTable.orderId, failedOrderId));
           for (const it of items) {
-            await tx
-              .update(productsTable)
-              .set({
-                inventory: sql`${productsTable.inventory} + ${it.quantity}`,
-              })
-              .where(eq(productsTable.id, it.productId));
+            await applyInventoryDelta(tx, {
+              productId: it.productId,
+              delta: it.quantity,
+              reason: "order_payment_failed",
+              orderId: failedOrderId,
+            });
           }
         });
       } catch (err) {
@@ -428,12 +429,14 @@ router.post(
         for (const it of items) {
           // Atomic inventory decrement clamped at zero — no read-then-write
           // race even if the same product appears in concurrent orders.
-          await tx
-            .update(productsTable)
-            .set({
-              inventory: sql`GREATEST(0, ${productsTable.inventory} - ${it.quantity})`,
-            })
-            .where(eq(productsTable.id, it.productId));
+          // The helper records the actual applied delta (which may be smaller
+          // in absolute value if the inventory hit the floor).
+          await applyInventoryDelta(tx, {
+            productId: it.productId,
+            delta: -it.quantity,
+            reason: "order_paid",
+            orderId: orderId,
+          });
         }
 
         const email =

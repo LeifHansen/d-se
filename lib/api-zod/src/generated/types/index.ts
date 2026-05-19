@@ -99,6 +99,8 @@ export * from "./reviewList";
 export * from "./reviewStatus";
 export * from "./savedAddressResponse";
 export * from "./shippingRate";
+export * from "./stockEvent";
+export * from "./stockEventReason";
 export * from "./submitProductReviewBody";
 export * from "./taxSummary";
 export * from "./updateCartItemBody";

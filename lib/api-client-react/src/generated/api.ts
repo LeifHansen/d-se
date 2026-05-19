@@ -86,6 +86,7 @@ import type {
   ReviewList,
   SavedAddressResponse,
   ShippingRate,
+  StockEvent,
   SubmitProductReviewBody,
   TaxSummary,
   UpdateCartItemBody,
@@ -3181,6 +3182,94 @@ export const useMergeOrdersIntoCustomer = <
 > => {
   return useMutation(getMergeOrdersIntoCustomerMutationOptions(options));
 };
+
+/**
+ * @summary List the most recent ~20 stock change events for a product
+ */
+export const getListAdminStockEventsUrl = (id: number) => {
+  return `/api/admin/products/${id}/stock-events`;
+};
+
+export const listAdminStockEvents = async (
+  id: number,
+  options?: RequestInit,
+): Promise<StockEvent[]> => {
+  return customFetch<StockEvent[]>(getListAdminStockEventsUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListAdminStockEventsQueryKey = (id: number) => {
+  return [`/api/admin/products/${id}/stock-events`] as const;
+};
+
+export const getListAdminStockEventsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listAdminStockEvents>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminStockEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getListAdminStockEventsQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listAdminStockEvents>>
+  > = ({ signal }) => listAdminStockEvents(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listAdminStockEvents>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListAdminStockEventsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listAdminStockEvents>>
+>;
+export type ListAdminStockEventsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List the most recent ~20 stock change events for a product
+ */
+
+export function useListAdminStockEvents<
+  TData = Awaited<ReturnType<typeof listAdminStockEvents>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listAdminStockEvents>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListAdminStockEventsQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 export const getBulkUpdateInventoryUrl = () => {
   return `/api/admin/products/inventory/bulk`;

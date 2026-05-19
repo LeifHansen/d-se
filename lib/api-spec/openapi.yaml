@@ -719,6 +719,24 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/MergeOrdersIntoCustomerResponse" }
+  /admin/products/{id}/stock-events:
+    get:
+      operationId: listAdminStockEvents
+      tags: [admin]
+      summary: List the most recent ~20 stock change events for a product
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/StockEvent" }
   /admin/products/inventory/bulk:
     post:
       operationId: bulkUpdateInventory
@@ -1483,6 +1501,20 @@ components:
         published: { type: boolean }
         averageRating: { type: ["number", "null"] }
         reviewCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+
+    StockEvent:
+      type: object
+      required: [id, productId, delta, newInventory, reason, createdAt]
+      properties:
+        id: { type: integer }
+        productId: { type: integer }
+        delta: { type: integer }
+        newInventory: { type: integer }
+        reason:
+          type: string
+          enum: [manual_edit, order_paid, order_refunded, order_payment_failed]
+        orderId: { type: ["integer", "null"] }
         createdAt: { type: string, format: date-time }
 
     ProductInput:

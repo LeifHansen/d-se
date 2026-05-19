@@ -17,7 +17,9 @@ import {
   contactRateLimitsTable,
   contactSubmissionFingerprintsTable,
   newsletterRateLimitsTable,
+  stockEventsTable,
 } from "@workspace/db";
+import { recordManualInventorySet } from "../lib/stockEvents";
 import {
   CreateProductBody,
   UpdateProductParams,
@@ -74,6 +76,8 @@ import {
   MergeOrdersIntoCustomerResponse,
   GetAdminCustomerParams,
   GetAdminCustomerResponse,
+  ListAdminStockEventsParams,
+  ListAdminStockEventsResponse,
 } from "@workspace/api-zod";
 import { requireAdmin, getUserId } from "../lib/auth";
 import { buildOrderResponse } from "./orders";
@@ -498,16 +502,22 @@ router.post(
     }
     const ids: number[] = [];
     for (const u of parsed.data.updates) {
-      await db
-        .update(productsTable)
-        .set({
-          inventory: u.inventory,
-          ...(u.lowStockThreshold != null
-            ? { lowStockThreshold: u.lowStockThreshold }
-            : {}),
-          updatedAt: new Date(),
-        })
-        .where(eq(productsTable.id, u.id));
+      await db.transaction(async (tx) => {
+        await recordManualInventorySet(tx, {
+          productId: u.id,
+          newInventory: u.inventory,
+        });
+        await tx
+          .update(productsTable)
+          .set({
+            inventory: u.inventory,
+            ...(u.lowStockThreshold != null
+              ? { lowStockThreshold: u.lowStockThreshold }
+              : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(productsTable.id, u.id));
+      });
       ids.push(u.id);
     }
     const rows = ids.length
@@ -593,30 +603,42 @@ router.patch("/admin/products/:id", async (req, res): Promise<void> => {
     ownerId,
     req.log,
   );
-  const [row] = await db
-    .update(productsTable)
-    .set({
-      slug: body.data.slug,
-      name: body.data.name,
-      description: body.data.description,
-      shortDescription: body.data.shortDescription ?? null,
-      priceCents: body.data.priceCents,
-      compareAtCents: body.data.compareAtCents ?? null,
-      currency: body.data.currency ?? "usd",
-      images,
-      inventory: body.data.inventory,
-      lowStockThreshold: body.data.lowStockThreshold ?? 5,
-      weightOz:
-        body.data.weightOz != null ? String(body.data.weightOz) : null,
-      tags: body.data.tags ?? [],
-      seoTitle: body.data.seoTitle ?? null,
-      seoDescription: body.data.seoDescription ?? null,
-      featured: body.data.featured ?? false,
-      published: body.data.published ?? true,
-      updatedAt: new Date(),
-    })
-    .where(eq(productsTable.id, params.data.id))
-    .returning();
+  // Single transaction so the stock-event audit row and the inventory
+  // mutation commit (or roll back) together. If either step fails the
+  // client sees an error and no half-written state lands in the database.
+  const row = await db.transaction(async (tx) => {
+    if (existing && existing.inventory !== body.data.inventory) {
+      await recordManualInventorySet(tx, {
+        productId: existing.id,
+        newInventory: body.data.inventory,
+      });
+    }
+    const [r] = await tx
+      .update(productsTable)
+      .set({
+        slug: body.data.slug,
+        name: body.data.name,
+        description: body.data.description,
+        shortDescription: body.data.shortDescription ?? null,
+        priceCents: body.data.priceCents,
+        compareAtCents: body.data.compareAtCents ?? null,
+        currency: body.data.currency ?? "usd",
+        images,
+        inventory: body.data.inventory,
+        lowStockThreshold: body.data.lowStockThreshold ?? 5,
+        weightOz:
+          body.data.weightOz != null ? String(body.data.weightOz) : null,
+        tags: body.data.tags ?? [],
+        seoTitle: body.data.seoTitle ?? null,
+        seoDescription: body.data.seoDescription ?? null,
+        featured: body.data.featured ?? false,
+        published: body.data.published ?? true,
+        updatedAt: new Date(),
+      })
+      .where(eq(productsTable.id, params.data.id))
+      .returning();
+    return r;
+  });
   if (!row) {
     res.status(404).json({ error: "Product not found" });
     return;
@@ -631,6 +653,36 @@ router.patch("/admin/products/:id", async (req, res): Promise<void> => {
   }
   res.json(UpdateProductResponse.parse(serializeProduct(row)));
 });
+
+router.get(
+  "/admin/products/:id/stock-events",
+  async (req, res): Promise<void> => {
+    const params = ListAdminStockEventsParams.safeParse(req.params);
+    if (!params.success) {
+      res.status(400).json({ error: params.error.message });
+      return;
+    }
+    const rows = await db
+      .select()
+      .from(stockEventsTable)
+      .where(eq(stockEventsTable.productId, params.data.id))
+      .orderBy(desc(stockEventsTable.createdAt), desc(stockEventsTable.id))
+      .limit(20);
+    res.json(
+      ListAdminStockEventsResponse.parse(
+        rows.map((r) => ({
+          id: r.id,
+          productId: r.productId,
+          delta: r.delta,
+          newInventory: r.newInventory,
+          reason: r.reason,
+          orderId: r.orderId,
+          createdAt: r.createdAt,
+        })),
+      ),
+    );
+  },
+);
 
 router.delete("/admin/products/:id", async (req, res): Promise<void> => {
   const params = DeleteProductParams.safeParse(req.params);

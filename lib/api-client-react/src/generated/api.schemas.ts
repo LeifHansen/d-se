@@ -58,6 +58,27 @@ export interface Product {
   createdAt: string;
 }
 
+export type StockEventReason =
+  (typeof StockEventReason)[keyof typeof StockEventReason];
+
+export const StockEventReason = {
+  manual_edit: "manual_edit",
+  order_paid: "order_paid",
+  order_refunded: "order_refunded",
+  order_payment_failed: "order_payment_failed",
+} as const;
+
+export interface StockEvent {
+  id: number;
+  productId: number;
+  delta: number;
+  newInventory: number;
+  reason: StockEventReason;
+  /** @nullable */
+  orderId?: number | null;
+  createdAt: string;
+}
+
 export interface ProductInput {
   slug: string;
   name: string;

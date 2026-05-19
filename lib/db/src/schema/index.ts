@@ -16,3 +16,4 @@ export * from "./orderLookupFailures";
 export * from "./resendLinkAttempts";
 export * from "./userProfiles";
 export * from "./customers";
+export * from "./stockEvents";

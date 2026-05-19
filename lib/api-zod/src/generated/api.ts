@@ -1428,6 +1428,7 @@ export const GetAdminCustomerResponse = zod.object({
       trackingUrl: zod.string().nullish(),
       labelUrl: zod.string().nullish(),
       customerId: zod.number().nullish(),
+      deliveredEmailSentAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
     }),
   ),
@@ -1452,6 +1453,31 @@ export const MergeOrdersIntoCustomerResponse = zod.object({
   }),
   mergedCount: zod.number(),
 });
+
+/**
+ * @summary List the most recent ~20 stock change events for a product
+ */
+export const ListAdminStockEventsParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListAdminStockEventsResponseItem = zod.object({
+  id: zod.number(),
+  productId: zod.number(),
+  delta: zod.number(),
+  newInventory: zod.number(),
+  reason: zod.enum([
+    "manual_edit",
+    "order_paid",
+    "order_refunded",
+    "order_payment_failed",
+  ]),
+  orderId: zod.number().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListAdminStockEventsResponse = zod.array(
+  ListAdminStockEventsResponseItem,
+);
 
 export const bulkUpdateInventoryBodyUpdatesItemInventoryMin = 0;
 

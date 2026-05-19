@@ -14,10 +14,13 @@ import {
   useDeleteProduct,
   useBulkUpdateInventory,
   useRequestUploadUrl,
+  useListAdminStockEvents,
   getExportProductsCsvUrl,
   getListAdminProductsQueryKey,
+  getListAdminStockEventsQueryKey,
   type Product,
   type ProductInput,
+  type StockEvent,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiFetch } from "@/lib/api";
@@ -200,6 +203,10 @@ export default function AdminProducts() {
 
   const invalidate = () =>
     qc.invalidateQueries({ queryKey: getListAdminProductsQueryKey() });
+  const invalidateStockEvents = (productId: number) =>
+    qc.invalidateQueries({
+      queryKey: getListAdminStockEventsQueryKey(productId),
+    });
 
   const [drafts, setDrafts] = useState<Record<number, Draft>>({});
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -333,6 +340,7 @@ export default function AdminProducts() {
         },
       });
       toast({ title: `Saved ${p.name}` });
+      invalidateStockEvents(p.id);
       refetch();
     } catch (e) {
       toast({
@@ -354,6 +362,7 @@ export default function AdminProducts() {
         },
       });
       toast({ title: `Updated ${selected.size} products` });
+      for (const id of selected) invalidateStockEvents(id);
       setSelected(new Set());
       setDrafts({});
       refetch();
@@ -451,6 +460,7 @@ export default function AdminProducts() {
     try {
       if (editing) {
         await updateProduct.mutateAsync({ id: editing.id, data: built });
+        invalidateStockEvents(editing.id);
         toast({ title: `Saved ${built.name}` });
       } else {
         await createProduct.mutateAsync({ data: built });
@@ -811,6 +821,10 @@ export default function AdminProducts() {
                 />
               </div>
             </div>
+
+            {editing ? (
+              <StockHistory productId={editing.id} />
+            ) : null}
 
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
@@ -1293,6 +1307,95 @@ function ImageManager({
               ) : null}
             </li>
           ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const REASON_LABELS: Record<StockEvent["reason"], string> = {
+  manual_edit: "Manual edit",
+  order_paid: "Order paid",
+  order_refunded: "Order refunded",
+  order_payment_failed: "Payment failed",
+};
+
+function formatEventTime(value: string | Date): string {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function StockHistory({ productId }: { productId: number }) {
+  const { data, isLoading, error } = useListAdminStockEvents(productId);
+  return (
+    <div
+      className="rounded-md border border-border bg-muted/30 p-3"
+      data-testid="stock-history"
+    >
+      <div className="mb-2 flex items-baseline justify-between">
+        <h3 className="text-sm font-medium">Stock history</h3>
+        <span className="text-xs text-muted-foreground">
+          Most recent 20 events
+        </span>
+      </div>
+      {isLoading ? (
+        <p className="text-xs text-muted-foreground">Loading history…</p>
+      ) : error ? (
+        <p
+          className="text-xs text-destructive"
+          data-testid="stock-history-error"
+        >
+          Couldn't load stock history. {(error as Error).message}
+        </p>
+      ) : !data || data.length === 0 ? (
+        <p
+          className="text-xs text-muted-foreground"
+          data-testid="stock-history-empty"
+        >
+          No stock changes recorded yet.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border/60 text-xs">
+          {data.map((ev) => {
+            const sign = ev.delta > 0 ? "+" : "";
+            const deltaColor =
+              ev.delta > 0
+                ? "text-emerald-700 dark:text-emerald-400"
+                : ev.delta < 0
+                  ? "text-destructive"
+                  : "text-muted-foreground";
+            return (
+              <li
+                key={ev.id}
+                className="flex items-center justify-between gap-3 py-1.5"
+                data-testid={`stock-event-${ev.id}`}
+              >
+                <span className="flex items-center gap-2">
+                  <span className={`font-mono font-medium ${deltaColor}`}>
+                    {sign}
+                    {ev.delta}
+                  </span>
+                  <span className="text-muted-foreground">→</span>
+                  <span className="font-mono">{ev.newInventory}</span>
+                </span>
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <span>{REASON_LABELS[ev.reason]}</span>
+                  {ev.orderId != null ? (
+                    <span className="rounded bg-foreground/5 px-1.5 py-0.5">
+                      #{ev.orderId}
+                    </span>
+                  ) : null}
+                  <span>{formatEventTime(ev.createdAt)}</span>
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
