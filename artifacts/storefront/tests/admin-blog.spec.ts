@@ -347,6 +347,135 @@ test.describe("admin blog editor", () => {
     await expect(existingRow).toBeVisible();
   });
 
+  test("live preview renders markdown the same way /blog/<slug> does", async ({
+    page,
+  }) => {
+    await installAdminBlogMocks(page, []);
+
+    // The <product-callout> in the preview triggers a GET /api/products/:slug.
+    // Mock it so the callout renders the populated card instead of staying in
+    // its skeleton state, and assert the slug came through correctly.
+    const productSlugCalls: string[] = [];
+    await page.route("**/api/products/*", async (route: Route) => {
+      const url = new URL(route.request().url());
+      // Skip /api/products/featured and any nested /reviews path.
+      const tail = url.pathname.replace(/^.*\/api\/products\//, "");
+      if (
+        route.request().method() !== "GET" ||
+        tail === "featured" ||
+        tail.includes("/")
+      ) {
+        await route.fallback();
+        return;
+      }
+      productSlugCalls.push(tail);
+      if (tail !== "ceremonial-matcha") {
+        await route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "Product not found" }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          id: 9001,
+          slug: "ceremonial-matcha",
+          name: "Ceremonial Matcha",
+          shortDescription: "Bright, vegetal, stone-ground.",
+          description: "Long form description.",
+          priceCents: 4200,
+          compareAtCents: null,
+          currency: "usd",
+          images: [],
+          inventory: 25,
+          lowStockThreshold: 4,
+          weightOz: null,
+          tags: [],
+          seoTitle: null,
+          seoDescription: null,
+          featured: true,
+          published: true,
+          averageRating: null,
+          reviewCount: 0,
+          createdAt: "2026-05-01T12:00:00.000Z",
+        }),
+      });
+    });
+
+    await page.goto("/admin/blog");
+    await page.getByTestId("button-new-post").click();
+    await expect(page.getByTestId("post-editor-form")).toBeVisible();
+
+    const previewTab = page.getByTestId("tab-post-content-preview");
+    const writeTab = page.getByTestId("tab-post-content-write");
+    const preview = page.getByTestId("post-content-preview");
+
+    // ----- EMPTY STATE -----------------------------------------------------
+    // The new-post form starts with empty content, so the Preview tab should
+    // render the placeholder message, not any markdown output.
+    await previewTab.click();
+    await expect(preview).toBeVisible();
+    await expect(preview).toContainText(/nothing to preview yet/i);
+    await expect(preview.locator("h2")).toHaveCount(0);
+    await expect(preview.locator("ul")).toHaveCount(0);
+
+    // ----- POPULATED RENDER ------------------------------------------------
+    // Switch back to Write, type markdown that exercises a heading, a list,
+    // and the custom <product-callout> tag, then flip back to Preview.
+    await writeTab.click();
+    const markdown = [
+      "## Brewing Notes",
+      "",
+      "- Use 70°C water",
+      "- Whisk in an M shape",
+      "- Serve immediately",
+      "",
+      '<product-callout slug="ceremonial-matcha"></product-callout>',
+      "",
+    ].join("\n");
+    await page.getByTestId("input-post-content").fill(markdown);
+    await previewTab.click();
+
+    // The empty-state message is gone…
+    await expect(preview).not.toContainText(/nothing to preview yet/i);
+
+    // …and the heading rendered as an <h2> with the expected text. The
+    // BlogMarkdown component also assigns an id slug to h2s, which we assert
+    // to confirm we're going through the shared pipeline (not just any <h2>).
+    const heading = preview.locator("h2", { hasText: "Brewing Notes" });
+    await expect(heading).toHaveCount(1);
+    await expect(heading).toHaveAttribute("id", "brewing-notes");
+
+    // The bullet list rendered as a <ul> with all three <li>s.
+    const list = preview.locator("ul").first();
+    await expect(list).toBeVisible();
+    const items = list.locator("li");
+    await expect(items).toHaveCount(3);
+    await expect(items.nth(0)).toContainText("Use 70°C water");
+    await expect(items.nth(1)).toContainText("Whisk in an M shape");
+    await expect(items.nth(2)).toContainText("Serve immediately");
+
+    // The <product-callout> rendered the real product card (not the skeleton),
+    // including the product name and the "Shop" link to /products/<slug>.
+    const callout = preview.getByTestId(
+      "blog-product-callout-ceremonial-matcha",
+    );
+    await expect(callout).toBeVisible();
+    await expect(callout).toContainText("Ceremonial Matcha");
+    await expect(callout).toContainText("$42.00");
+    const shopLink = preview.getByTestId(
+      "blog-product-callout-link-ceremonial-matcha",
+    );
+    await expect(shopLink).toHaveAttribute("href", "/products/ceremonial-matcha");
+
+    // And the preview did fetch the product by its slug — proving the custom
+    // <product-callout> tag survived sanitization and reached the renderer.
+    expect(productSlugCalls).toContain("ceremonial-matcha");
+  });
+
   test("validation error blocks save and surfaces an inline message", async ({
     page,
   }) => {
