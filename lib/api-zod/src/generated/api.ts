@@ -656,6 +656,7 @@ export const ListMyOrdersResponseItem = zod.object({
   trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
   customerId: zod.number().nullish(),
+  deliveredEmailSentAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListMyOrdersResponse = zod.array(ListMyOrdersResponseItem);
@@ -725,6 +726,7 @@ export const GetOrderResponse = zod.object({
   trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
   customerId: zod.number().nullish(),
+  deliveredEmailSentAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -782,6 +784,7 @@ export const LookupOrderResponse = zod.object({
   trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
   customerId: zod.number().nullish(),
+  deliveredEmailSentAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -838,6 +841,7 @@ export const LookupOrderByTokenResponse = zod.object({
   trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
   customerId: zod.number().nullish(),
+  deliveredEmailSentAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
 });
 
@@ -1045,6 +1049,7 @@ export const GetAdminStatsResponse = zod.object({
         trackingUrl: zod.string().nullish(),
         labelUrl: zod.string().nullish(),
         customerId: zod.number().nullish(),
+        deliveredEmailSentAt: zod.coerce.date().nullish(),
         createdAt: zod.coerce.date(),
       }),
     )
@@ -1267,6 +1272,7 @@ export const ListAdminOrdersResponseItem = zod.object({
   trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
   customerId: zod.number().nullish(),
+  deliveredEmailSentAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListAdminOrdersResponse = zod.array(ListAdminOrdersResponseItem);
@@ -1327,6 +1333,7 @@ export const ListAdminOrdersByEmailResponse = zod.object({
       trackingUrl: zod.string().nullish(),
       labelUrl: zod.string().nullish(),
       customerId: zod.number().nullish(),
+      deliveredEmailSentAt: zod.coerce.date().nullish(),
       createdAt: zod.coerce.date(),
     }),
   ),
@@ -1575,6 +1582,7 @@ export const FulfillOrderResponse = zod.object({
   trackingUrl: zod.string().nullish(),
   labelUrl: zod.string().nullish(),
   customerId: zod.number().nullish(),
+  deliveredEmailSentAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
 });
 

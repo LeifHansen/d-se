@@ -1622,6 +1622,7 @@ components:
         trackingUrl: { type: ["string", "null"] }
         labelUrl: { type: ["string", "null"] }
         customerId: { type: ["integer", "null"] }
+        deliveredEmailSentAt: { type: ["string", "null"], format: date-time }
         createdAt: { type: string, format: date-time }
     LookupOrderBody:
       type: object

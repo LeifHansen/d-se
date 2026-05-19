@@ -178,6 +178,8 @@ export interface Order {
   labelUrl?: string | null;
   /** @nullable */
   customerId?: number | null;
+  /** @nullable */
+  deliveredEmailSentAt?: string | null;
   createdAt: string;
 }
 

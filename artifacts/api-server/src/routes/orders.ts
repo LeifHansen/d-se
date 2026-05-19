@@ -218,6 +218,7 @@ async function buildOrderResponse(orderId: number) {
       : null,
     labelUrl: order.labelUrl,
     customerId: order.customerId,
+    deliveredEmailSentAt: order.deliveredEmailSentAt,
     createdAt: order.createdAt,
   };
 }

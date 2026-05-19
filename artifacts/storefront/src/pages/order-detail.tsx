@@ -307,6 +307,16 @@ export default function OrderDetailPage() {
                 />
               </div>
               <OrderTracking order={order} variant="inline" />
+              {order.deliveredEmailSentAt ? (
+                <p
+                  className="mt-3 text-sm"
+                  style={{ color: "hsl(170 18% 32%)" }}
+                  data-testid="order-delivered-email-notice"
+                >
+                  We emailed you a delivery confirmation on{" "}
+                  {formatDate(order.deliveredEmailSentAt)}.
+                </p>
+              ) : null}
               {!order.trackingCode ? (
                 <p
                   className="mt-3 text-sm"

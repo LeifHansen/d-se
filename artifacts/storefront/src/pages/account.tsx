@@ -216,6 +216,15 @@ function OrderRow({ order }: { order: Order }) {
             </li>
           ))}
         </ul>
+        {order.deliveredEmailSentAt ? (
+          <p
+            className="mt-2 text-xs"
+            style={{ color: "hsl(170 18% 32%)" }}
+            data-testid={`order-${order.id}-delivered-email-notice`}
+          >
+            Delivery confirmation emailed {formatDate(String(order.deliveredEmailSentAt))}
+          </p>
+        ) : null}
         {order.trackingCode ? (
           <p className="mt-2 text-sm">
             {order.carrier ? `${order.carrier}: ` : "Tracking: "}

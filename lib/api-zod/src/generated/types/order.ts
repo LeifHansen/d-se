@@ -33,5 +33,7 @@ export interface Order {
   labelUrl?: string | null;
   /** @nullable */
   customerId?: number | null;
+  /** @nullable */
+  deliveredEmailSentAt?: Date | null;
   createdAt: Date;
 }
