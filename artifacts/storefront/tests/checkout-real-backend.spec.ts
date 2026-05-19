@@ -211,6 +211,96 @@ test.describe("checkout against real api-server (dev-fallback Stripe)", () => {
       expect(cartItemsRes.rowCount).toBe(0);
     });
   });
+
+  test("zeroing inventory between cart view and Pay surfaces the sold-out callout and refetches the cart", async ({
+    page,
+  }) => {
+    await seedCartIdInBrowser(page, seed.cartId);
+
+    // Start at /cart to mirror the real navigation path, then move on to
+    // /checkout while the seeded product still shows inventory.
+    await page.goto("/cart");
+    await expect(page.getByTestId("cart-items")).toBeVisible();
+    await page.getByTestId("cart-checkout").click();
+    await page.waitForURL(/\/checkout(\?|$)/);
+    await expect(page.getByTestId("page-checkout")).toBeVisible();
+    await expect(page.getByTestId("checkout-email")).toBeVisible();
+
+    await page.getByTestId("checkout-email").fill("sold-out@example.com");
+    await page.getByTestId("checkout-name").fill("E2E Sold Out");
+    await page.getByTestId("checkout-street1").fill("1 Real St");
+    await page.getByTestId("checkout-city").fill("Town");
+    await page.getByTestId("checkout-state").fill("CA");
+    await page.getByTestId("checkout-zip").fill("90210");
+
+    await page.getByTestId("checkout-calc-shipping").click();
+    await expect(page.locator('input[name="shipping-rate"]:checked')).toHaveCount(
+      1,
+      { timeout: 10_000 },
+    );
+
+    // The order summary line should NOT be flagged yet — inventory is still
+    // 25 server-side, and the cached cart still reflects that. No per-line
+    // "Out of stock" warning (driven solely by the cart's inventory field)
+    // should be rendered either.
+    const summaryLine = page.locator(
+      '[data-testid^="checkout-line-"][data-stock-flagged="true"]',
+    );
+    await expect(summaryLine).toHaveCount(0);
+    const perLineStockWarning = page.locator(
+      '[data-testid^="checkout-line-"] [data-testid^="checkout-stock-"]',
+    );
+    await expect(perLineStockWarning).toHaveCount(0);
+
+    // Simulate the racing-shopper scenario: stock vanishes between the
+    // cart view and clicking Pay. The cached /api/cart still has
+    // inventory=25, so the storefront does not pre-disable Pay; only the
+    // server's 409 stock_unavailable response should drive the recovery UI.
+    await withDb(async (c) => {
+      await c.query(`UPDATE products SET inventory = 0 WHERE id = $1`, [
+        seed.productId,
+      ]);
+    });
+
+    await page.getByTestId("checkout-submit").click();
+
+    // Structured callout renders, with exactly one entry per affected product.
+    const callout = page.getByTestId("checkout-stock-unavailable");
+    await expect(callout).toBeVisible();
+    await expect(
+      callout.getByTestId(`checkout-server-issue-${seed.productId}`),
+    ).toHaveText(/out of stock/i);
+    await expect(
+      callout.locator('[data-testid^="checkout-server-issue-"]'),
+    ).toHaveCount(1);
+
+    // The matching order-summary line is flagged via data-stock-flagged.
+    await expect(summaryLine).toHaveCount(1);
+
+    // Cart query refetched: the per-line "Out of stock" warning is rendered
+    // *inside* the order-summary line. This warning is driven exclusively by
+    // the cart's inventory field (`it.product.inventory <= 0`), not by the
+    // 409 payload, so its appearance proves invalidateCart() actually
+    // refetched /api/cart with the server's now-zero inventory.
+    await expect(perLineStockWarning).toHaveCount(1);
+    await expect(perLineStockWarning.first()).toHaveText(/out of stock/i);
+
+    // No order was created and the cart was not marked checked-out.
+    expect(await countOrdersForCart(seed.cartId)).toBe(0);
+    await withDb(async (c) => {
+      const cartRes = await c.query<{ checked_out_at: Date | null }>(
+        `SELECT checked_out_at FROM carts WHERE id = $1`,
+        [seed.cartId],
+      );
+      expect(cartRes.rowCount).toBe(1);
+      expect(cartRes.rows[0].checked_out_at).toBeNull();
+    });
+
+    // The "Update your bag" link navigates back to /cart.
+    await page.getByTestId("checkout-update-bag-link").click();
+    await page.waitForURL(/\/cart(\?|$)/);
+    expect(new URL(page.url()).pathname).toBe("/cart");
+  });
 });
 
 // ---------------------------------------------------------------------------
