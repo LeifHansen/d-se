@@ -211,4 +211,71 @@ test.describe("admin product slug conflict", () => {
     await slugInput.fill("calm-tincture");
     await expect(conflict).toHaveCount(0);
   });
+
+  test("offers a one-click unique-slug suggestion next to the conflict warning", async ({
+    page,
+  }) => {
+    const state: ApiState = {
+      products: [
+        ...makeProducts(),
+        // Already-taken `-2` variant so the suggestion must skip to `-3`.
+        {
+          ...BASE_PRODUCT,
+          id: 103,
+          slug: "calm-tincture-2",
+          name: "Calm Tincture v2",
+        },
+      ],
+      createCalls: [],
+    };
+    await installMocks(page, state);
+
+    await page.goto("/admin/products");
+    await expect(page.getByTestId("row-product-101")).toBeVisible();
+
+    await page.getByTestId("button-new-product").click();
+    const nameInput = page.getByTestId("input-product-name");
+    const slugInput = page.getByTestId("input-product-slug");
+    const conflict = page.getByTestId("text-slug-conflict");
+    const suggestion = page.getByTestId("button-use-slug-suggestion");
+
+    await nameInput.fill("Brand New Thing");
+    await expect(suggestion).toHaveCount(0);
+
+    // Type a colliding slug — both the warning and suggestion appear.
+    await slugInput.fill("calm-tincture");
+    await expect(conflict).toBeVisible();
+    await expect(suggestion).toBeVisible();
+    // -2 is also taken, so the suggestion should be -3.
+    await expect(suggestion).toHaveText(/calm-tincture-3/);
+
+    // Clicking the suggestion fills the slug input and clears the warning.
+    await suggestion.click();
+    await expect(slugInput).toHaveValue("calm-tincture-3");
+    await expect(conflict).toHaveCount(0);
+    await expect(suggestion).toHaveCount(0);
+
+    // Typing a slug that already ends in `-N` strips the suffix when
+    // picking the next free numeric variant — not `calm-tincture-2-2`.
+    await slugInput.fill("calm-tincture-2");
+    await expect(conflict).toBeVisible();
+    await expect(suggestion).toBeVisible();
+    await expect(suggestion).toHaveText(/calm-tincture-3/);
+
+    await suggestion.click();
+    await expect(slugInput).toHaveValue("calm-tincture-3");
+    await expect(conflict).toHaveCount(0);
+
+    // And the suggested slug actually saves successfully — no 409.
+    await page
+      .getByTestId("input-product-description")
+      .fill("Some description");
+    await page.getByTestId("input-product-price").fill("19.99");
+    await page.getByTestId("button-save-product").click();
+
+    await expect
+      .poll(() => state.createCalls.length, { timeout: 3000 })
+      .toBe(1);
+    expect(state.createCalls[0]).toMatchObject({ slug: "calm-tincture-3" });
+  });
 });
