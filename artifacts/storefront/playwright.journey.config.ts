@@ -8,7 +8,7 @@ const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: /(journey|blog-draft-preview|order-tab-titles)\.spec\.ts$/,
+  testMatch: /(journey|blog-draft-preview|order-tab-titles|tag-filter)\.spec\.ts$/,
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: 0,
