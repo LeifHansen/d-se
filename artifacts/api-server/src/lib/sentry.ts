@@ -9,7 +9,9 @@ export function initSentry(): void {
   Sentry.init({
     dsn,
     environment: process.env.NODE_ENV ?? "development",
-    release: process.env.SENTRY_RELEASE ?? process.env.REPLIT_DEPLOYMENT_ID,
+    // FLY_RELEASE_VERSION is auto-set by fly.io on every deploy. SENTRY_RELEASE
+    // is the explicit override.
+    release: process.env.SENTRY_RELEASE ?? process.env.FLY_RELEASE_VERSION,
     tracesSampleRate: 0,
     sendDefaultPii: false,
   });

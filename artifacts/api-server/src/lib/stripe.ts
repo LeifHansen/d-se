@@ -1,7 +1,8 @@
 import Stripe from "stripe";
 
-// Replit Stripe connector — fetches credentials from the connector hostname
-// rather than requiring STRIPE_SECRET_KEY directly. See snippets/stripe-replit-sync.
+// Stripe credentials: read STRIPE_SECRET_KEY directly (the standard path). The
+// Replit-connector path below is retained for backward compat when running
+// inside a Replit environment that injects REPLIT_CONNECTORS_HOSTNAME.
 type StripeCreds = { publishableKey: string; secretKey: string };
 
 let cachedCreds: StripeCreds | null = null;

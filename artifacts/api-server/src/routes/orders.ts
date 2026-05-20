@@ -422,9 +422,7 @@ router.post("/checkout", async (req, res): Promise<void> => {
 
   try {
     const stripe = await getStripe();
-    const baseUrl =
-      process.env.PUBLIC_APP_URL ??
-      `https://${process.env.REPLIT_DEV_DOMAIN ?? "localhost"}`;
+    const baseUrl = process.env.PUBLIC_APP_URL ?? "http://localhost:5173";
 
     // Attach a Stripe Promotion Code if a discount was validated. This is
     // authoritative: the discount has already been applied to the order total,

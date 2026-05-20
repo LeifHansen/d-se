@@ -1,8 +1,6 @@
 function resolveSiteUrl(): string {
-  const explicit = process.env["SITE_URL"];
+  const explicit = process.env["SITE_URL"] ?? process.env["PUBLIC_APP_URL"];
   if (explicit) return explicit.replace(/\/$/, "");
-  const devDomain = process.env["REPLIT_DEV_DOMAIN"];
-  if (devDomain) return `https://${devDomain}`;
   return "https://dose.example.com";
 }
 

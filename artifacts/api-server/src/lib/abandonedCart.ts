@@ -64,9 +64,7 @@ export function verifyResumeToken(cartId: string, token: string): boolean {
 }
 
 export function buildResumeUrl(cartId: string): string {
-  const baseUrl =
-    process.env.PUBLIC_APP_URL ??
-    `https://${process.env.REPLIT_DEV_DOMAIN ?? "localhost"}`;
+  const baseUrl = process.env.PUBLIC_APP_URL ?? "http://localhost:5173";
   const token = signResumeToken(cartId);
   // Storefront /cart route is expected to read these params and exchange them
   // for cart contents via GET /api/cart/resume?cartId=...&token=... which
