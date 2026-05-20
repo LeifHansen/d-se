@@ -9,7 +9,20 @@ Single-container deploy. Caddy front-routes to the api-server (port 4000) and th
    ```sh
    flyctl apps create d-se   # or any name you like; update fly/fly.toml app= accordingly
    ```
-3. **Set secrets** (these don't appear in `fly.toml`, they're stored encrypted by fly):
+3. **Provision Tigris (object storage)** — required for product/blog images and admin uploads:
+   ```sh
+   flyctl storage create --name d-se-storage
+   # This auto-sets BUCKET_NAME, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY,
+   # AWS_ENDPOINT_URL_S3, and AWS_REGION as fly secrets on your app.
+   ```
+   Then set the app-level prefix paths within the bucket:
+   ```sh
+   flyctl secrets set \
+     PUBLIC_OBJECT_SEARCH_PATHS="public,public/dose" \
+     PRIVATE_OBJECT_DIR="private"
+   ```
+
+4. **Set secrets** (these don't appear in `fly.toml`, they're stored encrypted by fly):
 
    ```sh
    # Required
@@ -43,7 +56,7 @@ Single-container deploy. Caddy front-routes to the api-server (port 4000) and th
 
    See [Required vs optional secrets](#required-vs-optional-secrets) below for the full reference.
 
-4. **First deploy:**
+5. **First deploy:**
    ```sh
    flyctl deploy
    # the working tree must NOT have the local pnpm-workspace.yaml override active
@@ -51,16 +64,19 @@ Single-container deploy. Caddy front-routes to the api-server (port 4000) and th
    # which still installs linux-x64 binaries correctly.
    ```
 
-5. **Push the Drizzle schema** (one-time, plus any time the schema changes — the Dockerfile doesn't ship drizzle-kit):
+6. **Push the Drizzle schema** (one-time, plus any time the schema changes — the Dockerfile doesn't ship drizzle-kit):
    ```sh
    # Easiest: run schema push from your local Mac against the same Neon database
    set -a && . ./artifacts/api-server/.env.local && set +a
    pnpm --filter @workspace/db run push
    ```
 
-6. **Seed the catalog** (optional, run once):
+7. **Seed the catalog** (optional, run once locally against the prod DB):
    ```sh
    node scripts-local-seed.mjs   # writes 3 sample products to the same DB
+   # Note: image paths in this script point at the storefront's bundled brand assets
+   # (Vite-served in dev). For production, you'll want to upload images to Tigris first
+   # (via the admin UI at /admin) and update the product records to reference those URLs.
    ```
 
 ## Required vs optional secrets
@@ -79,7 +95,8 @@ Single-container deploy. Caddy front-routes to the api-server (port 4000) and th
 | `GA4_API_SECRET`, `META_CAPI_TOKEN` | ⏸ | Server-side conversion APIs (pair with the `VITE_*` IDs at build time) |
 | `SENTRY_DSN` | ⏸ | API error reporting |
 | `TURNSTILE_SECRET_KEY` | ⏸ | Only if you have Cloudflare Turnstile forms enabled |
-| `PUBLIC_OBJECT_SEARCH_PATHS` | ⏸ | Only needed for the Replit Object Storage path; on fly.io use S3/R2 instead and skip |
+| `BUCKET_NAME` + `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` + `AWS_ENDPOINT_URL_S3` | ⚠️ | Object storage. Auto-set by `flyctl storage create` (Tigris). Required for admin image uploads and product/blog images. |
+| `PUBLIC_OBJECT_SEARCH_PATHS` + `PRIVATE_OBJECT_DIR` | ⚠️ | App-level prefixes within the bucket (e.g. `"public,public/dose"` and `"private"`). Required wherever storage is used. |
 
 **Build-time (Vite) env** — these get baked into the storefront bundle. To change, redeploy:
 

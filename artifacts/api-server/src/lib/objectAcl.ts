@@ -1,6 +1,8 @@
-import { File } from "@google-cloud/storage";
+import type { StorageObject } from "./objectStorage";
 
-const ACL_POLICY_METADATA_KEY = "custom:aclPolicy";
+// S3 lowercases all custom metadata keys on the wire (and strips the
+// x-amz-meta- prefix). Keep the key lowercase so reads round-trip cleanly.
+const ACL_POLICY_METADATA_KEY = "aclpolicy";
 
 // Can be flexibly defined according to the use case.
 //
@@ -68,30 +70,28 @@ function createObjectAccessGroup(
 }
 
 export async function setObjectAclPolicy(
-  objectFile: File,
+  objectFile: StorageObject,
   aclPolicy: ObjectAclPolicy,
 ): Promise<void> {
-  const [exists] = await objectFile.exists();
-  if (!exists) {
+  if (!(await objectFile.exists())) {
     throw new Error(`Object not found: ${objectFile.name}`);
   }
-
   await objectFile.setMetadata({
-    metadata: {
+    customMetadata: {
       [ACL_POLICY_METADATA_KEY]: JSON.stringify(aclPolicy),
     },
   });
 }
 
 export async function getObjectAclPolicy(
-  objectFile: File,
+  objectFile: StorageObject,
 ): Promise<ObjectAclPolicy | null> {
-  const [metadata] = await objectFile.getMetadata();
-  const aclPolicy = metadata?.metadata?.[ACL_POLICY_METADATA_KEY];
+  const meta = await objectFile.getMetadata();
+  const aclPolicy = meta.customMetadata?.[ACL_POLICY_METADATA_KEY];
   if (!aclPolicy) {
     return null;
   }
-  return JSON.parse(aclPolicy as string);
+  return JSON.parse(aclPolicy);
 }
 
 export async function canAccessObject({
@@ -100,7 +100,7 @@ export async function canAccessObject({
   requestedPermission,
 }: {
   userId?: string;
-  objectFile: File;
+  objectFile: StorageObject;
   requestedPermission: ObjectPermission;
 }): Promise<boolean> {
   const aclPolicy = await getObjectAclPolicy(objectFile);

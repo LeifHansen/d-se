@@ -1,7 +1,10 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import sharp from "sharp";
-import type { File } from "@google-cloud/storage";
-import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import {
+  ObjectStorageService,
+  ObjectNotFoundError,
+  type StorageObject,
+} from "../lib/objectStorage";
 import { getObjectAclPolicy } from "../lib/objectAcl";
 
 const router: IRouter = Router();
@@ -45,7 +48,7 @@ function parseQuery(req: Request): {
 }
 
 async function resolveFile(src: string): Promise<{
-  file: File;
+  file: StorageObject;
   isPublic: boolean;
 } | null> {
   if (src.startsWith("/public-objects/")) {
@@ -65,7 +68,7 @@ async function resolveFile(src: string): Promise<{
   }
 }
 
-async function fileToBuffer(file: File): Promise<Buffer> {
+async function fileToBuffer(file: StorageObject): Promise<Buffer> {
   const chunks: Buffer[] = [];
   const stream = file.createReadStream();
   return new Promise((resolve, reject) => {
@@ -94,7 +97,7 @@ router.get("/storage/img", async (req: Request, res: Response) => {
       return;
     }
 
-    const [meta] = await resolved.file.getMetadata();
+    const meta = await resolved.file.getMetadata();
     const sourceType = String(meta.contentType ?? "");
 
     // SVG / GIF: skip transform, stream original bytes.
