@@ -4,8 +4,8 @@ import { Image } from "@/components/dose/Image";
 import { SiteShell } from "@/components/dose/SiteShell";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
-import storyVisual from "@/assets/brand/bottle-marble-glass.png?picture";
-import bottleClose from "@/assets/brand/bottle-label-detail.jpg?picture";
+import storyVisual from "@/assets/brand/Dose2/dose2-brand-mockup.jpg?picture";
+import bottleClose from "@/assets/brand/Dose2/dose2-bottle-product.png?picture";
 
 export default function About() {
   return (

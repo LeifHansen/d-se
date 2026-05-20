@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Logo } from "./Logo";
 import { Button } from "@/components/ui/button";
 import { Image } from "./Image";
-import productBoxes from "@/assets/brand/bottle-bar-lifestyle.png?picture";
+import productBoxes from "@/assets/brand/Dose2/dose2-bottle-collage.png?picture";
 
 const STORAGE_KEY = "dose-age-confirmed";
 
