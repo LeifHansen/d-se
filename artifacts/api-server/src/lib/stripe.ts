@@ -11,6 +11,17 @@ const CRED_TTL_MS = 60_000;
 async function fetchCreds(): Promise<StripeCreds> {
   const now = Date.now();
   if (cachedCreds && now - cachedAt < CRED_TTL_MS) return cachedCreds;
+  // Direct env fallback — used outside Replit (local dev, fly.io, any non-Replit host).
+  // STRIPE_SECRET_KEY is required; STRIPE_PUBLISHABLE_KEY is optional (only needed by
+  // routes that surface it back to the client).
+  if (process.env.STRIPE_SECRET_KEY) {
+    cachedCreds = {
+      publishableKey: process.env.STRIPE_PUBLISHABLE_KEY ?? "",
+      secretKey: process.env.STRIPE_SECRET_KEY,
+    };
+    cachedAt = now;
+    return cachedCreds;
+  }
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? "repl " + process.env.REPL_IDENTITY
@@ -18,7 +29,9 @@ async function fetchCreds(): Promise<StripeCreds> {
       ? "depl " + process.env.WEB_REPL_RENEWAL
       : null;
   if (!hostname || !xReplitToken) {
-    throw new Error("Replit Stripe connector not available");
+    throw new Error(
+      "Stripe not configured: set STRIPE_SECRET_KEY or run on Replit with the Stripe connector",
+    );
   }
   const isProd = process.env.REPLIT_DEPLOYMENT === "1";
   const url = new URL(`https://${hostname}/api/v2/connection`);

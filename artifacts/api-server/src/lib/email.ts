@@ -11,6 +11,15 @@ const CRED_TTL_MS = 60_000;
 async function fetchCreds(): Promise<ResendCreds | null> {
   const now = Date.now();
   if (cachedCreds && now - cachedAt < CRED_TTL_MS) return cachedCreds;
+  // Direct env fallback — used outside Replit (local dev, fly.io, any non-Replit host).
+  if (process.env.RESEND_API_KEY) {
+    cachedCreds = {
+      apiKey: process.env.RESEND_API_KEY,
+      fromEmail: process.env.RESEND_FROM_EMAIL ?? "noreply@example.com",
+    };
+    cachedAt = now;
+    return cachedCreds;
+  }
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? "repl " + process.env.REPL_IDENTITY

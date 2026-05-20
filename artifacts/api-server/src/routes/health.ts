@@ -26,12 +26,15 @@ async function checkStripe(): Promise<{ ok: boolean; detail?: string | null }> {
 }
 
 function checkResend(): { ok: boolean; detail?: string | null } {
-  // The connector cred fetch is async + cached; surface as "configured" when the
-  // env hint is present. Detailed verification happens lazily on first send.
+  // Configured when either a direct API key is set (local / fly.io / non-Replit
+  // hosts) OR the Replit connector hostname is available. Detailed verification
+  // happens lazily on first send.
+  const hasDirectKey = !!process.env.RESEND_API_KEY;
   const hasConnector = !!process.env.REPLIT_CONNECTORS_HOSTNAME;
+  const ok = hasDirectKey || hasConnector;
   return {
-    ok: hasConnector,
-    detail: hasConnector ? null : "Replit connector hostname not set",
+    ok,
+    detail: ok ? null : "set RESEND_API_KEY or run on Replit with the Resend connector",
   };
 }
 
