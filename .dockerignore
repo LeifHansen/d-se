@@ -44,6 +44,7 @@ scripts-local-seed.mjs
 # Docs/assets not needed at runtime
 attached_assets
 
-# tsbuild
+# tsbuild — must be excluded or tsc skips writing .d.ts in fresh Docker builds
 *.tsbuildinfo
+**/*.tsbuildinfo
 out-tsc
