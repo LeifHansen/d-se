@@ -7,7 +7,8 @@ Single-container deploy. Caddy front-routes to the api-server (port 4000) and th
 1. **Install flyctl** — `brew install flyctl` (then `flyctl auth login`).
 2. **Reserve the app name:**
    ```sh
-   flyctl apps create d-se   # or any name you like; update fly/fly.toml app= accordingly
+   flyctl apps create d-se   # or any name you like; update the app= line at the top of /fly.toml accordingly
+   # (skip this step if your app already exists in fly.io)
    ```
 3. **Provision Tigris (object storage)** — required for product/blog images and admin uploads:
    ```sh
