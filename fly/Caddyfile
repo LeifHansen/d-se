@@ -1,0 +1,32 @@
+# DŌSE reverse proxy: route /api/* + SEO root paths to the api-server, everything else to the storefront's serve.mjs.
+# Caddy provides HTTPS-aware request headers (X-Forwarded-*) to backends.
+
+:8080 {
+	encode zstd gzip
+
+	# API routes
+	@api {
+		path /api/*
+	}
+	handle @api {
+		reverse_proxy localhost:4000
+	}
+
+	# SEO endpoints that the api-server exposes at site root (see seoRouter in app.ts).
+	@seo {
+		path /sitemap.xml /robots.txt /healthz
+	}
+	handle @seo {
+		reverse_proxy localhost:4000
+	}
+
+	# Everything else → storefront (built SPA with prerendered HTML; serve.mjs implements try_files).
+	handle {
+		reverse_proxy localhost:8081
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

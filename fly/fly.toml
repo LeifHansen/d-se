@@ -1,0 +1,45 @@
+# DŌSE — fly.io app config.
+# Rename `app = "d-se"` to whatever you reserve via `flyctl apps create`.
+
+app = "d-se"
+primary_region = "ord"  # Chicago — change to your closest region (lhr, sjc, fra, etc.). `flyctl platform regions` lists options.
+
+[build]
+  dockerfile = "fly/Dockerfile"
+  # If you want full SEO prerender (per-product / per-blog HTML) at build time,
+  # pass DATABASE_URL as a build secret:
+  #   flyctl deploy --build-secret DATABASE_URL="postgres://..."
+  # and override the arg:
+  #   [build.args]
+  #     PRERENDER_ALLOW_NO_DB = "0"
+
+[env]
+  NODE_ENV = "production"
+  # Public URL the app is served at. Update after first deploy when fly assigns a hostname,
+  # or set to your custom domain.
+  PUBLIC_APP_URL = "https://d-se.fly.dev"
+  STOREFRONT_BASE_URL = "https://d-se.fly.dev"
+  APP_URL = "https://d-se.fly.dev"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"   # stop the machine when idle to save $$
+  auto_start_machines = true
+  min_machines_running = 0      # 0 for personal/dev; bump to 1+ for production-grade availability
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    path = "/healthz"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"   # storefront serve.mjs + api dist + Caddy ≈ ~400-600 MB; bump if you OOM

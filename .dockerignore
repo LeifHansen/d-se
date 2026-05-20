@@ -1,0 +1,49 @@
+# Build artifacts + dependencies (re-installed inside the image)
+node_modules
+**/node_modules
+**/dist
+**/.vite
+**/.next
+**/build
+
+# Local dev / IDE
+.git
+.gitignore
+.vscode
+.idea
+.DS_Store
+*.log
+
+# Secrets
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Replit
+.replit
+.replitignore
+replit.nix
+replit.md
+.cache
+.local
+
+# Tests / Playwright
+test-results
+playwright-report
+playwright/.cache
+e2e
+**/playwright*.config.ts
+
+# Local-only helper files
+dev
+scripts-local-seed.mjs
+
+# Docs/assets not needed at runtime
+attached_assets
+
+# tsbuild
+*.tsbuildinfo
+out-tsc
