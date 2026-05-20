@@ -14,7 +14,7 @@
 
 	# SEO endpoints that the api-server exposes at site root (see seoRouter in app.ts).
 	@seo {
-		path /sitemap.xml /robots.txt /healthz
+		path /sitemap.xml /robots.txt
 	}
 	handle @seo {
 		reverse_proxy localhost:4000
