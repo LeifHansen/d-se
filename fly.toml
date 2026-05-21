@@ -9,9 +9,14 @@ primary_region = "ord"  # Chicago — change to your closest region (lhr, sjc, f
   # If you want full SEO prerender (per-product / per-blog HTML) at build time,
   # pass DATABASE_URL as a build secret:
   #   flyctl deploy --build-secret DATABASE_URL="postgres://..."
-  # and override the arg:
-  #   [build.args]
-  #     PRERENDER_ALLOW_NO_DB = "0"
+  # and add PRERENDER_ALLOW_NO_DB = "0" below.
+
+  # VITE_* values bake into the storefront JS bundle at build time. These are NOT
+  # secrets — they ship to the browser regardless. Add new VITE_* vars here as
+  # you wire them (Sentry DSN, GA4 ID, Meta Pixel ID, Turnstile site key, etc.).
+  [build.args]
+    VITE_CLERK_PUBLISHABLE_KEY = "pk_test_c29jaWFsLWZsZWEtMi5jbGVyay5hY2NvdW50cy5kZXYk"
+    VITE_SITE_URL = "https://d-se.fly.dev"
 
 [env]
   NODE_ENV = "production"

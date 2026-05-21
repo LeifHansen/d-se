@@ -34,6 +34,29 @@ FROM deps AS build
 ARG PRERENDER_ALLOW_NO_DB=1
 ENV PRERENDER_ALLOW_NO_DB=${PRERENDER_ALLOW_NO_DB}
 ENV PORT=4000 BASE_PATH=/
+
+# VITE_* build args — these get baked into the storefront JS bundle at build
+# time. They are NOT secrets (the publishable Clerk key, GA4 ID, etc. are
+# meant to ship in client code). Pass via fly.toml [build.args] or
+# `flyctl deploy --build-arg VITE_FOO=bar`. Empty defaults are fine —
+# the storefront code has graceful no-op fallbacks for missing values.
+ARG VITE_CLERK_PUBLISHABLE_KEY=""
+ARG VITE_API_BASE_URL=""
+ARG VITE_SITE_URL=""
+ARG VITE_SENTRY_DSN=""
+ARG VITE_SENTRY_RELEASE=""
+ARG VITE_GA4_ID=""
+ARG VITE_META_PIXEL_ID=""
+ARG VITE_TURNSTILE_SITE_KEY=""
+ENV VITE_CLERK_PUBLISHABLE_KEY=${VITE_CLERK_PUBLISHABLE_KEY}
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_SITE_URL=${VITE_SITE_URL}
+ENV VITE_SENTRY_DSN=${VITE_SENTRY_DSN}
+ENV VITE_SENTRY_RELEASE=${VITE_SENTRY_RELEASE}
+ENV VITE_GA4_ID=${VITE_GA4_ID}
+ENV VITE_META_PIXEL_ID=${VITE_META_PIXEL_ID}
+ENV VITE_TURNSTILE_SITE_KEY=${VITE_TURNSTILE_SITE_KEY}
+
 COPY . .
 # Mirror the deps stage preinstall mutation so re-running install in build (if any) works.
 RUN node -e "const p=require('./package.json');delete p.scripts.preinstall;require('fs').writeFileSync('./package.json',JSON.stringify(p,null,2))"
