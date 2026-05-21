@@ -1,9 +1,9 @@
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Image } from "./Image";
-import bottleClose from "@/assets/brand/Dose2/dose2-bottle-product.png?picture";
-import packaging from "@/assets/brand/Dose2/dose2-packaging-system.png?picture";
-import bottleStudio from "@/assets/brand/Dose2/dose2-bottle-emblem.png";
+import bottleClose from "@/assets/brand/bottle-droplet.png?picture";
+import packaging from "@/assets/brand/bottle-moody-interior.png?picture";
+import bottleStudio from "@/assets/brand/bottle-studio-angle.jpg";
 import goldEmblem from "@/assets/brand/emblem-large-on-teal.jpg";
 
 export function Hero() {
