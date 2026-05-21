@@ -27,7 +27,7 @@ export function PageLayout({
       <Header />
       <main id="main">
         <section
-          style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
+          style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
         >
           <div className="mx-auto max-w-3xl px-6 py-16 md:px-10 md:py-20">
             {eyebrow && (

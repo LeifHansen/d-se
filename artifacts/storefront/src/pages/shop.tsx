@@ -33,7 +33,7 @@ export default function Shop() {
         description="The full DŌSE collection — precision THC droppers, wellness elixirs, and ritual essentials."
       />
       <section
-        style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
+        style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
       >
         <div className="mx-auto max-w-7xl px-6 py-20 md:px-10 md:py-28">
           <p
@@ -64,7 +64,7 @@ export default function Shop() {
 
       <section
         className="bg-background"
-        style={{ color: "hsl(170 58% 14%)" }}
+        style={{ color: "hsl(166 95% 19%)" }}
       >
         <div className="mx-auto max-w-7xl px-6 py-16 md:px-10 md:py-24">
           {allTags.length > 0 ? (
@@ -79,13 +79,13 @@ export default function Shop() {
                 style={
                   activeTags.length === 0
                     ? {
-                        background: "hsl(170 58% 14%)",
+                        background: "hsl(166 95% 19%)",
                         color: "hsl(45 49% 90%)",
-                        borderColor: "hsl(170 58% 14%)",
+                        borderColor: "hsl(166 95% 19%)",
                       }
                     : {
                         background: "transparent",
-                        color: "hsl(170 58% 14%)",
+                        color: "hsl(166 95% 19%)",
                         borderColor: "hsl(40 18% 80%)",
                       }
                 }
@@ -105,13 +105,13 @@ export default function Shop() {
                     style={
                       isActive
                         ? {
-                            background: "hsl(170 58% 14%)",
+                            background: "hsl(166 95% 19%)",
                             color: "hsl(45 49% 90%)",
-                            borderColor: "hsl(170 58% 14%)",
+                            borderColor: "hsl(166 95% 19%)",
                           }
                         : {
                             background: "transparent",
-                            color: "hsl(170 58% 14%)",
+                            color: "hsl(166 95% 19%)",
                             borderColor: "hsl(40 18% 80%)",
                           }
                     }
@@ -158,7 +158,7 @@ export default function Shop() {
                 onClick={() => refetch()}
                 className="mt-4 inline-flex items-center gap-2 rounded-full px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.22em]"
                 style={{
-                  background: "hsl(170 58% 14%)",
+                  background: "hsl(166 95% 19%)",
                   color: "hsl(45 49% 90%)",
                 }}
               >
@@ -198,7 +198,7 @@ export default function Shop() {
                         className="absolute left-4 top-4 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em]"
                         style={{
                           background: "hsl(42 53% 54%)",
-                          color: "hsl(170 58% 14%)",
+                          color: "hsl(166 95% 19%)",
                         }}
                       >
                         Featured
@@ -211,7 +211,7 @@ export default function Shop() {
                         <h2 className="font-display text-2xl">{p.name}</h2>
                         <p
                           className="font-display text-xl"
-                          style={{ color: "hsl(170 58% 14%)" }}
+                          style={{ color: "hsl(166 95% 19%)" }}
                         >
                           {formatMoney(p.priceCents, p.currency)}
                         </p>

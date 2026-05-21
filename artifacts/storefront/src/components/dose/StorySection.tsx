@@ -1,6 +1,6 @@
 import { Emblem } from "./Logo";
 import { Image } from "./Image";
-import storyFeature from "@/assets/brand/Dose2/dose2-brand-mockup.jpg?picture";
+import storyFeature from "@/assets/brand/final/dose-brand-sheet.jpg?picture";
 
 export function StorySection() {
   return (
@@ -8,7 +8,7 @@ export function StorySection() {
       id="story"
       data-testid="story-section"
       className="relative overflow-hidden"
-      style={{ background: "hsl(45 49% 90%)", color: "hsl(170 58% 14%)" }}
+      style={{ background: "hsl(45 49% 90%)", color: "hsl(166 95% 19%)" }}
     >
       <div className="mx-auto grid max-w-7xl gap-12 px-6 py-24 md:grid-cols-12 md:gap-16 md:px-10 md:py-32">
         <div className="md:col-span-5">
@@ -59,7 +59,7 @@ export function StorySection() {
                 style={{ borderColor: "hsl(40 18% 80%)" }}
                 data-testid={`story-card-${card.title.toLowerCase()}`}
               >
-                <Emblem className="h-8 w-auto" color="hsl(170 58% 14%)" />
+                <Emblem className="h-8 w-auto" color="hsl(166 95% 19%)" />
                 <h3 className="mt-3 font-display text-2xl">{card.title}</h3>
                 <p
                   className="mt-1 text-sm leading-relaxed"

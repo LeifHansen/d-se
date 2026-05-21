@@ -16,7 +16,7 @@ export function PromoBanner() {
       className="w-full overflow-hidden border-b"
       style={{
         background: "hsl(95 14% 67%)",
-        color: "hsl(170 58% 14%)",
+        color: "hsl(166 95% 19%)",
         borderColor: "hsl(95 18% 55%)",
       }}
       data-testid="promo-banner"

@@ -80,7 +80,7 @@ function ProductCallout({ slug }: { slug?: string }) {
       <div className="grid gap-0 sm:grid-cols-[160px_1fr]">
         <div
           className="aspect-square w-full overflow-hidden sm:aspect-auto"
-          style={{ background: "hsl(170 50% 18%)" }}
+          style={{ background: "hsl(165 58% 25%)" }}
         >
           {img ? (
             <img

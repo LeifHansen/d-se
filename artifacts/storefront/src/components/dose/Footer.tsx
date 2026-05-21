@@ -52,7 +52,7 @@ export function Footer() {
   return (
     <footer
       data-testid="footer"
-      style={{ background: "hsl(170 60% 11%)", color: "hsl(45 49% 90%)" }}
+      style={{ background: "hsl(167 95% 13%)", color: "hsl(45 49% 90%)" }}
     >
       <div className="mx-auto max-w-7xl px-6 py-20 md:px-10">
         <div className="grid gap-12 md:grid-cols-12">

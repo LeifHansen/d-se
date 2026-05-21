@@ -43,7 +43,7 @@ export default function BlogIndex() {
         description="Notes, recipes, and ritual ideas from the DŌSE team."
       />
       <section
-        style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
+        style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
       >
         <div className="mx-auto max-w-5xl px-6 py-16 md:px-10 md:py-24">
           <p
@@ -78,13 +78,13 @@ export default function BlogIndex() {
               style={
                 activeTags.length === 0
                   ? {
-                      background: "hsl(170 58% 14%)",
+                      background: "hsl(166 95% 19%)",
                       color: "hsl(45 49% 90%)",
-                      borderColor: "hsl(170 58% 14%)",
+                      borderColor: "hsl(166 95% 19%)",
                     }
                   : {
                       background: "transparent",
-                      color: "hsl(170 58% 14%)",
+                      color: "hsl(166 95% 19%)",
                       borderColor: "hsl(40 18% 80%)",
                     }
               }
@@ -104,13 +104,13 @@ export default function BlogIndex() {
                   style={
                     isActive
                       ? {
-                          background: "hsl(170 58% 14%)",
+                          background: "hsl(166 95% 19%)",
                           color: "hsl(45 49% 90%)",
-                          borderColor: "hsl(170 58% 14%)",
+                          borderColor: "hsl(166 95% 19%)",
                         }
                       : {
                           background: "transparent",
-                          color: "hsl(170 58% 14%)",
+                          color: "hsl(166 95% 19%)",
                           borderColor: "hsl(40 18% 80%)",
                         }
                   }

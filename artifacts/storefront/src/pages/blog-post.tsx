@@ -336,7 +336,7 @@ export default function BlogPost() {
           style={{
             background: "hsl(42 53% 54%)",
             borderColor: "hsl(42 53% 44%)",
-            color: "hsl(170 58% 14%)",
+            color: "hsl(166 95% 19%)",
           }}
           data-testid="blog-draft-banner"
           role="status"

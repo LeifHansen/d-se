@@ -24,7 +24,7 @@ export function TestimonialSection() {
     <section
       id="press"
       data-testid="testimonial-section"
-      style={{ background: "hsl(45 49% 90%)", color: "hsl(170 58% 14%)" }}
+      style={{ background: "hsl(45 49% 90%)", color: "hsl(166 95% 19%)" }}
     >
       <div className="mx-auto max-w-7xl px-6 py-24 md:px-10 md:py-28">
         <div className="mx-auto max-w-2xl text-center">

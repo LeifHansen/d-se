@@ -196,7 +196,7 @@ export function Header() {
               className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[9px] font-semibold"
               style={{
                 background: "hsl(42 53% 54%)",
-                color: "hsl(170 58% 14%)",
+                color: "hsl(166 95% 19%)",
               }}
               data-testid="header-cart-count"
             >
@@ -210,7 +210,7 @@ export function Header() {
       {mobileOpen && (
         <div
           className="fixed inset-0 z-50 md:hidden"
-          style={{ background: "hsl(170 58% 14%)" }}
+          style={{ background: "hsl(166 95% 19%)" }}
           data-testid="mobile-menu"
         >
           <div className="flex items-center justify-between px-6 py-4">

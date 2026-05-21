@@ -69,7 +69,7 @@ export function NewsletterModal() {
     >
       <div
         className="relative w-full max-w-md rounded-3xl p-8"
-        style={{ background: "hsl(45 49% 90%)", color: "hsl(170 58% 14%)" }}
+        style={{ background: "hsl(45 49% 90%)", color: "hsl(166 95% 19%)" }}
         onClick={(e) => e.stopPropagation()}
       >
         <button

@@ -68,13 +68,13 @@
 }
 
 /* DŌSE — Brand palette
-   Deep teal: #0F3933   hsl(170 58% 14%)
-   Forest:    #14403A   hsl(173 51% 17%)
-   Sage:      #A8B89D   hsl(95 14% 67%)
-   Seafoam:   #B6C8C2   hsl(170 14% 75%)
-   Cream:     #F1ECDC   hsl(45 49% 90%)
-   Ivory:     #F7F2E2   hsl(45 50% 93%)
-   Gold:      #C9A24C   hsl(42 53% 54%)
+   Emerald:   #00674F   hsl(166 95% 19%)   — primary brand surface / ink
+   Forest hi:            hsl(164 68% 27%)   — gradient highlight
+   Sage:      #A8B89D    hsl(95 14% 67%)
+   Seafoam:   #B6C8C2    hsl(170 14% 75%)
+   Cream:     #F1ECDC    hsl(45 49% 90%)
+   Ivory:     #F7F2E2    hsl(45 50% 93%)
+   Gold:      #C9A24C    hsl(42 53% 54%)
 */
 
 /* LIGHT MODE — cream surface, deep teal ink */
@@ -88,38 +88,38 @@
   --elevate-2: rgba(15,57,51, .07);
 
   --background: 45 49% 90%;
-  --foreground: 170 58% 14%;
+  --foreground: 166 95% 19%;
 
   --border: 40 18% 80%;
 
   --card: 45 50% 93%;
-  --card-foreground: 170 58% 14%;
+  --card-foreground: 166 95% 19%;
   --card-border: 40 18% 80%;
 
-  --sidebar: 170 58% 14%;
+  --sidebar: 166 95% 19%;
   --sidebar-foreground: 45 49% 90%;
   --sidebar-border: 170 30% 22%;
   --sidebar-primary: 42 53% 54%;
-  --sidebar-primary-foreground: 170 58% 14%;
+  --sidebar-primary-foreground: 166 95% 19%;
   --sidebar-accent: 170 14% 75%;
-  --sidebar-accent-foreground: 170 58% 14%;
+  --sidebar-accent-foreground: 166 95% 19%;
   --sidebar-ring: 42 53% 54%;
 
   --popover: 45 50% 93%;
-  --popover-foreground: 170 58% 14%;
+  --popover-foreground: 166 95% 19%;
   --popover-border: 40 18% 80%;
 
-  --primary: 170 58% 14%;
+  --primary: 166 95% 19%;
   --primary-foreground: 45 49% 90%;
 
   --secondary: 95 14% 67%;
-  --secondary-foreground: 170 58% 14%;
+  --secondary-foreground: 166 95% 19%;
 
   --muted: 40 30% 88%;
   --muted-foreground: 170 18% 32%;
 
   --accent: 42 53% 54%;
-  --accent-foreground: 170 58% 14%;
+  --accent-foreground: 166 95% 19%;
 
   --destructive: 12 55% 42%;
   --destructive-foreground: 45 49% 90%;
@@ -130,7 +130,7 @@
   --chart-1: 42 53% 54%;
   --chart-2: 95 14% 67%;
   --chart-3: 170 14% 75%;
-  --chart-4: 170 58% 14%;
+  --chart-4: 166 95% 19%;
   --chart-5: 12 55% 42%;
 
   --app-font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
@@ -138,14 +138,14 @@
   --app-font-display: 'Cormorant Garamond', Georgia, serif;
   --app-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --radius: .5rem;
-  --shadow-2xs: 0px 1px 0px 0px hsl(170 30% 14% / 0.04);
-  --shadow-xs: 0px 1px 2px 0px hsl(170 30% 14% / 0.06);
-  --shadow-sm: 0px 1px 2px 0px hsl(170 30% 14% / 0.08), 0px 1px 1px -1px hsl(170 30% 14% / 0.06);
-  --shadow: 0px 2px 4px -1px hsl(170 30% 14% / 0.10), 0px 1px 2px -1px hsl(170 30% 14% / 0.06);
-  --shadow-md: 0px 4px 6px -1px hsl(170 30% 14% / 0.10), 0px 2px 4px -2px hsl(170 30% 14% / 0.08);
-  --shadow-lg: 0px 10px 15px -3px hsl(170 30% 14% / 0.12), 0px 4px 6px -4px hsl(170 30% 14% / 0.08);
-  --shadow-xl: 0px 20px 25px -5px hsl(170 30% 14% / 0.14), 0px 8px 10px -6px hsl(170 30% 14% / 0.08);
-  --shadow-2xl: 0px 25px 50px -12px hsl(170 30% 14% / 0.25);
+  --shadow-2xs: 0px 1px 0px 0px hsl(167 85% 16% / 0.04);
+  --shadow-xs: 0px 1px 2px 0px hsl(167 85% 16% / 0.06);
+  --shadow-sm: 0px 1px 2px 0px hsl(167 85% 16% / 0.08), 0px 1px 1px -1px hsl(167 85% 16% / 0.06);
+  --shadow: 0px 2px 4px -1px hsl(167 85% 16% / 0.10), 0px 1px 2px -1px hsl(167 85% 16% / 0.06);
+  --shadow-md: 0px 4px 6px -1px hsl(167 85% 16% / 0.10), 0px 2px 4px -2px hsl(167 85% 16% / 0.08);
+  --shadow-lg: 0px 10px 15px -3px hsl(167 85% 16% / 0.12), 0px 4px 6px -4px hsl(167 85% 16% / 0.08);
+  --shadow-xl: 0px 20px 25px -5px hsl(167 85% 16% / 0.14), 0px 8px 10px -6px hsl(167 85% 16% / 0.08);
+  --shadow-2xl: 0px 25px 50px -12px hsl(167 85% 16% / 0.25);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
 
@@ -181,39 +181,39 @@
   --elevate-1: rgba(241,236,220, .04);
   --elevate-2: rgba(241,236,220, .09);
 
-  --background: 170 58% 14%;
+  --background: 166 95% 19%;
   --foreground: 45 49% 90%;
 
   --border: 170 30% 24%;
 
-  --card: 170 50% 18%;
+  --card: 165 58% 25%;
   --card-foreground: 45 49% 90%;
   --card-border: 170 30% 24%;
 
-  --sidebar: 170 60% 11%;
+  --sidebar: 167 95% 13%;
   --sidebar-foreground: 45 49% 90%;
   --sidebar-border: 170 30% 22%;
   --sidebar-primary: 42 53% 54%;
-  --sidebar-primary-foreground: 170 58% 14%;
+  --sidebar-primary-foreground: 166 95% 19%;
   --sidebar-accent: 170 14% 75%;
-  --sidebar-accent-foreground: 170 58% 14%;
+  --sidebar-accent-foreground: 166 95% 19%;
   --sidebar-ring: 42 53% 54%;
 
-  --popover: 170 50% 18%;
+  --popover: 165 58% 25%;
   --popover-foreground: 45 49% 90%;
   --popover-border: 170 30% 24%;
 
   --primary: 42 53% 54%;
-  --primary-foreground: 170 58% 14%;
+  --primary-foreground: 166 95% 19%;
 
   --secondary: 95 14% 67%;
-  --secondary-foreground: 170 58% 14%;
+  --secondary-foreground: 166 95% 19%;
 
   --muted: 170 35% 22%;
   --muted-foreground: 45 25% 78%;
 
   --accent: 170 14% 75%;
-  --accent-foreground: 170 58% 14%;
+  --accent-foreground: 166 95% 19%;
 
   --destructive: 12 55% 52%;
   --destructive-foreground: 45 49% 90%;

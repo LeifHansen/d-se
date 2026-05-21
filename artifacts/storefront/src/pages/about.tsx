@@ -4,8 +4,8 @@ import { Image } from "@/components/dose/Image";
 import { SiteShell } from "@/components/dose/SiteShell";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
-import storyVisual from "@/assets/brand/Dose2/dose2-brand-mockup.jpg?picture";
-import bottleClose from "@/assets/brand/Dose2/dose2-bottle-product.png?picture";
+import storyVisual from "@/assets/brand/final/dose-brand-sheet.jpg?picture";
+import bottleClose from "@/assets/brand/final/dose-bottle-hero.jpg?picture";
 
 export default function About() {
   return (
@@ -15,7 +15,7 @@ export default function About() {
         description="DŌSE is a precision beverage dropper — 1000mg hemp-derived Delta-9 THC in a water-soluble emulsion, tracked from vetted farm to final product."
       />
       <section
-        style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
+        style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
       >
         <div className="mx-auto grid max-w-7xl gap-12 px-6 py-20 md:grid-cols-12 md:gap-16 md:px-10 md:py-28">
           <div className="md:col-span-7">
@@ -62,7 +62,7 @@ export default function About() {
 
       <section
         className="bg-background"
-        style={{ color: "hsl(170 58% 14%)" }}
+        style={{ color: "hsl(166 95% 19%)" }}
       >
         <div className="mx-auto max-w-5xl px-6 py-20 md:px-10 md:py-24">
           <div className="grid gap-10 md:grid-cols-3">
@@ -86,7 +86,7 @@ export default function About() {
                 style={{ borderColor: "hsl(40 18% 80%)" }}
                 data-testid={`about-card-${c.title.toLowerCase()}`}
               >
-                <Emblem className="h-8 w-auto" color="hsl(170 58% 14%)" />
+                <Emblem className="h-8 w-auto" color="hsl(166 95% 19%)" />
                 <h2 className="mt-4 font-display text-2xl">{c.title}</h2>
                 <p
                   className="mt-2 text-sm leading-relaxed"
@@ -131,7 +131,7 @@ export default function About() {
                   asChild
                   className="rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
                   style={{
-                    background: "hsl(170 58% 14%)",
+                    background: "hsl(166 95% 19%)",
                     color: "hsl(45 49% 90%)",
                   }}
                 >

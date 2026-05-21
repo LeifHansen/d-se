@@ -102,7 +102,7 @@ function GuestOrderLookup() {
         type="submit"
         className="mt-4 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
         style={{
-          background: "hsl(170 58% 14%)",
+          background: "hsl(166 95% 19%)",
           color: "hsl(45 49% 90%)",
         }}
         data-testid="lookup-order-submit"
@@ -251,7 +251,7 @@ function OrderRow({ order }: { order: Order }) {
         <Link
           href={`/account/orders/${order.id}`}
           className="text-[11px] font-semibold uppercase tracking-[0.22em]"
-          style={{ color: "hsl(170 58% 14%)" }}
+          style={{ color: "hsl(166 95% 19%)" }}
           data-testid={`link-order-details-${order.id}`}
         >
           View details →
@@ -262,7 +262,7 @@ function OrderRow({ order }: { order: Order }) {
           disabled={reorderMutation.isPending || order.items.length === 0}
           className="rounded-full px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.22em]"
           style={{
-            background: "hsl(170 58% 14%)",
+            background: "hsl(166 95% 19%)",
             color: "hsl(45 49% 90%)",
           }}
           data-testid={`button-reorder-${order.id}`}
@@ -392,7 +392,7 @@ function SavedAddressCard() {
               disabled={isLoading}
               className="rounded-full px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
-                background: "hsl(170 58% 14%)",
+                background: "hsl(166 95% 19%)",
                 color: "hsl(45 49% 90%)",
               }}
               data-testid="saved-address-edit"
@@ -532,7 +532,7 @@ function SavedAddressCard() {
               disabled={update.isPending}
               className="rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
-                background: "hsl(170 58% 14%)",
+                background: "hsl(166 95% 19%)",
                 color: "hsl(45 49% 90%)",
               }}
               data-testid="saved-address-save"
@@ -569,7 +569,7 @@ export default function AccountPage() {
     <SiteShell testId="page-account">
       <Seo title="Your account" noindex />
       <section
-        style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
+        style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
       >
         <div className="mx-auto max-w-4xl px-6 py-16 md:px-10 md:py-20">
           <p
@@ -615,7 +615,7 @@ export default function AccountPage() {
               asChild
               className="mt-5 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
-                background: "hsl(170 58% 14%)",
+                background: "hsl(166 95% 19%)",
                 color: "hsl(45 49% 90%)",
               }}
             >

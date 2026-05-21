@@ -253,7 +253,7 @@ export default function CartPage() {
     <SiteShell testId="page-cart">
       <Seo title="Your cart" noindex />
       <section
-        style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
+        style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
       >
         <div className="mx-auto max-w-5xl px-6 py-16 md:px-10 md:py-20">
           <p
@@ -307,7 +307,7 @@ export default function CartPage() {
           <div className="text-center" data-testid="cart-empty">
             <p
               className="font-display text-3xl"
-              style={{ color: "hsl(170 58% 14%)" }}
+              style={{ color: "hsl(166 95% 19%)" }}
             >
               Your bag is empty.
             </p>
@@ -321,7 +321,7 @@ export default function CartPage() {
               asChild
               className="mt-6 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
-                background: "hsl(170 58% 14%)",
+                background: "hsl(166 95% 19%)",
                 color: "hsl(45 49% 90%)",
               }}
             >
@@ -465,7 +465,7 @@ export default function CartPage() {
                         <span
                           className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
                           style={{
-                            background: "hsl(170 58% 14%)",
+                            background: "hsl(166 95% 19%)",
                             color: "hsl(45 49% 90%)",
                           }}
                           data-testid="summary-discount-code"
@@ -717,7 +717,7 @@ export default function CartPage() {
                 className="mt-6 w-full rounded-full py-6 text-[11px] font-semibold uppercase tracking-[0.22em]"
                 style={{
                   background: "hsl(42 53% 54%)",
-                  color: "hsl(170 58% 14%)",
+                  color: "hsl(166 95% 19%)",
                 }}
                 data-testid="cart-checkout"
               >

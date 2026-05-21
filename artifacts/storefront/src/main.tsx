@@ -13,7 +13,7 @@ import {
 } from "./lib/sentry";
 import { RootErrorBoundary } from "./components/RootErrorBoundary";
 import { startWebVitals } from "./lib/web-vitals";
-import heroBottleSrc from "@/assets/brand/bottle-studio-angle.jpg";
+import heroBottleSrc from "@/assets/brand/final/dose-bottle-hero.jpg";
 
 initSentry();
 installFetchRequestIdBreadcrumbs();

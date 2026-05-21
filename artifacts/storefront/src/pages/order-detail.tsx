@@ -169,7 +169,7 @@ export default function OrderDetailPage() {
         noindex
       />
       <section
-        style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
+        style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
       >
         <div className="mx-auto max-w-3xl px-6 py-14 md:px-10">
           <p
@@ -269,7 +269,7 @@ export default function OrderDetailPage() {
               ) : null}
               <div
                 className="flex justify-between border-t pt-2 font-display text-base"
-                style={{ borderColor: "hsl(40 18% 80%)", color: "hsl(170 58% 14%)" }}
+                style={{ borderColor: "hsl(40 18% 80%)", color: "hsl(166 95% 19%)" }}
               >
                 <dt>Total</dt>
                 <dd data-testid="order-total">
@@ -331,7 +331,7 @@ export default function OrderDetailPage() {
               asChild
               className="mt-8 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
-                background: "hsl(170 58% 14%)",
+                background: "hsl(166 95% 19%)",
                 color: "hsl(45 49% 90%)",
               }}
             >
@@ -372,7 +372,7 @@ export default function OrderDetailPage() {
                 disabled={resendLink.isPending || resendStatus === "sent"}
                 className="mt-5 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
                 style={{
-                  background: "hsl(170 58% 14%)",
+                  background: "hsl(166 95% 19%)",
                   color: "hsl(45 49% 90%)",
                 }}
                 data-testid="order-resend-submit"
@@ -387,7 +387,7 @@ export default function OrderDetailPage() {
                 <p
                   role="status"
                   className="mt-3 text-xs"
-                  style={{ color: "hsl(170 58% 14%)" }}
+                  style={{ color: "hsl(166 95% 19%)" }}
                   data-testid="order-resend-success"
                 >
                   If that email matches the order on file, a fresh link is on
@@ -446,7 +446,7 @@ export default function OrderDetailPage() {
               disabled={lookup.isPending}
               className="mt-5 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
-                background: "hsl(170 58% 14%)",
+                background: "hsl(166 95% 19%)",
                 color: "hsl(45 49% 90%)",
               }}
               data-testid="order-lookup-submit"

@@ -8,7 +8,7 @@ interface LogoProps {
 
 const toneToColor: Record<NonNullable<LogoProps["tone"]>, string> = {
   cream: "hsl(45 49% 90%)",
-  teal: "hsl(170 58% 14%)",
+  teal: "hsl(166 95% 19%)",
   gold: "hsl(42 53% 54%)",
 };
 

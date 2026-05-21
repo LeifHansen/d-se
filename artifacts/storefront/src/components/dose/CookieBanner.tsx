@@ -59,7 +59,7 @@ export function CookieBanner() {
       className="fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-md"
       style={{
         background: "hsla(45, 49%, 90%, 0.96)",
-        color: "hsl(170 58% 14%)",
+        color: "hsl(166 95% 19%)",
         borderColor: "hsl(40 18% 80%)",
       }}
       data-testid="cookie-banner"

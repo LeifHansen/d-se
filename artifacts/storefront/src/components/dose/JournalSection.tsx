@@ -1,8 +1,8 @@
 import { ArrowUpRight } from "lucide-react";
 import { Image } from "./Image";
-import wellnessImg from "@/assets/brand/Dose2/dose2-bottle-collage.png?picture";
-import goldImg from "@/assets/brand/Dose2/dose2-packaging-system.png?picture";
-import bottleImg from "@/assets/brand/Dose2/dose2-bottle-emblem.png?picture";
+import wellnessImg from "@/assets/brand/final/dose-bottle-hero.jpg?picture";
+import goldImg from "@/assets/brand/final/dose-elevation.jpg?picture";
+import bottleImg from "@/assets/brand/final/dose-brand-sheet.jpg?picture";
 
 const posts = [
   {
@@ -36,7 +36,7 @@ export function JournalSection() {
     <section
       id="journal"
       data-testid="journal-section"
-      style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
+      style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
     >
       <div className="mx-auto max-w-7xl px-6 py-24 md:px-10 md:py-28">
         <div className="flex flex-col items-end justify-between gap-6 md:flex-row md:items-end">
@@ -68,7 +68,7 @@ export function JournalSection() {
               href={p.href}
               className="group block overflow-hidden rounded-3xl border"
               style={{
-                background: "hsl(170 50% 18%)",
+                background: "hsl(165 58% 25%)",
                 borderColor: "hsla(45,49%,90%,0.10)",
               }}
               data-testid={`journal-post-${i + 1}`}

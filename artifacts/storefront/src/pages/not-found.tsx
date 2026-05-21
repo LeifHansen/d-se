@@ -6,7 +6,7 @@ export default function NotFound() {
   return (
     <div
       className="flex min-h-screen w-full flex-col items-center justify-center px-6 text-center"
-      style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
+      style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
       data-testid="not-found"
     >
       <Seo title="Page not found" description="The page you're looking for couldn't be found." noindex />
@@ -33,7 +33,7 @@ export default function NotFound() {
         className="mt-10 rounded-full px-8 py-6 text-[12px] font-semibold uppercase tracking-[0.22em]"
         style={{
           background: "hsl(42 53% 54%)",
-          color: "hsl(170 58% 14%)",
+          color: "hsl(166 95% 19%)",
           borderColor: "hsl(42 53% 46%)",
         }}
         data-testid="not-found-cta"

@@ -14,22 +14,22 @@ const VARIANTS: Record<
   }
 > = {
   light: {
-    input: { color: "hsl(170 58% 14%)" },
+    input: { color: "hsl(166 95% 19%)" },
     button: {
-      background: "hsl(170 58% 14%)",
+      background: "hsl(166 95% 19%)",
       color: "hsl(45 49% 90%)",
-      borderColor: "hsl(170 60% 11%)",
+      borderColor: "hsl(167 95% 13%)",
     },
-    success: { background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" },
+    success: { background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" },
   },
   dark: {
-    input: { color: "hsl(170 58% 14%)" },
+    input: { color: "hsl(166 95% 19%)" },
     button: {
       background: "hsl(42 53% 54%)",
-      color: "hsl(170 58% 14%)",
+      color: "hsl(166 95% 19%)",
       borderColor: "hsl(42 53% 46%)",
     },
-    success: { background: "hsl(45 49% 90%)", color: "hsl(170 58% 14%)" },
+    success: { background: "hsl(45 49% 90%)", color: "hsl(166 95% 19%)" },
   },
 };
 

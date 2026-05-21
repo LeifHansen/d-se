@@ -11,7 +11,7 @@ export function MysteryOfferPill() {
       className="fixed bottom-5 right-5 z-30 flex items-center gap-3 rounded-full px-4 py-2.5 shadow-lg"
       style={{
         background: "hsl(42 53% 54%)",
-        color: "hsl(170 58% 14%)",
+        color: "hsl(166 95% 19%)",
       }}
       data-testid="mystery-offer"
     >

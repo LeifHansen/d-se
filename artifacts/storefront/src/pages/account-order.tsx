@@ -134,7 +134,7 @@ export default function AccountOrderPage() {
         noindex
       />
       <section
-        style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
+        style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
       >
         <div className="mx-auto max-w-4xl px-6 py-12 md:px-10 md:py-16">
           <Link
@@ -184,7 +184,7 @@ export default function AccountOrderPage() {
               asChild
               className="mt-5 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
-                background: "hsl(170 58% 14%)",
+                background: "hsl(166 95% 19%)",
                 color: "hsl(45 49% 90%)",
               }}
             >
@@ -244,7 +244,7 @@ export default function AccountOrderPage() {
                   }
                   className="rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
                   style={{
-                    background: "hsl(170 58% 14%)",
+                    background: "hsl(166 95% 19%)",
                     color: "hsl(45 49% 90%)",
                   }}
                   data-testid="button-reorder"

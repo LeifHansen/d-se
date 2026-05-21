@@ -168,7 +168,7 @@ function ReviewForm({ slug }: { slug: string }) {
         disabled={submit.isPending}
         className="mt-5 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
         style={{
-          background: "hsl(170 58% 14%)",
+          background: "hsl(166 95% 19%)",
           color: "hsl(45 49% 90%)",
         }}
         data-testid="button-submit-review"
@@ -306,7 +306,7 @@ export default function ProductPage() {
             asChild
             className="mt-6 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
             style={{
-              background: "hsl(170 58% 14%)",
+              background: "hsl(166 95% 19%)",
               color: "hsl(45 49% 90%)",
             }}
           >
@@ -406,7 +406,7 @@ export default function ProductPage() {
               ) : null}
               <p
                 className="mt-4 font-display text-3xl"
-                style={{ color: "hsl(170 58% 14%)" }}
+                style={{ color: "hsl(166 95% 19%)" }}
                 data-testid="product-price"
               >
                 {formatMoney(product.priceCents, product.currency)}
@@ -475,7 +475,7 @@ export default function ProductPage() {
                   className="rounded-full px-8 py-6 text-[11px] font-semibold uppercase tracking-[0.22em]"
                   style={{
                     background: "hsl(42 53% 54%)",
-                    color: "hsl(170 58% 14%)",
+                    color: "hsl(166 95% 19%)",
                     borderColor: "hsl(42 53% 46%)",
                   }}
                   data-testid="button-add-to-cart"

@@ -28,7 +28,7 @@ export function RitualSection() {
     <section
       id="how"
       data-testid="ritual-section"
-      style={{ background: "hsl(95 14% 67%)", color: "hsl(170 58% 14%)" }}
+      style={{ background: "hsl(95 14% 67%)", color: "hsl(166 95% 19%)" }}
     >
       <div className="mx-auto max-w-7xl px-6 py-24 md:px-10 md:py-28">
         <div className="mx-auto max-w-2xl text-center">

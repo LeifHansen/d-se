@@ -107,7 +107,7 @@ export function ProductSection() {
       id="shop"
       data-testid="product-section"
       className="relative"
-      style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
+      style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
     >
       <div className="mx-auto max-w-7xl px-6 py-24 md:px-10 md:py-32">
         <div className="flex flex-col items-end justify-between gap-6 md:flex-row md:items-end">
@@ -145,7 +145,7 @@ export function ProductSection() {
           <div
             className="mt-14 rounded-2xl border p-6 text-center text-sm"
             style={{
-              background: "hsl(170 50% 18%)",
+              background: "hsl(165 58% 25%)",
               borderColor: "hsla(45,49%,90%,0.10)",
               color: "hsla(45,49%,90%,0.85)",
             }}
@@ -158,7 +158,7 @@ export function ProductSection() {
           <div
             className="mt-14 rounded-2xl border p-6 text-center text-sm"
             style={{
-              background: "hsl(170 50% 18%)",
+              background: "hsl(165 58% 25%)",
               borderColor: "hsla(45,49%,90%,0.10)",
               color: "hsla(45,49%,90%,0.85)",
             }}
@@ -180,7 +180,7 @@ export function ProductSection() {
               <div
                 className="mt-14 grid gap-10 overflow-hidden rounded-3xl border md:grid-cols-2"
                 style={{
-                  background: "hsl(170 50% 18%)",
+                  background: "hsl(165 58% 25%)",
                   borderColor: "hsla(45,49%,90%,0.10)",
                 }}
                 data-testid={`product-card-${p.slug}`}
@@ -202,14 +202,14 @@ export function ProductSection() {
                   ) : (
                     <div
                       className="h-full w-full"
-                      style={{ background: "hsl(170 60% 11%)" }}
+                      style={{ background: "hsl(167 95% 13%)" }}
                       aria-hidden="true"
                     />
                   )}
                   {badge && (
                     <span
                       className="absolute left-5 top-5 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em]"
-                      style={{ background: "hsl(45 49% 90%)", color: "hsl(170 58% 14%)" }}
+                      style={{ background: "hsl(45 49% 90%)", color: "hsl(166 95% 19%)" }}
                     >
                       {badge}
                     </span>
@@ -264,7 +264,7 @@ export function ProductSection() {
                       className="w-full rounded-full py-6 text-[12px] font-semibold uppercase tracking-[0.22em]"
                       style={{
                         background: "hsl(42 53% 54%)",
-                        color: "hsl(170 58% 14%)",
+                        color: "hsl(166 95% 19%)",
                         borderColor: "hsl(42 53% 46%)",
                       }}
                       disabled={isAdding || p.inventory <= 0}
@@ -304,7 +304,7 @@ export function ProductSection() {
                   key={p.id}
                   className="group flex flex-col overflow-hidden rounded-3xl border"
                   style={{
-                    background: "hsl(170 50% 18%)",
+                    background: "hsl(165 58% 25%)",
                     borderColor: "hsla(45,49%,90%,0.10)",
                   }}
                   data-testid={`product-card-${p.slug}`}
@@ -326,14 +326,14 @@ export function ProductSection() {
                     ) : (
                       <div
                         className="h-full w-full"
-                        style={{ background: "hsl(170 60% 11%)" }}
+                        style={{ background: "hsl(167 95% 13%)" }}
                         aria-hidden="true"
                       />
                     )}
                     {badge && (
                       <span
                         className="absolute left-4 top-4 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em]"
-                        style={{ background: "hsl(45 49% 90%)", color: "hsl(170 58% 14%)" }}
+                        style={{ background: "hsl(45 49% 90%)", color: "hsl(166 95% 19%)" }}
                       >
                         {badge}
                       </span>
@@ -390,7 +390,7 @@ export function ProductSection() {
                         className="w-full rounded-full py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
                         style={{
                           background: "hsl(42 53% 54%)",
-                          color: "hsl(170 58% 14%)",
+                          color: "hsl(166 95% 19%)",
                           borderColor: "hsl(42 53% 46%)",
                         }}
                         disabled={isAdding || p.inventory <= 0}

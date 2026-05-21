@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Logo } from "./Logo";
 import { Button } from "@/components/ui/button";
 import { Image } from "./Image";
-import productBoxes from "@/assets/brand/Dose2/dose2-bottle-collage.png?picture";
+import productBoxes from "@/assets/brand/final/dose-elevation.jpg?picture";
 
 const STORAGE_KEY = "dose-age-confirmed";
 
@@ -84,7 +84,7 @@ export function AgeGate() {
     >
       <div
         className="grid w-full max-w-3xl overflow-hidden rounded-2xl shadow-2xl md:grid-cols-[1.1fr_0.9fr]"
-        style={{ background: "hsl(45 50% 93%)", color: "hsl(170 58% 14%)" }}
+        style={{ background: "hsl(45 50% 93%)", color: "hsl(166 95% 19%)" }}
       >
         <div className="flex flex-col items-center justify-center gap-5 p-8 text-center md:p-10">
           <Logo variant="stacked" tone="teal" />

@@ -383,7 +383,7 @@ export default function CheckoutPage() {
             asChild
             className="mt-6 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
             style={{
-              background: "hsl(170 58% 14%)",
+              background: "hsl(166 95% 19%)",
               color: "hsl(45 49% 90%)",
             }}
           >
@@ -398,7 +398,7 @@ export default function CheckoutPage() {
     <SiteShell testId="page-checkout">
       <Seo title="Checkout" noindex />
       <section
-        style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
+        style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
       >
         <div className="mx-auto max-w-5xl px-6 py-14 md:px-10">
           <p
@@ -679,7 +679,7 @@ export default function CheckoutPage() {
                           <button
                             type="button"
                             className="text-[11px] font-semibold uppercase tracking-[0.18em] underline underline-offset-2"
-                            style={{ color: "hsl(170 58% 14%)" }}
+                            style={{ color: "hsl(166 95% 19%)" }}
                             onClick={() =>
                               removeItem.mutate({
                                 itemId: it.id,
@@ -705,7 +705,7 @@ export default function CheckoutPage() {
                           <button
                             type="button"
                             className="text-[11px] font-semibold uppercase tracking-[0.18em] underline underline-offset-2"
-                            style={{ color: "hsl(170 58% 14%)" }}
+                            style={{ color: "hsl(166 95% 19%)" }}
                             onClick={() =>
                               updateItem.mutate({
                                 itemId: it.id,
@@ -765,7 +765,7 @@ export default function CheckoutPage() {
               className="mt-6 w-full rounded-full py-6 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
                 background: "hsl(42 53% 54%)",
-                color: "hsl(170 58% 14%)",
+                color: "hsl(166 95% 19%)",
               }}
               data-testid="checkout-submit"
             >
@@ -819,7 +819,7 @@ export default function CheckoutPage() {
                   asChild
                   className="mt-3 rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em]"
                   style={{
-                    background: "hsl(170 58% 14%)",
+                    background: "hsl(166 95% 19%)",
                     color: "hsl(45 49% 90%)",
                   }}
                 >

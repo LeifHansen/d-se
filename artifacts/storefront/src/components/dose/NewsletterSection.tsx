@@ -4,7 +4,7 @@ export function NewsletterSection() {
   return (
     <section
       data-testid="newsletter-section"
-      style={{ background: "hsl(170 14% 75%)", color: "hsl(170 58% 14%)" }}
+      style={{ background: "hsl(170 14% 75%)", color: "hsl(166 95% 19%)" }}
     >
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-20 md:grid-cols-2 md:px-10">
         <div>

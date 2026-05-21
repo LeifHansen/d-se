@@ -18,7 +18,7 @@ import { useStoredCartId } from "@/lib/cart";
 import { formatMoney } from "@/lib/api";
 
 const CREAM = "hsl(45 49% 90%)";
-const FOREST = "hsl(170 58% 14%)";
+const FOREST = "hsl(166 95% 19%)";
 const GOLD = "hsl(42 53% 54%)";
 
 export function CartDrawer({
