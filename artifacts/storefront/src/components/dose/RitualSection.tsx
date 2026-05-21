@@ -8,18 +8,18 @@ const steps = [
   },
   {
     icon: Droplet,
-    title: "Add a drop",
-    body: "Squeeze the dropper. 10 mg dialed-in, every time.",
+    title: "Add your dose",
+    body: "Squeeze the precision dropper and control your exact serving.",
   },
   {
     icon: Leaf,
     title: "Stir & sip",
-    body: "Light citrus notes blend in clean. Effects in 15–30 minutes.",
+    body: "The water-soluble emulsion blends in clean — no oily film, no haze.",
   },
   {
     icon: MoonStar,
-    title: "Settle in",
-    body: "A clear, gentle lift that lasts 2–3 hours, then softly fades.",
+    title: "Feel it fast",
+    body: "Rapid onset you can count on, then a smooth, stable landing.",
   },
 ];
 

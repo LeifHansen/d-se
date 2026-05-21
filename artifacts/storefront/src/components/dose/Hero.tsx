@@ -33,21 +33,22 @@ export function Hero() {
               className="h-1.5 w-1.5 rounded-full"
               style={{ background: "hsl(42 53% 54%)" }}
             />
-            New: Wellness Elixir
+            1000mg Hemp-Derived Delta-9 THC
           </div>
 
           <h1 className="font-display text-[14vw] leading-[0.95] sm:text-7xl md:text-[5.5rem] lg:text-[6.75rem]">
-            A drop of <span className="font-display-italic" style={{ color: "hsl(95 30% 78%)" }}>calm</span>,
+            The finest cannabinoid
             <br />
-            measured to the <span className="font-display-italic" style={{ color: "hsl(42 53% 64%)" }}>milligram.</span>
+            emulsion <span className="font-display-italic" style={{ color: "hsl(42 53% 64%)" }}>ever bottled.</span>
           </h1>
 
           <p
             className="mt-6 max-w-lg text-base md:text-lg"
             style={{ color: "hsla(45, 49%, 90%, 0.78)" }}
           >
-            DŌSE is a precision THC dropper designed to lift any drink. One drop, ten
-            milligrams, zero guesswork — crafted for the moments between hustle and rest.
+            DŌSE is a precision beverage dropper — 1000mg of hemp-derived Delta-9 THC
+            in a water-soluble emulsion. Rapid onset, stable for the long haul, and
+            traceable from vetted farm to the final drop in your glass.
           </p>
 
           <div className="mt-10 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
@@ -81,9 +82,9 @@ export function Hero() {
           {/* Trust strip */}
           <dl className="mt-14 grid max-w-xl grid-cols-3 gap-6">
             {[
-              { label: "MG / Drop", value: "10" },
-              { label: "Doses / Bottle", value: "30" },
-              { label: "Lab Tested", value: "100%" },
+              { label: "MG Delta-9 / Bottle", value: "1000" },
+              { label: "Batches Lab-Tested", value: "100%" },
+              { label: "Precision Dropper", value: "10mL" },
             ].map((s) => (
               <div key={s.label} className="border-l pl-4" style={{ borderColor: "hsla(45,49%,90%,0.18)" }}>
                 <dt

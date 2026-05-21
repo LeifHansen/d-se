@@ -1,19 +1,19 @@
 const reviews = [
   {
     quote:
-      "Finally a way to enjoy THC that doesn't taste like cough syrup or knock me out. The dropper is genius.",
+      "It mixes in completely clear — no oil slick, no aftertaste. You'd never know it was in the glass until it hits.",
     author: "Maya R.",
     location: "Brooklyn, NY",
   },
   {
     quote:
-      "I add a drop to my evening tea and just… exhale. It's the only nightcap I look forward to.",
+      "The onset is genuinely fast and predictable. I finally trust a product to do the same thing every time.",
     author: "Jordan T.",
     location: "Austin, TX",
   },
   {
     quote:
-      "Dose is the first product where I actually felt in control of my high. Ten milligrams, dialed-in.",
+      "I checked the batch ID and actually found the lab report. That kind of transparency sold me for good.",
     author: "Priya S.",
     location: "Los Angeles, CA",
   },

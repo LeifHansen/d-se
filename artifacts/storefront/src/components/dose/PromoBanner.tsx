@@ -1,10 +1,11 @@
 import { ArrowRight } from "lucide-react";
 
 const messages = [
+  "1000MG HEMP-DERIVED DELTA-9 THC",
+  "TRACKED FROM FARM TO FINAL PRODUCT",
+  "RAPID ONSET · STABLE SHELF LIFE",
+  "EVERY BATCH THIRD-PARTY LAB TESTED",
   "FREE SHIPPING ON ORDERS $60+",
-  "BUNDLE 3 BOTTLES, SAVE 20%",
-  "NEW: WELLNESS ELIXIR — LIMITED RUN",
-  "30-DAY HAPPINESS GUARANTEE",
 ];
 
 export function PromoBanner() {

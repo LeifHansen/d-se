@@ -15,7 +15,7 @@ export function StorySection() {
           <div className="aspect-[4/5] w-full overflow-hidden rounded-3xl shadow-xl">
             <Image
               picture={storyFeature}
-              alt="DŌSE bottle in a candlelit bar setting"
+              alt="DŌSE — tracked from vetted farm to final bottled product"
               className="h-full w-full object-cover"
               pictureClassName="block h-full w-full"
               sizes="(min-width: 768px) 40vw, 90vw"
@@ -24,32 +24,33 @@ export function StorySection() {
         </div>
         <div className="md:col-span-7 md:pt-6">
           <p className="eyebrow" style={{ color: "hsl(170 18% 32%)" }}>
-            Our Story
+            Farm to Final Product
           </p>
           <h2 className="mt-3 font-display text-5xl leading-tight md:text-6xl">
-            Made for the moments
+            Tracked from farm
             <br />
-            <span className="font-display-italic">in between.</span>
+            <span className="font-display-italic">to final drop.</span>
           </h2>
           <p className="mt-6 max-w-xl text-lg leading-relaxed" style={{ color: "hsl(170 18% 28%)" }}>
-            We believe better living comes in small, intentional doses. So we built a dropper
-            you can trust — distilled, lab-verified, and dialed-in to ten precise milligrams
-            per drop. No edibles roulette. No sugary mixers. Just a clean lift, on your terms.
+            Every DŌSE bottle starts with a vetted farm and ends with a batch ID you
+            can trace. We audit our hemp sources, emulsify the cannabinoids in-house
+            for rapid, even onset, and third-party test every batch — so what reaches
+            your glass is, simply, the best cannabinoid emulsion on the market.
           </p>
 
           <div className="mt-10 grid gap-6 sm:grid-cols-3">
             {[
               {
-                title: "Distilled",
-                body: "Triple-distilled hemp-derived THC for purity you can taste.",
+                title: "Vetted",
+                body: "Every hemp source is audited and approved before a single plant is harvested.",
               },
               {
-                title: "Dosed",
-                body: "10 mg per drop. 30 doses per bottle. Same lift, every time.",
+                title: "Emulsified",
+                body: "A water-soluble emulsion built for rapid onset and a clean, even lift.",
               },
               {
-                title: "Devoted",
-                body: "Third-party tested, made in small batches, shipped fast.",
+                title: "Traced",
+                body: "Every bottle carries a batch ID linking back to farm, lab, and fill date.",
               },
             ].map((card) => (
               <div

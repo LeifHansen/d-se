@@ -6,26 +6,26 @@ import bottleImg from "@/assets/brand/Dose2/dose2-bottle-emblem.png?picture";
 
 const posts = [
   {
-    eyebrow: "Education",
-    title: "How a 10 mg drop actually compares to a gummy",
+    eyebrow: "The Science",
+    title: "Why a water-soluble emulsion beats oil",
     excerpt:
-      "Why drops absorb cleaner, hit faster, and let you stack milligrams more honestly.",
+      "How emulsified cannabinoids absorb faster, dose more evenly, and mix without a film.",
     img: wellnessImg,
     href: "#post-1",
   },
   {
-    eyebrow: "Ritual",
-    title: "Five mocktails that pair with one DŌSE drop",
+    eyebrow: "Traceability",
+    title: "What a DŌSE batch ID actually tells you",
     excerpt:
-      "From a smoky paloma to a yuzu spritz — recipes from our test kitchen.",
+      "Scan it and you'll see the farm, the harvest, the lab panel, and the fill date.",
     img: goldImg,
     href: "#post-2",
   },
   {
     eyebrow: "Inside DŌSE",
-    title: "Why we obsess over third-party lab tests",
+    title: "How we vet a hemp farm before we buy",
     excerpt:
-      "Every batch, every cannabinoid, every trace solvent — published, not promised.",
+      "Soil, water, cultivation practices, and full-panel testing — before a single plant is harvested.",
     img: bottleImg,
     href: "#post-3",
   },

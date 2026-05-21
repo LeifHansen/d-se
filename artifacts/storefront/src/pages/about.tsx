@@ -12,7 +12,7 @@ export default function About() {
     <SiteShell testId="page-about">
       <Seo
         title="Our Story"
-        description="DŌSE is a precision THC dropper made in small, intentional batches. Distilled, dosed, devoted."
+        description="DŌSE is a precision beverage dropper — 1000mg hemp-derived Delta-9 THC in a water-soluble emulsion, tracked from vetted farm to final product."
       />
       <section
         style={{ background: "hsl(170 58% 14%)", color: "hsl(45 49% 90%)" }}
@@ -26,23 +26,24 @@ export default function About() {
               Our Story
             </p>
             <h1 className="mt-3 font-display text-5xl leading-[0.95] md:text-7xl">
-              Better living,
+              The best emulsion
               <br />
               <span
                 className="font-display-italic"
                 style={{ color: "hsl(95 30% 78%)" }}
               >
-                in small doses.
+                on the market.
               </span>
             </h1>
             <p
               className="mt-6 max-w-xl text-base md:text-lg"
               style={{ color: "hsla(45,49%,90%,0.78)" }}
             >
-              We started DŌSE because the cannabis category was a mess — sticky
-              gummies of unknown strength, syrupy drinks, and hype dressed up
-              as wellness. We wanted a dropper we could actually trust. So we
-              made one.
+              We started DŌSE because the cannabis category was a mess — unknown
+              strengths, oily drinks, and hype dressed up as wellness. We set
+              out to build the highest-quality cannabinoid emulsion available:
+              vetted sources, rapid onset, long-term stability, and a paper
+              trail from farm to final product.
             </p>
           </div>
           <div className="md:col-span-5">
@@ -67,16 +68,16 @@ export default function About() {
           <div className="grid gap-10 md:grid-cols-3">
             {[
               {
-                title: "Distilled",
-                body: "Triple-distilled, hemp-derived ∆9-THC for a clean, neutral profile. No solvents. No additives.",
+                title: "Vetted",
+                body: "Hemp-derived Delta-9 THC from farms we audit and approve — soil, water, and cultivation practices included.",
               },
               {
-                title: "Dosed",
-                body: "10 mg per drop. 30 doses per bottle. The same precise lift, every time, with no edibles guesswork.",
+                title: "Emulsified",
+                body: "A water-soluble cannabinoid emulsion for rapid onset, even dosing, and a clean mix with no oily film.",
               },
               {
-                title: "Devoted",
-                body: "Third-party tested by an ISO-accredited lab. Every batch published, never promised.",
+                title: "Traced",
+                body: "Third-party tested by an ISO-accredited lab. Every batch gets an ID linking back to farm, panel, and fill date.",
               },
             ].map((c) => (
               <div
@@ -119,11 +120,11 @@ export default function About() {
                 className="mt-5 text-base leading-relaxed"
                 style={{ color: "hsl(170 18% 28%)" }}
               >
-                We're a small team of formulators, designers, and chefs based
-                between Brooklyn and Los Angeles. We test every batch on
-                ourselves, our partners, and a small panel of friends. If a
-                drop doesn't earn its place in our own evening ritual, it
-                doesn't ship.
+                We're a small team of formulators and designers obsessed with
+                one thing: a cannabinoid emulsion that performs the same way
+                every single time. We test every batch on ourselves before it
+                ships, and we publish the lab panel behind every bottle. Rapid
+                onset, stable for the long haul — no guesswork, no shortcuts.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button
