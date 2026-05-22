@@ -4,7 +4,7 @@ import { Image } from "@/components/dose/Image";
 import { SiteShell } from "@/components/dose/SiteShell";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
-import storyVisual from "@/assets/brand/final/dose-brand-sheet.jpg?picture";
+import storyVisual from "@/assets/brand/final/emblem-gold.jpg?picture";
 import bottleClose from "@/assets/brand/final/dose-bottle-hero.jpg?picture";
 
 export default function About() {

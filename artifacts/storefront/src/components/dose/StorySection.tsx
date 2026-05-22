@@ -1,6 +1,6 @@
 import { Emblem } from "./Logo";
 import { Image } from "./Image";
-import storyFeature from "@/assets/brand/final/dose-brand-sheet.jpg?picture";
+import storyFeature from "@/assets/brand/final/bottle-mockup.jpg?picture";
 
 export function StorySection() {
   return (
