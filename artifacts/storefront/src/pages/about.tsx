@@ -5,7 +5,7 @@ import { SiteShell } from "@/components/dose/SiteShell";
 import { Seo } from "@/components/seo/Seo";
 import { Button } from "@/components/ui/button";
 import storyVisual from "@/assets/brand/final/emblem-gold.jpg?picture";
-import bottleClose from "@/assets/brand/final/dose-bottle-hero.jpg?picture";
+import bottleClose from "@/assets/brand/final/logo-teal.jpg?picture";
 
 export default function About() {
   return (
@@ -50,7 +50,7 @@ export default function About() {
             <div className="aspect-[4/5] w-full overflow-hidden rounded-3xl shadow-2xl">
               <Image
                 picture={storyVisual}
-                alt="DŌSE bottle on a marble table beside a glass of water"
+                alt="DŌSE mountain-droplet emblem"
                 className="h-full w-full object-cover"
                 pictureClassName="block h-full w-full"
                 sizes="(min-width: 768px) 40vw, 90vw"
@@ -103,7 +103,7 @@ export default function About() {
               <div className="aspect-square w-full overflow-hidden rounded-3xl">
                 <Image
                   picture={bottleClose}
-                  alt="DŌSE bottle detail"
+                  alt="DŌSE logo lockup"
                   className="h-full w-full object-cover"
                   pictureClassName="block h-full w-full"
                   sizes="(min-width: 768px) 40vw, 90vw"

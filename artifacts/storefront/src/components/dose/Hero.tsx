@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import bottleHero from "@/assets/brand/final/dose-bottle-hero.jpg";
+import bottleHero from "@/assets/brand/final/emblem-gold.jpg";
 
 export function Hero() {
   return (
@@ -111,7 +111,7 @@ export function Hero() {
           >
             <img
               src={bottleHero}
-              alt="DŌSE THC Infused Beverage Dropper — 1000mg hemp-derived Delta-9"
+              alt="DŌSE — the mountain-droplet emblem"
               className="absolute inset-0 h-full w-full object-cover"
               fetchPriority="high"
             />

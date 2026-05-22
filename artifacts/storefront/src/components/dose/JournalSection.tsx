@@ -1,8 +1,8 @@
 import { ArrowUpRight } from "lucide-react";
 import { Image } from "./Image";
-import wellnessImg from "@/assets/brand/final/dose-bottle-hero.jpg?picture";
+import wellnessImg from "@/assets/brand/final/lifestyle-toast.jpg?picture";
 import goldImg from "@/assets/brand/final/emblem-gold.jpg?picture";
-import bottleImg from "@/assets/brand/final/bottle-mockup.jpg?picture";
+import bottleImg from "@/assets/brand/final/logo-teal.jpg?picture";
 
 const posts = [
   {
