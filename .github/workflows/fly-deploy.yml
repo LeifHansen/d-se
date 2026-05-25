@@ -1,0 +1,40 @@
+name: fly-deploy
+
+# Deploys the storefront + api-server bundle to fly.io.
+#
+# Required GitHub repo secrets:
+#   FLY_API_TOKEN  — `flyctl tokens create deploy` (scoped to the d-se app)
+#
+# Optional build-time secret for full SEO prerender (per-product / per-blog HTML):
+#   FLY_BUILD_DATABASE_URL  — postgres URL used only at docker-build time
+#
+# Trigger: push to main, or manual via the Actions tab ("Run workflow").
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: fly-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy to fly.io
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - name: Deploy
+        run: |
+          if [ -n "${{ secrets.FLY_BUILD_DATABASE_URL }}" ]; then
+            flyctl deploy --remote-only \
+              --build-secret DATABASE_URL="${{ secrets.FLY_BUILD_DATABASE_URL }}" \
+              --build-arg PRERENDER_ALLOW_NO_DB=0
+          else
+            flyctl deploy --remote-only
+          fi

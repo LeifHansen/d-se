@@ -1,0 +1,39 @@
+name: cloudflare-purge
+
+# Purges Cloudflare's edge cache after a successful Fly deploy, so the next
+# request fetches the freshly-deployed assets/HTML from origin.
+#
+# Required GitHub repo secrets:
+#   CLOUDFLARE_API_TOKEN  — token with Zone.Cache Purge permission for the zone
+#   CLOUDFLARE_ZONE_ID    — the zone id (Cloudflare dashboard → Overview → API → Zone ID)
+#
+# Trigger: runs automatically after `fly-deploy` completes successfully on main,
+# or manually via the Actions tab.
+
+on:
+  workflow_run:
+    workflows: [fly-deploy]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  purge:
+    name: purge cloudflare cache
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Purge everything
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ZONE: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+        run: |
+          if [ -z "$CF_TOKEN" ] || [ -z "$CF_ZONE" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN or CLOUDFLARE_ZONE_ID is unset; skipping"
+            exit 1
+          fi
+          curl -sS -f -X POST \
+            "https://api.cloudflare.com/client/v4/zones/${CF_ZONE}/purge_cache" \
+            -H "Authorization: Bearer ${CF_TOKEN}" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}'
