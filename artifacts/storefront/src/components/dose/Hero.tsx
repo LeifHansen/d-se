@@ -36,7 +36,7 @@ export function Hero() {
           <h1 className="font-display text-[14vw] leading-[0.95] sm:text-7xl md:text-[5.5rem] lg:text-[6.75rem]">
             The finest cannabinoid
             <br />
-            emulsion{" "}
+            beverage additive{" "}
             <span className="font-display-italic" style={{ color: "hsl(42 53% 64%)" }}>
               ever bottled.
             </span>
@@ -46,8 +46,8 @@ export function Hero() {
             className="mt-6 max-w-lg text-base md:text-lg"
             style={{ color: "hsla(45, 49%, 90%, 0.78)" }}
           >
-            DŌSE is a precision beverage dropper — 1000mg of hemp-derived Delta-9 THC
-            in a water-soluble emulsion. Rapid onset, stable for the long haul, and
+            DŌSE is a precision beverage additive — 1000mg of hemp-derived Delta-9 THC,
+            water-soluble. Rapid onset, stable for the long haul, and
             traceable from vetted farm to the final drop in your glass.
           </p>
 

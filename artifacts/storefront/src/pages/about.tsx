@@ -12,7 +12,7 @@ export default function About() {
     <SiteShell testId="page-about">
       <Seo
         title="Our Story"
-        description="DŌSE is a precision beverage dropper — 1000mg hemp-derived Delta-9 THC in a water-soluble emulsion, tracked from vetted farm to final product."
+        description="DŌSE is a precision beverage additive — 1000mg hemp-derived Delta-9 THC, water-soluble, tracked from vetted farm to final product."
       />
       <section
         style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
@@ -26,7 +26,7 @@ export default function About() {
               Our Story
             </p>
             <h1 className="mt-3 font-display text-5xl leading-[0.95] md:text-7xl">
-              The best emulsion
+              The best additive
               <br />
               <span
                 className="font-display-italic"
@@ -41,7 +41,7 @@ export default function About() {
             >
               We started DŌSE because the cannabis category was a mess — unknown
               strengths, oily drinks, and hype dressed up as wellness. We set
-              out to build the highest-quality cannabinoid emulsion available:
+              out to build the highest-quality cannabinoid beverage additive available:
               vetted sources, rapid onset, long-term stability, and a paper
               trail from farm to final product.
             </p>
@@ -73,7 +73,7 @@ export default function About() {
               },
               {
                 title: "Emulsified",
-                body: "A water-soluble cannabinoid emulsion for rapid onset, even dosing, and a clean mix with no oily film.",
+                body: "A water-soluble cannabinoid beverage additive for rapid onset, even dosing, and a clean mix with no oily film.",
               },
               {
                 title: "Traced",
@@ -121,7 +121,7 @@ export default function About() {
                 style={{ color: "hsl(170 18% 28%)" }}
               >
                 We're a small team of formulators and designers obsessed with
-                one thing: a cannabinoid emulsion that performs the same way
+                one thing: a cannabinoid beverage additive that performs the same way
                 every single time. We test every batch on ourselves before it
                 ships, and we publish the lab panel behind every bottle. Rapid
                 onset, stable for the long haul — no guesswork, no shortcuts.

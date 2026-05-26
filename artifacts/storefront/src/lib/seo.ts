@@ -3,14 +3,14 @@ const RAW_SITE_URL =
   (import.meta.env.VITE_REPLIT_DEV_DOMAIN
     ? `https://${import.meta.env.VITE_REPLIT_DEV_DOMAIN as string}`
     : undefined) ??
-  "https://dose.example.com";
+  "https://xn--dse-qxa.com";
 
 export const SITE_URL = RAW_SITE_URL.replace(/\/$/, "");
 
 export const SITE_NAME = "DŌSE";
-export const SITE_TAGLINE = "Liquid THC Wellness Elixir";
+export const SITE_TAGLINE = "THC Beverage Additive";
 export const SITE_DESCRIPTION =
-  "DŌSE is a precisely formulated THC-infused beverage dropper. Add a drop to any drink for a calm, controlled lift. Wellness elixir, dialed in.";
+  "DŌSE is a precisely formulated THC beverage additive. Add a drop to any drink for a calm, controlled lift.";
 export const DEFAULT_OG_IMAGE = "/opengraph.jpg";
 export const TWITTER_HANDLE = "@dosewellness";
 

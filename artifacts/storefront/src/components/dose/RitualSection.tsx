@@ -14,7 +14,7 @@ const steps = [
   {
     icon: Leaf,
     title: "Stir & sip",
-    body: "The water-soluble emulsion blends in clean — no oily film, no haze.",
+    body: "The water-soluble beverage additive blends in clean — no oily film, no haze.",
   },
   {
     icon: MoonStar,

@@ -5,6 +5,10 @@ import { SITE_URL } from "../lib/site-url";
 
 const router: IRouter = Router();
 
+function isComingSoon(): boolean {
+  return process.env.COMING_SOON === "1";
+}
+
 // Only includes routes that are actually implemented in the storefront SPA.
 // Add new entries here as customer-facing pages ship — keep this list strictly
 // in sync with implemented public routes so the sitemap never advertises 404s.
@@ -30,6 +34,13 @@ function urlEntry(loc: string, lastmod?: Date | null, changefreq?: string, prior
 }
 
 router.get("/sitemap.xml", async (_req, res): Promise<void> => {
+  if (isComingSoon()) {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>\n`;
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=300");
+    res.send(xml);
+    return;
+  }
   const [products, posts] = await Promise.all([
     db
       .select({
@@ -81,19 +92,21 @@ router.get("/sitemap.xml", async (_req, res): Promise<void> => {
 });
 
 router.get("/robots.txt", (_req, res): void => {
-  const body = [
-    "User-agent: *",
-    "Allow: /",
-    "Disallow: /account",
-    "Disallow: /admin",
-    "Disallow: /admin/",
-    "Disallow: /cart",
-    "Disallow: /checkout",
-    "Disallow: /api/",
-    "",
-    `Sitemap: ${SITE_URL}/sitemap.xml`,
-    "",
-  ].join("\n");
+  const body = isComingSoon()
+    ? ["User-agent: *", "Disallow: /", ""].join("\n")
+    : [
+        "User-agent: *",
+        "Allow: /",
+        "Disallow: /account",
+        "Disallow: /admin",
+        "Disallow: /admin/",
+        "Disallow: /cart",
+        "Disallow: /checkout",
+        "Disallow: /api/",
+        "",
+        `Sitemap: ${SITE_URL}/sitemap.xml`,
+        "",
+      ].join("\n");
   res.setHeader("Content-Type", "text/plain; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=3600");
   res.send(body);
