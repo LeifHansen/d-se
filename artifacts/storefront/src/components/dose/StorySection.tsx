@@ -35,7 +35,7 @@ export function StorySection() {
             Every DŌSE bottle starts with a vetted farm and ends with a batch ID you
             can trace. We audit our hemp sources, emulsify the cannabinoids in-house
             for rapid, even onset, and third-party test every batch — so what reaches
-            your glass is, simply, the best cannabinoid emulsion on the market.
+            your glass is, simply, the best cannabinoid beverage additive on the market.
           </p>
 
           <div className="mt-10 grid gap-6 sm:grid-cols-3">
@@ -46,7 +46,7 @@ export function StorySection() {
               },
               {
                 title: "Emulsified",
-                body: "A water-soluble emulsion built for rapid onset and a clean, even lift.",
+                body: "A water-soluble beverage additive built for rapid onset and a clean, even lift.",
               },
               {
                 title: "Traced",

@@ -7,7 +7,7 @@ import bottleImg from "@/assets/brand/final/logo-teal.jpg?picture";
 const posts = [
   {
     eyebrow: "The Science",
-    title: "Why a water-soluble emulsion beats oil",
+    title: "Why a water-soluble beverage additive beats oil",
     excerpt:
       "How emulsified cannabinoids absorb faster, dose more evenly, and mix without a film.",
     img: wellnessImg,

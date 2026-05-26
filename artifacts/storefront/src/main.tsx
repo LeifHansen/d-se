@@ -13,6 +13,7 @@ import {
 } from "./lib/sentry";
 import { RootErrorBoundary } from "./components/RootErrorBoundary";
 import { startWebVitals } from "./lib/web-vitals";
+import { ComingSoon, isComingSoonEnabled } from "./pages/coming-soon";
 import heroBottleSrc from "@/assets/brand/final/emblem-gold.jpg";
 
 initSentry();
@@ -44,8 +45,6 @@ function preloadHero() {
   document.head.appendChild(link);
 }
 
-preloadHero();
-
 const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
   | string
   | undefined;
@@ -62,12 +61,20 @@ function MaybeClerkProvider({ children }: { children: ReactNode }) {
   );
 }
 
+const comingSoon = isComingSoonEnabled();
+
+if (!comingSoon) preloadHero();
+
 createRoot(document.getElementById("root")!).render(
   <RootErrorBoundary>
     <HelmetProvider>
-      <MaybeClerkProvider>
-        <App />
-      </MaybeClerkProvider>
+      {comingSoon ? (
+        <ComingSoon />
+      ) : (
+        <MaybeClerkProvider>
+          <App />
+        </MaybeClerkProvider>
+      )}
     </HelmetProvider>
   </RootErrorBoundary>,
 );
