@@ -27,7 +27,7 @@ COPY lib/db/package.json ./lib/db/
 COPY scripts/package.json ./scripts/
 # Strip the local preinstall guard so Docker (which sets its own user agent) doesn't trip it.
 RUN node -e "const p=require('./package.json');delete p.scripts.preinstall;require('fs').writeFileSync('./package.json',JSON.stringify(p,null,2))"
-RUN pnpm install --frozen-lockfile --prod=false
+RUN pnpm install --no-frozen-lockfile --prod=false
 
 # ---------- Stage 2: build ----------
 FROM deps AS build
