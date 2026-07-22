@@ -1,56 +1,45 @@
-# DŌSE — fly.io app config.
-# Rename `app = "d-se"` to whatever you reserve via `flyctl apps create`.
+# fly.toml app configuration file generated for d-se on 2026-07-22T21:07:51Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = "d-se"
-primary_region = "ord"  # Chicago — change to your closest region (lhr, sjc, fra, etc.). `flyctl platform regions` lists options.
+app = 'd-se'
+primary_region = 'ord'
 
 [build]
-  dockerfile = "fly/Dockerfile"
-  # If you want full SEO prerender (per-product / per-blog HTML) at build time,
-  # pass DATABASE_URL as a build secret:
-  #   flyctl deploy --build-secret DATABASE_URL="postgres://..."
-  # and add PRERENDER_ALLOW_NO_DB = "0" below.
+  dockerfile = 'fly/Dockerfile'
 
-  # VITE_* values bake into the storefront JS bundle at build time. These are NOT
-  # secrets — they ship to the browser regardless. Add new VITE_* vars here as
-  # you wire them (Sentry DSN, GA4 ID, Meta Pixel ID, Turnstile site key, etc.).
   [build.args]
-    VITE_CLERK_PUBLISHABLE_KEY = "pk_test_c29jaWFsLWZsZWEtMi5jbGVyay5hY2NvdW50cy5kZXYk"
-    VITE_SITE_URL = "https://xn--dse-qxa.com"
-    # Coming-soon gate — when "1", every public visitor sees the holding page.
-    # Bypass for previewing the real site: append `?preview=1` to any URL
-    # (sets a localStorage flag so subsequent navigations also bypass).
-    # To launch publicly: set to "0" and redeploy.
-    VITE_COMING_SOON = "1"
+    VITE_CLERK_PUBLISHABLE_KEY = 'pk_test_c29jaWFsLWZsZWEtMi5jbGVyay5hY2NvdW50cy5kZXYk'
+    VITE_COMING_SOON = '1'
+    VITE_SITE_URL = 'https://xn--dse-qxa.com'
 
 [env]
-  NODE_ENV = "production"
-  PUBLIC_APP_URL = "https://xn--dse-qxa.com"
-  STOREFRONT_BASE_URL = "https://xn--dse-qxa.com"
-  APP_URL = "https://xn--dse-qxa.com"
-  # Server-side mirror of the storefront's VITE_COMING_SOON flag — controls
-  # sitemap.xml / robots.txt so search engines don't index the holding page.
-  COMING_SOON = "1"
+  APP_URL = 'https://xn--dse-qxa.com'
+  COMING_SOON = '1'
+  NODE_ENV = 'production'
+  PUBLIC_APP_URL = 'https://xn--dse-qxa.com'
+  STOREFRONT_BASE_URL = 'https://xn--dse-qxa.com'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "stop"   # stop the machine when idle to save $$
+  auto_stop_machines = 'stop'
   auto_start_machines = true
-  min_machines_running = 0      # 0 for personal/dev; bump to 1+ for production-grade availability
+  min_machines_running = 0
 
   [http_service.concurrency]
-    type = "requests"
-    soft_limit = 200
+    type = 'requests'
     hard_limit = 250
+    soft_limit = 200
 
   [[http_service.checks]]
-    path = "/api/healthz"
-    interval = "30s"
-    timeout = "5s"
-    grace_period = "30s"
-    method = "GET"
+    interval = '30s'
+    timeout = '5s'
+    grace_period = '30s'
+    method = 'GET'
+    path = '/api/healthz'
 
 [[vm]]
-  size = "shared-cpu-1x"
-  memory = "1gb"   # storefront serve.mjs + api dist + Caddy ≈ ~400-600 MB; bump if you OOM
+  size = 'shared-cpu-1x'
+  memory = '1gb'
