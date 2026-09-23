@@ -40,7 +40,7 @@ export function OrderTracking({
   return (
     <div
       className="rounded-2xl border bg-card p-6"
-      style={{ borderColor: "hsl(40 18% 80%)" }}
+      style={{ borderColor: "hsl(var(--silver))" }}
     >
       <h2 className="font-display text-xl">Tracking</h2>
       {order.trackingCode ? (
@@ -64,7 +64,7 @@ export function OrderTracking({
       ) : (
         <p
           className="mt-3 text-sm"
-          style={{ color: "hsl(170 18% 32%)" }}
+          style={{ color: "hsl(var(--silver-dark))" }}
           data-testid="order-tracking-pending"
         >
           Tracking will appear here once your order ships.

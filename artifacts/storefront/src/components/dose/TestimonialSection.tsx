@@ -24,15 +24,20 @@ export function TestimonialSection() {
     <section
       id="press"
       data-testid="testimonial-section"
-      style={{ background: "hsl(45 49% 90%)", color: "hsl(166 95% 19%)" }}
+      className="grain relative overflow-hidden bg-pink-tint text-ink"
     >
-      <div className="mx-auto max-w-7xl px-6 py-24 md:px-10 md:py-28">
+      <div
+        aria-hidden="true"
+        className="watermark watermark-pink -right-4 top-4 text-[26vw] md:text-[16vw]"
+        data-watermark="03"
+      />
+
+      <div className="relative mx-auto max-w-7xl px-6 py-20 md:px-10 md:py-28">
         <div className="mx-auto max-w-2xl text-center">
-          <p className="eyebrow" style={{ color: "hsl(170 18% 32%)" }}>
-            Sip Notes
-          </p>
-          <h2 className="mt-3 font-display text-5xl leading-tight md:text-6xl">
-            Loved by the <span className="font-display-italic">curious-sober.</span>
+          <p className="eyebrow text-pink-deep">Sip Notes</p>
+          <h2 className="mt-4 font-display text-6xl leading-[0.92] md:text-7xl">
+            Loved by the{" "}
+            <span className="font-display-italic text-pink">curious-sober.</span>
           </h2>
         </div>
 
@@ -40,24 +45,24 @@ export function TestimonialSection() {
           {reviews.map((r, i) => (
             <figure
               key={r.author}
-              className="rounded-3xl border p-7"
-              style={{ borderColor: "hsl(40 18% 80%)", background: "hsl(45 50% 93%)" }}
+              className="rounded-3xl border border-silver bg-white p-7 shadow-sm"
               data-testid={`testimonial-${i + 1}`}
             >
-              <div className="flex gap-1">
+              <div
+                className="flex gap-1 text-pink"
+                role="img"
+                aria-label="Rated 5 out of 5"
+              >
                 {Array.from({ length: 5 }).map((_, idx) => (
-                  <span key={idx} aria-hidden style={{ color: "hsl(42 53% 54%)" }}>
+                  <span key={idx} aria-hidden="true">
                     ★
                   </span>
                 ))}
               </div>
-              <blockquote className="mt-4 font-display text-2xl leading-snug">
+              <blockquote className="mt-4 text-lg font-medium leading-snug">
                 "{r.quote}"
               </blockquote>
-              <figcaption
-                className="mt-5 text-xs uppercase tracking-[0.2em]"
-                style={{ color: "hsl(170 18% 32%)" }}
-              >
+              <figcaption className="mt-5 text-[11px] font-semibold uppercase tracking-[0.2em] text-silver-dark">
                 — {r.author} · {r.location}
               </figcaption>
             </figure>

@@ -65,11 +65,11 @@ function GuestOrderLookup() {
     <form
       onSubmit={onSubmit}
       className="mt-8 rounded-2xl border bg-card p-6"
-      style={{ borderColor: "hsl(40 18% 80%)" }}
+      style={{ borderColor: "hsl(var(--silver))" }}
       data-testid="guest-order-lookup"
     >
       <h2 className="font-display text-2xl">Check on a guest order</h2>
-      <p className="mt-1 text-sm" style={{ color: "hsl(170 18% 32%)" }}>
+      <p className="mt-1 text-sm" style={{ color: "hsl(var(--silver-dark))" }}>
         Enter the order number from your confirmation email and the email you
         used at checkout.
       </p>
@@ -102,8 +102,8 @@ function GuestOrderLookup() {
         type="submit"
         className="mt-4 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
         style={{
-          background: "hsl(166 95% 19%)",
-          color: "hsl(45 49% 90%)",
+          background: "hsl(var(--ink))",
+          color: "hsl(var(--white))",
         }}
         data-testid="lookup-order-submit"
       >
@@ -177,7 +177,7 @@ function OrderRow({ order }: { order: Order }) {
   return (
     <li
       className="rounded-2xl border bg-card p-5 transition-colors hover:bg-card/80"
-      style={{ borderColor: "hsl(40 18% 80%)" }}
+      style={{ borderColor: "hsl(var(--silver))" }}
       data-testid={`order-${order.id}`}
     >
       <Link
@@ -190,7 +190,7 @@ function OrderRow({ order }: { order: Order }) {
             <p className="font-display text-xl">Order #{order.id}</p>
             <p
               className="text-xs uppercase tracking-[0.18em]"
-              style={{ color: "hsl(170 18% 32%)" }}
+              style={{ color: "hsl(var(--silver-dark))" }}
             >
               {formatDate(String(order.createdAt))}
             </p>
@@ -207,7 +207,7 @@ function OrderRow({ order }: { order: Order }) {
         </div>
         <ul
           className="mt-3 space-y-1 text-sm"
-          style={{ color: "hsl(170 18% 28%)" }}
+          style={{ color: "hsl(var(--graphite))" }}
         >
           {order.items.map((it) => (
             <li key={it.id}>
@@ -219,7 +219,7 @@ function OrderRow({ order }: { order: Order }) {
         {order.deliveredEmailSentAt ? (
           <p
             className="mt-2 text-xs"
-            style={{ color: "hsl(170 18% 32%)" }}
+            style={{ color: "hsl(var(--silver-dark))" }}
             data-testid={`order-${order.id}-delivered-email-notice`}
           >
             Delivery confirmation emailed {formatDate(String(order.deliveredEmailSentAt))}
@@ -251,7 +251,7 @@ function OrderRow({ order }: { order: Order }) {
         <Link
           href={`/account/orders/${order.id}`}
           className="text-[11px] font-semibold uppercase tracking-[0.22em]"
-          style={{ color: "hsl(166 95% 19%)" }}
+          style={{ color: "hsl(var(--ink))" }}
           data-testid={`link-order-details-${order.id}`}
         >
           View details →
@@ -262,8 +262,8 @@ function OrderRow({ order }: { order: Order }) {
           disabled={reorderMutation.isPending || order.items.length === 0}
           className="rounded-full px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.22em]"
           style={{
-            background: "hsl(166 95% 19%)",
-            color: "hsl(45 49% 90%)",
+            background: "hsl(var(--ink))",
+            color: "hsl(var(--white))",
           }}
           data-testid={`button-reorder-${order.id}`}
         >
@@ -371,7 +371,7 @@ function SavedAddressCard() {
   return (
     <section
       className="mb-10 rounded-2xl border bg-card p-6"
-      style={{ borderColor: "hsl(40 18% 80%)" }}
+      style={{ borderColor: "hsl(var(--silver))" }}
       data-testid="saved-address"
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -379,7 +379,7 @@ function SavedAddressCard() {
           <h2 className="font-display text-2xl">Saved shipping address</h2>
           <p
             className="mt-1 text-sm"
-            style={{ color: "hsl(170 18% 32%)" }}
+            style={{ color: "hsl(var(--silver-dark))" }}
           >
             Used to pre-fill your next checkout.
           </p>
@@ -392,8 +392,8 @@ function SavedAddressCard() {
               disabled={isLoading}
               className="rounded-full px-5 py-4 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
-                background: "hsl(166 95% 19%)",
-                color: "hsl(45 49% 90%)",
+                background: "hsl(var(--ink))",
+                color: "hsl(var(--white))",
               }}
               data-testid="saved-address-edit"
             >
@@ -405,7 +405,7 @@ function SavedAddressCard() {
                 onClick={onRemove}
                 disabled={remove.isPending}
                 className="text-[11px] font-semibold uppercase tracking-[0.22em] underline underline-offset-4"
-                style={{ color: "hsl(170 18% 32%)" }}
+                style={{ color: "hsl(var(--silver-dark))" }}
                 data-testid="saved-address-remove"
               >
                 {remove.isPending ? "Removing…" : "Remove"}
@@ -423,7 +423,7 @@ function SavedAddressCard() {
         ) : saved ? (
           <address
             className="mt-4 not-italic text-sm leading-6"
-            style={{ color: "hsl(170 18% 28%)" }}
+            style={{ color: "hsl(var(--graphite))" }}
             data-testid="saved-address-display"
           >
             <div>{saved.name}</div>
@@ -438,7 +438,7 @@ function SavedAddressCard() {
         ) : (
           <p
             className="mt-4 text-sm"
-            style={{ color: "hsl(170 18% 32%)" }}
+            style={{ color: "hsl(var(--silver-dark))" }}
             data-testid="saved-address-empty"
           >
             You don't have a saved address yet.
@@ -532,8 +532,8 @@ function SavedAddressCard() {
               disabled={update.isPending}
               className="rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
-                background: "hsl(166 95% 19%)",
-                color: "hsl(45 49% 90%)",
+                background: "hsl(var(--ink))",
+                color: "hsl(var(--white))",
               }}
               data-testid="saved-address-save"
             >
@@ -544,7 +544,7 @@ function SavedAddressCard() {
               onClick={cancel}
               disabled={update.isPending}
               className="text-[11px] font-semibold uppercase tracking-[0.22em] underline underline-offset-4"
-              style={{ color: "hsl(170 18% 32%)" }}
+              style={{ color: "hsl(var(--silver-dark))" }}
               data-testid="saved-address-cancel"
             >
               Cancel
@@ -569,12 +569,12 @@ export default function AccountPage() {
     <SiteShell testId="page-account">
       <Seo title="Your account" noindex />
       <section
-        style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
+        style={{ background: "hsl(var(--ink))", color: "hsl(var(--white))" }}
       >
         <div className="mx-auto max-w-4xl px-6 py-16 md:px-10 md:py-20">
           <p
             className="text-[11px] font-semibold uppercase tracking-[0.22em]"
-            style={{ color: "hsl(42 53% 64%)" }}
+            style={{ color: "hsl(var(--turquoise-bright))" }}
           >
             Account
           </p>
@@ -582,7 +582,7 @@ export default function AccountPage() {
             Your{" "}
             <span
               className="font-display-italic"
-              style={{ color: "hsl(95 30% 78%)" }}
+              style={{ color: "hsl(var(--pink-soft))" }}
             >
               orders.
             </span>
@@ -599,15 +599,15 @@ export default function AccountPage() {
           <div
             className="rounded-2xl border p-8 text-center"
             style={{
-              borderColor: "hsl(40 18% 80%)",
-              background: "hsl(45 50% 93%)",
+              borderColor: "hsl(var(--silver))",
+              background: "hsl(var(--silver-light))",
             }}
             data-testid="account-signin"
           >
             <p className="font-display text-2xl">Sign in to see your orders.</p>
             <p
               className="mt-2 text-sm"
-              style={{ color: "hsl(170 18% 32%)" }}
+              style={{ color: "hsl(var(--silver-dark))" }}
             >
               Order confirmations and tracking links also arrive in your email.
             </p>
@@ -615,8 +615,8 @@ export default function AccountPage() {
               asChild
               className="mt-5 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
-                background: "hsl(166 95% 19%)",
-                color: "hsl(45 49% 90%)",
+                background: "hsl(var(--ink))",
+                color: "hsl(var(--white))",
               }}
             >
               <Link href="/contact">Need help?</Link>

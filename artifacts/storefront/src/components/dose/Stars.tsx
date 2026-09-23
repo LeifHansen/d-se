@@ -3,8 +3,8 @@ import { Star } from "lucide-react";
 export function Stars({
   rating,
   size = 16,
-  color = "hsl(42 53% 54%)",
-  emptyColor = "hsla(170, 58%, 14%, 0.2)",
+  color = "hsl(var(--pink))",
+  emptyColor = "hsl(var(--ink) / 0.2)",
   interactive = false,
   onChange,
 }: {

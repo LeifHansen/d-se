@@ -383,8 +383,8 @@ export default function CheckoutPage() {
             asChild
             className="mt-6 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
             style={{
-              background: "hsl(166 95% 19%)",
-              color: "hsl(45 49% 90%)",
+              background: "hsl(var(--ink))",
+              color: "hsl(var(--white))",
             }}
           >
             <Link href="/shop">Browse the shop</Link>
@@ -398,12 +398,12 @@ export default function CheckoutPage() {
     <SiteShell testId="page-checkout">
       <Seo title="Checkout" noindex />
       <section
-        style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
+        style={{ background: "hsl(var(--ink))", color: "hsl(var(--white))" }}
       >
         <div className="mx-auto max-w-5xl px-6 py-14 md:px-10">
           <p
             className="text-[11px] font-semibold uppercase tracking-[0.22em]"
-            style={{ color: "hsl(42 53% 64%)" }}
+            style={{ color: "hsl(var(--turquoise-bright))" }}
           >
             Checkout
           </p>
@@ -444,7 +444,7 @@ export default function CheckoutPage() {
                     type="button"
                     onClick={useDifferentAddress}
                     className="text-[11px] font-semibold uppercase tracking-[0.22em] underline underline-offset-4"
-                    style={{ color: "hsl(170 18% 32%)" }}
+                    style={{ color: "hsl(var(--silver-dark))" }}
                     data-testid="checkout-use-different-address"
                   >
                     Use a different address
@@ -454,7 +454,7 @@ export default function CheckoutPage() {
               {prefilled ? (
                 <p
                   className="mt-2 text-xs"
-                  style={{ color: "hsl(170 18% 32%)" }}
+                  style={{ color: "hsl(var(--silver-dark))" }}
                   data-testid="checkout-address-prefilled"
                 >
                   We pre-filled your last shipping address.
@@ -555,7 +555,7 @@ export default function CheckoutPage() {
                 {rates === null ? (
                   <p
                     className="text-sm"
-                    style={{ color: "hsl(170 18% 32%)" }}
+                    style={{ color: "hsl(var(--silver-dark))" }}
                     data-testid="checkout-rates-hint"
                   >
                     {shipping.isPending
@@ -579,10 +579,10 @@ export default function CheckoutPage() {
                       style={{
                         borderColor:
                           rateId === r.id
-                            ? "hsl(42 53% 54%)"
-                            : "hsl(40 18% 80%)",
+                            ? "hsl(var(--turquoise-deep))"
+                            : "hsl(var(--silver))",
                         background:
-                          rateId === r.id ? "hsl(45 50% 93%)" : "transparent",
+                          rateId === r.id ? "hsl(var(--silver-light))" : "transparent",
                       }}
                     >
                       <input
@@ -600,7 +600,7 @@ export default function CheckoutPage() {
                         {r.deliveryDays ? (
                           <p
                             className="text-xs"
-                            style={{ color: "hsl(170 18% 32%)" }}
+                            style={{ color: "hsl(var(--silver-dark))" }}
                           >
                             ~{r.deliveryDays} business days
                           </p>
@@ -618,14 +618,14 @@ export default function CheckoutPage() {
 
           <aside
             className="h-fit rounded-2xl border bg-card p-6"
-            style={{ borderColor: "hsl(40 18% 80%)" }}
+            style={{ borderColor: "hsl(var(--silver))" }}
           >
             <h2 className="font-display text-2xl">Your order</h2>
             <ul
               className="mt-4 space-y-3 border-b pb-4 text-sm"
               style={{
-                borderColor: "hsl(40 18% 80%)",
-                color: "hsl(170 18% 28%)",
+                borderColor: "hsl(var(--silver))",
+                color: "hsl(var(--graphite))",
               }}
             >
               {cart?.items.map((it) => {
@@ -679,7 +679,7 @@ export default function CheckoutPage() {
                           <button
                             type="button"
                             className="text-[11px] font-semibold uppercase tracking-[0.18em] underline underline-offset-2"
-                            style={{ color: "hsl(166 95% 19%)" }}
+                            style={{ color: "hsl(var(--ink))" }}
                             onClick={() =>
                               removeItem.mutate({
                                 itemId: it.id,
@@ -705,7 +705,7 @@ export default function CheckoutPage() {
                           <button
                             type="button"
                             className="text-[11px] font-semibold uppercase tracking-[0.18em] underline underline-offset-2"
-                            style={{ color: "hsl(166 95% 19%)" }}
+                            style={{ color: "hsl(var(--ink))" }}
                             onClick={() =>
                               updateItem.mutate({
                                 itemId: it.id,
@@ -733,7 +733,7 @@ export default function CheckoutPage() {
             </ul>
             <dl
               className="mt-4 space-y-1.5 text-sm"
-              style={{ color: "hsl(170 18% 28%)" }}
+              style={{ color: "hsl(var(--graphite))" }}
             >
               <div className="flex justify-between">
                 <dt>Subtotal</dt>
@@ -764,8 +764,8 @@ export default function CheckoutPage() {
               disabled={checkout.isPending || !rateId || hasStockIssue}
               className="mt-6 w-full rounded-full py-6 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
-                background: "hsl(42 53% 54%)",
-                color: "hsl(166 95% 19%)",
+                background: "hsl(var(--pink))",
+                color: "hsl(var(--white))",
               }}
               data-testid="checkout-submit"
             >
@@ -819,8 +819,8 @@ export default function CheckoutPage() {
                   asChild
                   className="mt-3 rounded-full px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em]"
                   style={{
-                    background: "hsl(166 95% 19%)",
-                    color: "hsl(45 49% 90%)",
+                    background: "hsl(var(--ink))",
+                    color: "hsl(var(--white))",
                   }}
                 >
                   <Link

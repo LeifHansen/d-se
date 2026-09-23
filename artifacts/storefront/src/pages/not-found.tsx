@@ -1,45 +1,31 @@
-import { Button } from "@/components/ui/button";
 import { Logo } from "@/components/dose/Logo";
 import { Seo } from "@/components/seo/Seo";
 
 export default function NotFound() {
   return (
     <div
-      className="flex min-h-screen w-full flex-col items-center justify-center px-6 text-center"
-      style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
+      className="grain grain-dark relative flex min-h-screen w-full flex-col items-center justify-center overflow-hidden bg-ink px-6 text-center text-white"
       data-testid="not-found"
     >
       <Seo title="Page not found" description="The page you're looking for couldn't be found." noindex />
-      <Logo variant="stacked" tone="cream" />
-      <p
-        className="mt-10 text-[11px] font-medium uppercase tracking-[0.22em]"
-        style={{ color: "hsl(42 53% 64%)" }}
-      >
-        Error 404
-      </p>
-      <h1 className="mt-3 max-w-xl font-display text-5xl leading-tight md:text-6xl">
-        This drop seems to have <span className="font-display-italic">evaporated.</span>
+      <div
+        aria-hidden="true"
+        className="watermark watermark-white -bottom-[0.18em] -right-4 text-[34vw] md:text-[22vw]"
+        data-watermark="404"
+      />
+      <Logo variant="stacked" tone="white" />
+      <p className="eyebrow mt-10 text-turquoise-bright">Error 404</p>
+      <h1 className="mt-4 max-w-xl font-display text-6xl leading-[0.92] md:text-7xl">
+        This drop seems to have{" "}
+        <span className="font-display-italic text-pink-soft">evaporated.</span>
       </h1>
-      <p
-        className="mt-5 max-w-md text-base"
-        style={{ color: "hsla(45,49%,90%,0.75)" }}
-      >
-        The page you're looking for couldn't be found. Let's get you back to something
-        that hits.
+      <p className="mt-5 max-w-md text-base text-white/75">
+        The page you're looking for couldn't be found. Let's get you back to
+        something that hits.
       </p>
-      <Button
-        asChild
-        size="lg"
-        className="mt-10 rounded-full px-8 py-6 text-[12px] font-semibold uppercase tracking-[0.22em]"
-        style={{
-          background: "hsl(42 53% 54%)",
-          color: "hsl(166 95% 19%)",
-          borderColor: "hsl(42 53% 46%)",
-        }}
-        data-testid="not-found-cta"
-      >
-        <a href="/">Take me home</a>
-      </Button>
+      <a href="/" className="cta cta-pink mt-10" data-testid="not-found-cta">
+        Take me home
+      </a>
     </div>
   );
 }

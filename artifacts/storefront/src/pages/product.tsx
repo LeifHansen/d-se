@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Stars } from "@/components/dose/Stars";
 import { track } from "@/lib/analytics";
 import { Image } from "@/components/dose/Image";
+import { ImagePlaceholder } from "@/components/dose/ImagePlaceholder";
 import {
   getStoredCartId,
   setStoredCartId,
@@ -79,15 +80,15 @@ function ReviewForm({ slug }: { slug: string }) {
       <div
         className="rounded-2xl border p-6"
         style={{
-          background: "hsla(170, 58%, 14%, 0.05)",
-          borderColor: "hsla(170,58%,14%,0.1)",
+          background: "hsl(var(--ink) / 0.05)",
+          borderColor: "hsl(var(--ink) / 0.1)",
         }}
         data-testid="review-success"
       >
         <p className="font-display text-lg">Thanks for your review.</p>
         <p
           className="mt-1 text-sm"
-          style={{ color: "hsla(170,58%,14%,0.7)" }}
+          style={{ color: "hsl(var(--ink) / 0.7)" }}
         >
           We'll publish it after a quick read by our team.
         </p>
@@ -99,11 +100,11 @@ function ReviewForm({ slug }: { slug: string }) {
     <form
       onSubmit={onSubmit}
       className="rounded-2xl border bg-white/70 p-6"
-      style={{ borderColor: "hsla(170,58%,14%,0.1)" }}
+      style={{ borderColor: "hsl(var(--ink) / 0.1)" }}
       data-testid="review-form"
     >
       <h3 className="font-display text-xl">Leave a review</h3>
-      <p className="mt-1 text-xs" style={{ color: "hsla(170,58%,14%,0.6)" }}>
+      <p className="mt-1 text-xs" style={{ color: "hsl(var(--ink) / 0.6)" }}>
         Verified buyers only. We may take a day or two to publish.
       </p>
       <div className="mt-4">
@@ -168,8 +169,8 @@ function ReviewForm({ slug }: { slug: string }) {
         disabled={submit.isPending}
         className="mt-5 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
         style={{
-          background: "hsl(166 95% 19%)",
-          color: "hsl(45 49% 90%)",
+          background: "hsl(var(--ink))",
+          color: "hsl(var(--white))",
         }}
         data-testid="button-submit-review"
       >
@@ -266,7 +267,7 @@ export default function ProductPage() {
         <Link
           href="/shop"
           className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.22em]"
-          style={{ color: "hsl(170 18% 32%)" }}
+          style={{ color: "hsl(var(--silver-dark))" }}
           data-testid="link-back-to-shop"
         >
           <ArrowLeft className="h-3.5 w-3.5" /> Back to shop
@@ -280,16 +281,16 @@ export default function ProductPage() {
         >
           <div
             className="aspect-square w-full animate-pulse rounded-3xl"
-            style={{ background: "hsl(40 30% 88%)" }}
+            style={{ background: "hsl(var(--silver-light))" }}
           />
           <div className="space-y-4">
             <div
               className="h-8 w-3/4 animate-pulse rounded"
-              style={{ background: "hsl(40 30% 88%)" }}
+              style={{ background: "hsl(var(--silver-light))" }}
             />
             <div
               className="h-4 w-1/2 animate-pulse rounded"
-              style={{ background: "hsl(40 30% 88%)" }}
+              style={{ background: "hsl(var(--silver-light))" }}
             />
           </div>
         </div>
@@ -299,15 +300,15 @@ export default function ProductPage() {
           data-testid="product-error"
         >
           <h1 className="font-display text-4xl">Product not found.</h1>
-          <p className="mt-3 text-sm" style={{ color: "hsl(170 18% 32%)" }}>
-            That dropper has evaporated. Browse the full collection instead.
+          <p className="mt-3 text-sm" style={{ color: "hsl(var(--silver-dark))" }}>
+            That dropper has evaporated. Head back to the shop instead.
           </p>
           <Button
             asChild
             className="mt-6 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
             style={{
-              background: "hsl(166 95% 19%)",
-              color: "hsl(45 49% 90%)",
+              background: "hsl(var(--ink))",
+              color: "hsl(var(--white))",
             }}
           >
             <Link href="/shop">Visit the shop</Link>
@@ -323,8 +324,8 @@ export default function ProductPage() {
               <div
                 className="aspect-square w-full overflow-hidden rounded-3xl border"
                 style={{
-                  background: "hsl(40 30% 88%)",
-                  borderColor: "hsl(40 18% 80%)",
+                  background: "hsl(var(--silver-light))",
+                  borderColor: "hsl(var(--silver))",
                 }}
               >
                 {product.images[activeImage] ? (
@@ -339,7 +340,15 @@ export default function ProductPage() {
                     pictureClassName="block h-full w-full"
                     data-testid="product-image-main"
                   />
-                ) : null}
+                ) : (
+                  <ImagePlaceholder
+                    label="Product packshot"
+                    hint="Replace · 1500 × 1500"
+                    slug={`product-${product.slug}`}
+                    aspect="auto"
+                    className="h-full rounded-none border-0"
+                  />
+                )}
               </div>
               {product.images.length > 1 ? (
                 <div className="grid grid-cols-4 gap-3">
@@ -352,9 +361,9 @@ export default function ProductPage() {
                       style={{
                         borderColor:
                           activeImage === i
-                            ? "hsl(42 53% 54%)"
-                            : "hsl(40 18% 80%)",
-                        background: "hsl(40 30% 88%)",
+                            ? "hsl(var(--turquoise-deep))"
+                            : "hsl(var(--silver))",
+                        background: "hsl(var(--silver-light))",
                       }}
                       data-testid={`product-thumb-${i}`}
                       aria-label={`View image ${i + 1}`}
@@ -377,7 +386,7 @@ export default function ProductPage() {
               {product.featured ? (
                 <p
                   className="text-[11px] font-semibold uppercase tracking-[0.22em]"
-                  style={{ color: "hsl(42 53% 54%)" }}
+                  style={{ color: "hsl(var(--turquoise-deep))" }}
                 >
                   Featured
                 </p>
@@ -391,12 +400,12 @@ export default function ProductPage() {
               {product.averageRating ? (
                 <div
                   className="mt-3 flex items-center gap-2 text-sm"
-                  style={{ color: "hsl(170 18% 32%)" }}
+                  style={{ color: "hsl(var(--silver-dark))" }}
                   data-testid="product-rating-summary"
                 >
                   <Star
                     className="h-4 w-4 fill-current"
-                    style={{ color: "hsl(42 53% 54%)" }}
+                    style={{ color: "hsl(var(--turquoise-deep))" }}
                   />
                   <span>
                     {product.averageRating.toFixed(1)} ·{" "}
@@ -406,7 +415,7 @@ export default function ProductPage() {
               ) : null}
               <p
                 className="mt-4 font-display text-3xl"
-                style={{ color: "hsl(166 95% 19%)" }}
+                style={{ color: "hsl(var(--ink))" }}
                 data-testid="product-price"
               >
                 {formatMoney(product.priceCents, product.currency)}
@@ -414,7 +423,7 @@ export default function ProductPage() {
                 product.compareAtCents > product.priceCents ? (
                   <span
                     className="ml-3 text-base line-through opacity-60"
-                    style={{ color: "hsl(170 18% 32%)" }}
+                    style={{ color: "hsl(var(--silver-dark))" }}
                   >
                     {formatMoney(product.compareAtCents, product.currency)}
                   </span>
@@ -424,7 +433,7 @@ export default function ProductPage() {
               {product.shortDescription ? (
                 <p
                   className="mt-6 text-base leading-relaxed"
-                  style={{ color: "hsl(170 18% 28%)" }}
+                  style={{ color: "hsl(var(--graphite))" }}
                 >
                   {product.shortDescription}
                 </p>
@@ -442,7 +451,7 @@ export default function ProductPage() {
               <div className="mt-8 flex flex-wrap items-center gap-4">
                 <div
                   className="inline-flex items-center overflow-hidden rounded-full border"
-                  style={{ borderColor: "hsl(40 18% 80%)" }}
+                  style={{ borderColor: "hsl(var(--silver))" }}
                 >
                   <button
                     type="button"
@@ -474,9 +483,9 @@ export default function ProductPage() {
                   disabled={adding || product.inventory < 1}
                   className="rounded-full px-8 py-6 text-[11px] font-semibold uppercase tracking-[0.22em]"
                   style={{
-                    background: "hsl(42 53% 54%)",
-                    color: "hsl(166 95% 19%)",
-                    borderColor: "hsl(42 53% 46%)",
+                    background: "hsl(var(--pink))",
+                    color: "hsl(var(--white))",
+                    borderColor: "hsl(var(--pink-deep))",
                   }}
                   data-testid="button-add-to-cart"
                 >
@@ -502,28 +511,28 @@ export default function ProductPage() {
 
               <ul
                 className="mt-10 grid gap-3 border-t pt-6 text-sm"
-                style={{ borderColor: "hsl(40 18% 80%)" }}
+                style={{ borderColor: "hsl(var(--silver))" }}
               >
                 {product.tags?.map((t) => (
                   <li
                     key={t}
                     className="flex items-start gap-2"
-                    style={{ color: "hsl(170 18% 28%)" }}
+                    style={{ color: "hsl(var(--graphite))" }}
                   >
                     <Check
                       className="mt-0.5 h-4 w-4 flex-shrink-0"
-                      style={{ color: "hsl(95 30% 50%)" }}
+                      style={{ color: "hsl(var(--turquoise-deep))" }}
                     />
                     <span>{t}</span>
                   </li>
                 ))}
                 <li
                   className="flex items-start gap-2 pt-2"
-                  style={{ color: "hsl(170 18% 28%)" }}
+                  style={{ color: "hsl(var(--graphite))" }}
                 >
                   <FileText
                     className="mt-0.5 h-4 w-4 flex-shrink-0"
-                    style={{ color: "hsl(42 53% 54%)" }}
+                    style={{ color: "hsl(var(--turquoise-deep))" }}
                   />
                   <a
                     href={`/lab-reports/${product.slug}.pdf`}
@@ -548,7 +557,7 @@ export default function ProductPage() {
                   <Stars rating={reviewsQuery.data.averageRating} />
                   <span
                     className="text-sm"
-                    style={{ color: "hsla(170,58%,14%,0.7)" }}
+                    style={{ color: "hsl(var(--ink) / 0.7)" }}
                     data-testid="reviews-summary"
                   >
                     {reviewsQuery.data.averageRating?.toFixed(1)} ·{" "}
@@ -573,7 +582,7 @@ export default function ProductPage() {
                   <article
                     key={r.id}
                     className="rounded-2xl border bg-white/70 p-6"
-                    style={{ borderColor: "hsla(170,58%,14%,0.1)" }}
+                    style={{ borderColor: "hsl(var(--ink) / 0.1)" }}
                     data-testid={`review-${r.id}`}
                   >
                     <div className="flex items-center gap-3">
@@ -582,7 +591,7 @@ export default function ProductPage() {
                     </div>
                     <p
                       className="mt-1 text-xs uppercase tracking-[0.18em]"
-                      style={{ color: "hsla(170,58%,14%,0.6)" }}
+                      style={{ color: "hsl(var(--ink) / 0.6)" }}
                     >
                       {r.authorName ?? "Verified buyer"}
                       {r.verifiedPurchase ? " · Verified purchase" : ""} ·{" "}

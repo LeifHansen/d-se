@@ -32,18 +32,18 @@ const STATUS_STYLES: Record<string, StatusStyle> = {
   },
   cancelled: {
     label: "Cancelled",
-    background: "hsl(40 30% 88%)",
+    background: "hsl(var(--silver-light))",
     color: "hsl(0 50% 32%)",
   },
   canceled: {
     label: "Cancelled",
-    background: "hsl(40 30% 88%)",
+    background: "hsl(var(--silver-light))",
     color: "hsl(0 50% 32%)",
   },
   refunded: {
     label: "Refunded",
-    background: "hsl(40 30% 88%)",
-    color: "hsl(170 18% 28%)",
+    background: "hsl(var(--silver-light))",
+    color: "hsl(var(--graphite))",
   },
 };
 
@@ -52,8 +52,8 @@ function styleFor(status: string): StatusStyle {
   if (key in STATUS_STYLES) return STATUS_STYLES[key];
   return {
     label: status ? status.charAt(0).toUpperCase() + status.slice(1) : "Unknown",
-    background: "hsl(40 30% 88%)",
-    color: "hsl(170 18% 28%)",
+    background: "hsl(var(--silver-light))",
+    color: "hsl(var(--graphite))",
   };
 }
 

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
 import { CONSENT_EVENT } from "@/lib/analytics";
 
 const KEY = "dose-cookies-decision";
@@ -56,19 +55,11 @@ export function CookieBanner() {
     <div
       role="region"
       aria-label="Cookie consent"
-      className="fixed inset-x-0 bottom-0 z-40 border-t backdrop-blur-md"
-      style={{
-        background: "hsla(45, 49%, 90%, 0.96)",
-        color: "hsl(166 95% 19%)",
-        borderColor: "hsl(40 18% 80%)",
-      }}
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-silver bg-white/96 text-ink backdrop-blur-md"
       data-testid="cookie-banner"
     >
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-6 py-4 text-xs md:flex-row md:items-center md:justify-between md:px-10">
-        <p
-          className="max-w-3xl leading-relaxed"
-          style={{ color: "hsl(170 18% 28%)" }}
-        >
+        <p className="max-w-3xl leading-relaxed text-graphite">
           We use a few essential cookies to run the store. With your
           permission, we also load analytics that help us improve the site.
           Nothing non-essential loads until you choose. Read our{" "}
@@ -78,21 +69,22 @@ export function CookieBanner() {
           .
         </p>
         <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
+          <button
+            type="button"
+            className="cta cta-sm cta-outline"
             onClick={() => ack("decline")}
             data-testid="cookie-decline"
           >
             Decline
-          </Button>
-          <Button
-            size="sm"
+          </button>
+          <button
+            type="button"
+            className="cta cta-sm cta-ink"
             onClick={() => ack("accept")}
             data-testid="cookie-accept"
           >
             Accept
-          </Button>
+          </button>
         </div>
       </div>
     </div>

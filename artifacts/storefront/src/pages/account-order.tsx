@@ -134,7 +134,7 @@ export default function AccountOrderPage() {
         noindex
       />
       <section
-        style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
+        style={{ background: "hsl(var(--ink))", color: "hsl(var(--white))" }}
       >
         <div className="mx-auto max-w-4xl px-6 py-12 md:px-10 md:py-16">
           <Link
@@ -148,7 +148,7 @@ export default function AccountOrderPage() {
             Order{" "}
             <span
               className="font-display-italic"
-              style={{ color: "hsl(95 30% 78%)" }}
+              style={{ color: "hsl(var(--pink-soft))" }}
             >
               #{validId ? orderId : "—"}
             </span>
@@ -174,8 +174,8 @@ export default function AccountOrderPage() {
           <div
             className="rounded-2xl border p-8 text-center"
             style={{
-              borderColor: "hsl(40 18% 80%)",
-              background: "hsl(45 50% 93%)",
+              borderColor: "hsl(var(--silver))",
+              background: "hsl(var(--silver-light))",
             }}
             data-testid="account-order-signin"
           >
@@ -184,8 +184,8 @@ export default function AccountOrderPage() {
               asChild
               className="mt-5 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
-                background: "hsl(166 95% 19%)",
-                color: "hsl(45 49% 90%)",
+                background: "hsl(var(--ink))",
+                color: "hsl(var(--white))",
               }}
             >
               <Link href="/account">Go to account</Link>
@@ -211,14 +211,14 @@ export default function AccountOrderPage() {
           <div className="space-y-8">
             <div
               className="rounded-2xl border bg-card p-6"
-              style={{ borderColor: "hsl(40 18% 80%)" }}
+              style={{ borderColor: "hsl(var(--silver))" }}
               data-testid="order-summary"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p
                     className="text-[11px] font-semibold uppercase tracking-[0.22em]"
-                    style={{ color: "hsl(170 18% 32%)" }}
+                    style={{ color: "hsl(var(--silver-dark))" }}
                   >
                     Placed {formatDate(order.createdAt)}
                   </p>
@@ -244,8 +244,8 @@ export default function AccountOrderPage() {
                   }
                   className="rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
                   style={{
-                    background: "hsl(166 95% 19%)",
-                    color: "hsl(45 49% 90%)",
+                    background: "hsl(var(--ink))",
+                    color: "hsl(var(--white))",
                   }}
                   data-testid="button-reorder"
                 >
@@ -253,7 +253,7 @@ export default function AccountOrderPage() {
                 </Button>
                 <span
                   className="text-xs"
-                  style={{ color: "hsl(170 18% 32%)" }}
+                  style={{ color: "hsl(var(--silver-dark))" }}
                   data-testid="reorder-hint"
                 >
                   {nothingPurchasable
@@ -265,12 +265,12 @@ export default function AccountOrderPage() {
 
             <div
               className="rounded-2xl border bg-card p-6"
-              style={{ borderColor: "hsl(40 18% 80%)" }}
+              style={{ borderColor: "hsl(var(--silver))" }}
             >
               <h2 className="font-display text-xl">Items</h2>
               <ul
                 className="mt-4 divide-y"
-                style={{ borderColor: "hsl(40 18% 86%)" }}
+                style={{ borderColor: "hsl(var(--silver))" }}
                 data-testid="order-items"
               >
                 {order.items.map((it) => (
@@ -307,7 +307,7 @@ export default function AccountOrderPage() {
               </ul>
               <dl
                 className="mt-5 space-y-1 text-sm"
-                style={{ color: "hsl(170 18% 28%)" }}
+                style={{ color: "hsl(var(--graphite))" }}
               >
                 <div className="flex justify-between">
                   <dt>Subtotal</dt>
@@ -344,13 +344,13 @@ export default function AccountOrderPage() {
             >
               <div
                 className="rounded-2xl border bg-card p-6"
-                style={{ borderColor: "hsl(40 18% 80%)" }}
+                style={{ borderColor: "hsl(var(--silver))" }}
               >
                 <h2 className="font-display text-xl">Shipping</h2>
                 {order.shippingAddress ? (
                   <address
                     className="mt-3 not-italic text-sm leading-relaxed"
-                    style={{ color: "hsl(170 18% 28%)" }}
+                    style={{ color: "hsl(var(--graphite))" }}
                     data-testid="order-shipping-address"
                   >
                     {order.shippingAddress.name}
@@ -371,7 +371,7 @@ export default function AccountOrderPage() {
                 ) : (
                   <p
                     className="mt-3 text-sm"
-                    style={{ color: "hsl(170 18% 32%)" }}
+                    style={{ color: "hsl(var(--silver-dark))" }}
                   >
                     No shipping address on file.
                   </p>
@@ -383,7 +383,7 @@ export default function AccountOrderPage() {
                 {order.deliveredEmailSentAt ? (
                   <p
                     className="mt-3 text-sm"
-                    style={{ color: "hsl(170 18% 32%)" }}
+                    style={{ color: "hsl(var(--silver-dark))" }}
                     data-testid="order-delivered-email-notice"
                   >
                     We emailed you a delivery confirmation on{" "}

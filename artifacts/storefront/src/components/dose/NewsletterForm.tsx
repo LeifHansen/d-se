@@ -1,35 +1,34 @@
-import { useState, type CSSProperties } from "react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { track } from "@/lib/analytics";
+import { cn } from "@/lib/utils";
 
-type Variant = "light" | "dark";
+type Variant = "light" | "dark" | "turquoise";
 
 const VARIANTS: Record<
   Variant,
-  {
-    input: CSSProperties;
-    button: CSSProperties;
-    success: CSSProperties;
-  }
+  { input: string; button: string; success: string; error: string }
 > = {
+  // On white / pale surfaces
   light: {
-    input: { color: "hsl(166 95% 19%)" },
-    button: {
-      background: "hsl(166 95% 19%)",
-      color: "hsl(45 49% 90%)",
-      borderColor: "hsl(167 95% 13%)",
-    },
-    success: { background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" },
+    input: "border-silver bg-white text-ink placeholder:text-silver-dark",
+    button: "cta-ink",
+    success: "bg-ink text-white",
+    error: "text-destructive",
   },
+  // On the ink footer
   dark: {
-    input: { color: "hsl(166 95% 19%)" },
-    button: {
-      background: "hsl(42 53% 54%)",
-      color: "hsl(166 95% 19%)",
-      borderColor: "hsl(42 53% 46%)",
-    },
-    success: { background: "hsl(45 49% 90%)", color: "hsl(166 95% 19%)" },
+    input: "border-white/15 bg-white text-ink placeholder:text-silver-dark",
+    button: "cta-pink",
+    success: "bg-white text-ink",
+    error: "text-pink-soft",
+  },
+  // On the turquoise newsletter band
+  turquoise: {
+    input: "border-transparent bg-white text-ink placeholder:text-silver-dark",
+    button: "cta-ink",
+    success: "bg-ink text-white",
+    error: "text-ink",
   },
 };
 
@@ -84,8 +83,10 @@ export function NewsletterForm({
   if (status === "ok") {
     return (
       <p
-        className="rounded-full px-6 py-3 text-sm font-medium"
-        style={styles.success}
+        className={cn(
+          "rounded-full px-6 py-3 text-sm font-medium",
+          styles.success,
+        )}
         data-testid={`${testIdPrefix}-success`}
       >
         Welcome to DŌSE. Check your inbox.
@@ -106,27 +107,26 @@ export function NewsletterForm({
           placeholder="you@goodlife.com"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="rounded-full border-0 bg-white/80 px-5"
-          style={styles.input}
+          className={cn("h-11 rounded-full px-5 shadow-none", styles.input)}
           data-testid={`${testIdPrefix}-email`}
           autoComplete="email"
+          aria-label="Email address"
           required
         />
-        <Button
+        <button
           type="submit"
           disabled={status === "submitting"}
-          className="rounded-full px-6 text-[11px] font-semibold uppercase tracking-[0.22em]"
-          style={styles.button}
+          className={cn("cta", styles.button)}
           data-testid={`${testIdPrefix}-submit`}
         >
           {status === "submitting" ? "…" : buttonLabel}
-        </Button>
+        </button>
       </div>
       {error && (
         <p
-          className="px-2 text-xs"
-          style={{ color: "hsl(0 60% 35%)" }}
+          className={cn("px-2 text-xs font-medium", styles.error)}
           data-testid={`${testIdPrefix}-error`}
+          role="alert"
         >
           {error}
         </p>
