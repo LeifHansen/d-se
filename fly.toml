@@ -15,7 +15,9 @@ primary_region = "ord"  # Chicago — change to your closest region (lhr, sjc, f
   # secrets — they ship to the browser regardless. Add new VITE_* vars here as
   # you wire them (Sentry DSN, GA4 ID, Meta Pixel ID, Turnstile site key, etc.).
   [build.args]
-    VITE_CLERK_PUBLISHABLE_KEY = "pk_test_c29jaWFsLWZsZWEtMi5jbGVyay5hY2NvdW50cy5kZXYk"
+    # VITE_CLERK_PUBLISHABLE_KEY is passed by .github/workflows/fly-deploy.yml
+    # from the CLERK_PUBLISHABLE_KEY repo secret. For a manual deploy:
+    #   flyctl deploy --build-arg VITE_CLERK_PUBLISHABLE_KEY=pk_live_...
     VITE_SITE_URL = "https://xn--dse-qxa.com"
     # Coming-soon gate — when "1", every public visitor sees the holding page.
     # Bypass for previewing the real site: append `?preview=1` to any URL
