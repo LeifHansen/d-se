@@ -12,7 +12,7 @@ const launchOptions = resolveChromiumLaunchOptions();
 
 const STORE_PORT = process.env.E2E_PORT ?? "5175";
 const API_PORT = process.env.E2E_API_PORT ?? "18181";
-const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:${STORE_PORT}`;
+const BASE_URL = process.env.E2E_BASE_URL || `http://localhost:${STORE_PORT}`;
 const API_URL = process.env.E2E_API_URL ?? `http://localhost:${API_PORT}`;
 
 const useExternal = !!process.env.E2E_BASE_URL;

@@ -1,7 +1,7 @@
 import { test, expect, request } from "@playwright/test";
 
 const apiBase =
-  process.env.E2E_API_BASE_URL ??
+  process.env.E2E_API_BASE_URL ||
   (process.env.E2E_BASE_URL
     ? `${process.env.E2E_BASE_URL}/api`
     : "http://localhost:5001/api");
