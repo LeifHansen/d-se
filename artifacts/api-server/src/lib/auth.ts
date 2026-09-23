@@ -6,12 +6,24 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean);
 
+/**
+ * Clerk is optional outside production (see app.ts): when clerkMiddleware
+ * isn't mounted, getAuth() throws, so treat every request as signed out.
+ */
+function authOf(req: Request): { userId: string | null } {
+  try {
+    return { userId: getAuth(req).userId ?? null };
+  } catch {
+    return { userId: null };
+  }
+}
+
 export function requireAuth(
   req: Request,
   res: Response,
   next: NextFunction,
 ): void {
-  const auth = getAuth(req);
+  const auth = authOf(req);
   if (!auth.userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
@@ -39,7 +51,7 @@ export async function requireAdmin(
     next();
     return;
   }
-  const auth = getAuth(req);
+  const auth = authOf(req);
   if (!auth.userId) {
     res.status(401).json({ error: "Unauthorized" });
     return;
@@ -76,11 +88,11 @@ export async function requireAdmin(
 }
 
 export function getUserId(req: Request): string | null {
-  return getAuth(req).userId ?? null;
+  return authOf(req).userId;
 }
 
 export async function getUserEmail(req: Request): Promise<string | null> {
-  const auth = getAuth(req);
+  const auth = authOf(req);
   if (!auth.userId) return null;
   try {
     const { clerkClient } = await import("@clerk/express");

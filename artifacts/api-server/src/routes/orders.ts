@@ -399,6 +399,17 @@ router.post("/checkout", async (req, res): Promise<void> => {
   );
 
   if (!(await isStripeConfigured())) {
+    if (process.env.NODE_ENV === "production") {
+      // Never hand out unpaid orders in production because of a missing or
+      // broken Stripe configuration.
+      req.log.error({ orderId: order.id }, "Stripe not configured; refusing checkout");
+      await db
+        .update(ordersTable)
+        .set({ status: "cancelled" })
+        .where(eq(ordersTable.id, order.id));
+      res.status(503).json({ error: "Checkout is temporarily unavailable" });
+      return;
+    }
     // Dev fallback: skip Stripe; mark order as paid immediately.
     await db
       .update(ordersTable)
