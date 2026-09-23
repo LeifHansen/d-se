@@ -29,8 +29,8 @@ Single-container deploy. Caddy front-routes to the api-server (port 4000) and th
    # Required
    flyctl secrets set \
      DATABASE_URL="postgres://..." \
-     CLERK_PUBLISHABLE_KEY="pk_test_..." \
-     CLERK_SECRET_KEY="sk_test_..." \
+     CLERK_PUBLISHABLE_KEY="pk_live_..." \
+     CLERK_SECRET_KEY="sk_live_..." \
      SESSION_SECRET="$(openssl rand -hex 32)" \
      ORDER_TOKEN_SECRET="$(openssl rand -hex 32)" \
      ABANDONED_CART_SECRET="$(openssl rand -hex 32)" \
@@ -85,7 +85,7 @@ Single-container deploy. Caddy front-routes to the api-server (port 4000) and th
 | Var | Required | Notes |
 |---|---|---|
 | `DATABASE_URL` | ✅ | Postgres connection string (Neon, Supabase, etc.) |
-| `CLERK_PUBLISHABLE_KEY` + `CLERK_SECRET_KEY` | ✅ | Clerk's `pk_…` and `sk_…` |
+| `CLERK_PUBLISHABLE_KEY` + `CLERK_SECRET_KEY` | ✅ | Clerk production `pk_live_…` and `sk_live_…`. The api-server refuses to boot in production without both. |
 | `SESSION_SECRET` | ✅ | Random 32+ bytes, used for cookie signing |
 | `ORDER_TOKEN_SECRET` | ✅ | Random 32+ bytes for order-link signing |
 | `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` | ⚠️ | Without these, checkout falls back to dev "instant paid" |
@@ -103,7 +103,7 @@ Single-container deploy. Caddy front-routes to the api-server (port 4000) and th
 
 | Var | Notes |
 |---|---|
-| `VITE_CLERK_PUBLISHABLE_KEY` | Same `pk_…` as the server, exposed to the browser |
+| `VITE_CLERK_PUBLISHABLE_KEY` | Same `pk_live_…` as the server, exposed to the browser. CI passes it from the `CLERK_PUBLISHABLE_KEY` **GitHub** repo secret (`fly-deploy.yml` fails if it's unset) |
 | `VITE_GA4_ID` | e.g. `G-XXXXXXX` |
 | `VITE_META_PIXEL_ID` | numeric pixel id |
 | `VITE_SENTRY_DSN` | browser-side Sentry |
