@@ -164,7 +164,8 @@ function RelatedPosts({
     { tags: tag, limit: 4 } as never,
     { query: { enabled } as never },
   );
-  const items = (data ?? [])
+  // Optional section: never let an unexpected response take down the post.
+  const items = (Array.isArray(data) ? data : [])
     .filter((p) => p.slug !== currentSlug)
     .slice(0, 3);
   if (items.length === 0) return null;

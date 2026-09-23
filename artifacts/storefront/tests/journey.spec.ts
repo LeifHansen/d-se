@@ -346,14 +346,18 @@ async function installStorefrontMocks(
     });
   });
 
-  await page.route("**/api/blog/posts", async (route: Route) => {
-    if (route.request().method() !== "GET") return route.fallback();
-    await route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify(POSTS),
-    });
-  });
+  // Match list requests with or without a query (related posts use ?tags=).
+  await page.route(
+    (url) => url.pathname === "/api/blog/posts",
+    async (route: Route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(POSTS),
+      });
+    },
+  );
 
   await page.route("**/api/blog/posts/*", async (route: Route) => {
     if (route.request().method() !== "GET") return route.fallback();

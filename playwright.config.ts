@@ -29,7 +29,9 @@ export default defineConfig({
             PORT: "5001",
             NODE_ENV: "development",
           },
-          url: "http://localhost:5001/api/healthz",
+          // /api/healthz is 503 without Stripe/Resend keys (as in CI), so wait
+          // on a route that only needs the database.
+          url: "http://localhost:5001/api/products",
           reuseExistingServer: !process.env.CI,
           timeout: 120_000,
           stdout: "pipe",
