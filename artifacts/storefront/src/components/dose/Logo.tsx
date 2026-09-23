@@ -1,23 +1,30 @@
 import { cn } from "@/lib/utils";
 
+export type LogoTone = "white" | "ink" | "turquoise" | "pink";
+
 interface LogoProps {
   variant?: "wordmark" | "stacked" | "emblem";
   className?: string;
-  tone?: "cream" | "teal" | "gold";
+  /** Palette colour for the mark. Omit to inherit `currentColor`. */
+  tone?: LogoTone;
 }
 
-const toneToColor: Record<NonNullable<LogoProps["tone"]>, string> = {
-  cream: "hsl(45 49% 90%)",
-  teal: "hsl(166 95% 19%)",
-  gold: "hsl(42 53% 54%)",
+const toneToColor: Record<LogoTone, string> = {
+  white: "hsl(var(--white))",
+  ink: "hsl(var(--ink))",
+  turquoise: "hsl(var(--turquoise))",
+  pink: "hsl(var(--pink))",
 };
 
+/** Mountain-inside-droplet emblem. Strokes only, so it tints with `color`. */
 export function Emblem({
   className,
-  color = "hsl(45 49% 90%)",
+  color = "currentColor",
+  strokeWidth = 3.5,
 }: {
   className?: string;
   color?: string;
+  strokeWidth?: number;
 }) {
   return (
     <svg
@@ -30,13 +37,13 @@ export function Emblem({
       <path
         d="M60 6 C 90 38, 106 62, 106 84 C 106 110, 84 130, 60 130 C 36 130, 14 110, 14 84 C 14 62, 30 38, 60 6 Z"
         stroke={color}
-        strokeWidth="3.5"
+        strokeWidth={strokeWidth}
         strokeLinejoin="round"
       />
       <path
         d="M28 102 L 50 70 L 60 88 L 72 70 L 92 102"
         stroke={color}
-        strokeWidth="3.5"
+        strokeWidth={strokeWidth}
         strokeLinejoin="round"
         strokeLinecap="round"
       />
@@ -46,15 +53,15 @@ export function Emblem({
         x2="92"
         y2="102"
         stroke={color}
-        strokeWidth="3.5"
+        strokeWidth={strokeWidth}
         strokeLinecap="round"
       />
     </svg>
   );
 }
 
-export function Logo({ variant = "wordmark", className, tone = "cream" }: LogoProps) {
-  const color = toneToColor[tone];
+export function Logo({ variant = "wordmark", className, tone }: LogoProps) {
+  const color = tone ? toneToColor[tone] : "currentColor";
 
   if (variant === "emblem") {
     return <Emblem className={className} color={color} />;
@@ -65,8 +72,8 @@ export function Logo({ variant = "wordmark", className, tone = "cream" }: LogoPr
       <div className={cn("inline-flex flex-col items-center gap-2", className)}>
         <Emblem className="h-12 w-auto" color={color} />
         <span
-          className="font-wordmark text-2xl"
-          style={{ color, letterSpacing: "0.18em" }}
+          className="font-wordmark text-3xl"
+          style={{ color, letterSpacing: "0.2em" }}
         >
           DŌSE
         </span>
@@ -76,10 +83,7 @@ export function Logo({ variant = "wordmark", className, tone = "cream" }: LogoPr
 
   // wordmark
   return (
-    <span
-      className={cn("font-wordmark text-xl tracking-[0.18em]", className)}
-      style={{ color }}
-    >
+    <span className={cn("font-wordmark text-2xl", className)} style={{ color }}>
       DŌSE
     </span>
   );

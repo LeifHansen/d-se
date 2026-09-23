@@ -17,9 +17,9 @@ declare module "react" {
   }
 }
 
-const ACCENT = "hsl(42 53% 54%)";
-const MUTED = "hsl(170 18% 32%)";
-const RULE = "hsl(40 18% 80%)";
+const ACCENT = "hsl(var(--turquoise-deep))";
+const MUTED = "hsl(var(--silver-dark))";
+const RULE = "hsl(var(--silver))";
 
 export const sanitizeSchema = {
   ...defaultSchema,
@@ -65,7 +65,7 @@ function ProductCallout({ slug }: { slug?: string }) {
     return (
       <div
         className="my-8 h-32 w-full animate-pulse rounded-2xl"
-        style={{ background: "hsl(40 30% 92%)" }}
+        style={{ background: "hsl(var(--silver-light))" }}
         aria-hidden="true"
       />
     );
@@ -74,13 +74,13 @@ function ProductCallout({ slug }: { slug?: string }) {
   return (
     <aside
       className="not-prose my-10 overflow-hidden rounded-3xl border"
-      style={{ borderColor: RULE, background: "hsl(40 30% 96%)" }}
+      style={{ borderColor: RULE, background: "hsl(var(--silver-light))" }}
       data-testid={`blog-product-callout-${product.slug}`}
     >
       <div className="grid gap-0 sm:grid-cols-[160px_1fr]">
         <div
           className="aspect-square w-full overflow-hidden sm:aspect-auto"
-          style={{ background: "hsl(165 58% 25%)" }}
+          style={{ background: "hsl(var(--ink-soft))" }}
         >
           {img ? (
             <img
@@ -132,7 +132,7 @@ function ProductCallout({ slug }: { slug?: string }) {
 }
 
 export const BLOG_PROSE_CLASSES =
-  "prose prose-neutral max-w-none prose-headings:font-display prose-headings:tracking-tight prose-h2:mt-12 prose-h2:text-3xl prose-h3:text-2xl prose-a:text-[hsl(170_58%_24%)] prose-a:underline-offset-4 hover:prose-a:underline prose-img:rounded-2xl prose-blockquote:border-l-4 prose-blockquote:border-[hsl(42_53%_54%)] prose-blockquote:bg-[hsl(40_30%_96%)] prose-blockquote:px-5 prose-blockquote:py-2 prose-blockquote:not-italic prose-blockquote:font-display prose-blockquote:text-xl prose-hr:border-[hsl(40_18%_80%)]";
+  "prose prose-neutral max-w-none prose-headings:font-display prose-headings:tracking-tight prose-h2:mt-12 prose-h2:text-3xl prose-h3:text-2xl prose-a:text-[hsl(var(--turquoise-deep))] prose-a:underline-offset-4 hover:prose-a:underline prose-img:rounded-2xl prose-blockquote:border-l-4 prose-blockquote:border-[hsl(var(--pink))] prose-blockquote:bg-[hsl(var(--silver-light))] prose-blockquote:px-5 prose-blockquote:py-2 prose-blockquote:not-italic prose-blockquote:font-display prose-blockquote:text-xl prose-hr:border-[hsl(var(--silver))]";
 
 export interface BlogMarkdownProps {
   content: string;

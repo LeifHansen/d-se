@@ -1,8 +1,14 @@
 import { Helmet } from "react-helmet-async";
-import emblem from "@/assets/brand/final/emblem-gold.jpg";
+import { Emblem } from "@/components/dose/Logo";
 
 const PREVIEW_STORAGE_KEY = "dose:preview";
 const PREVIEW_QUERY_KEY = "preview";
+
+// Palette literals (kept inline so this page renders even if the stylesheet
+// fails to load): ink #111D1D, turquoise #1FB2A3, turquoise bright #3CDDCD.
+const INK = "#111D1D";
+const TURQUOISE = "#1FB2A3";
+const TURQUOISE_BRIGHT = "#3CDDCD";
 
 export function isComingSoonEnabled(): boolean {
   if (import.meta.env.VITE_COMING_SOON !== "1") return false;
@@ -36,11 +42,10 @@ export function ComingSoon() {
         justifyContent: "center",
         gap: "2rem",
         padding: "3rem 1.5rem",
-        background: "#00382b",
-        color: "#f1ead8",
+        background: INK,
+        color: "#FFFFFF",
         textAlign: "center",
-        fontFamily:
-          '"Cormorant Garamond", Georgia, "Times New Roman", serif',
+        fontFamily: '"Inter", system-ui, sans-serif',
       }}
     >
       <Helmet>
@@ -58,39 +63,42 @@ export function ComingSoon() {
         <meta name="twitter:title" content="DŌSE — Coming Soon" />
       </Helmet>
 
-      <img
-        src={emblem}
-        alt="DŌSE"
-        width={180}
-        height={180}
+      <div
+        aria-hidden="true"
         style={{
           width: "min(180px, 40vw)",
-          height: "auto",
+          aspectRatio: "1 / 1",
           borderRadius: "50%",
-          objectFit: "cover",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.25)",
+          display: "grid",
+          placeItems: "center",
+          background: TURQUOISE,
+          boxShadow: "0 24px 60px rgba(0,0,0,0.45)",
         }}
-      />
+      >
+        <Emblem className="h-auto w-[52%]" color={INK} strokeWidth={4} />
+      </div>
 
       <div style={{ maxWidth: "32rem" }}>
         <h1
           style={{
-            fontSize: "clamp(2.25rem, 6vw, 3.5rem)",
+            fontSize: "clamp(3rem, 9vw, 5rem)",
             margin: 0,
-            letterSpacing: "0.08em",
-            fontWeight: 500,
+            letterSpacing: "0.14em",
+            fontWeight: 400,
+            lineHeight: 1,
+            fontFamily: '"Bebas Neue", Impact, "Arial Narrow", sans-serif',
           }}
         >
           DŌSE
         </h1>
         <p
           style={{
-            marginTop: "0.5rem",
-            fontSize: "1.125rem",
-            letterSpacing: "0.2em",
+            marginTop: "0.75rem",
+            fontSize: "0.8rem",
+            fontWeight: 600,
+            letterSpacing: "0.26em",
             textTransform: "uppercase",
-            fontFamily: '"Inter", system-ui, sans-serif',
-            opacity: 0.7,
+            color: TURQUOISE_BRIGHT,
           }}
         >
           Coming Soon
@@ -100,7 +108,6 @@ export function ComingSoon() {
             marginTop: "2rem",
             fontSize: "clamp(1.05rem, 2vw, 1.25rem)",
             lineHeight: 1.6,
-            fontFamily: '"Inter", system-ui, sans-serif',
             opacity: 0.85,
           }}
         >

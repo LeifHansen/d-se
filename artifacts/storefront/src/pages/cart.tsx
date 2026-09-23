@@ -253,12 +253,12 @@ export default function CartPage() {
     <SiteShell testId="page-cart">
       <Seo title="Your cart" noindex />
       <section
-        style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
+        style={{ background: "hsl(var(--ink))", color: "hsl(var(--white))" }}
       >
         <div className="mx-auto max-w-5xl px-6 py-16 md:px-10 md:py-20">
           <p
             className="text-[11px] font-semibold uppercase tracking-[0.22em]"
-            style={{ color: "hsl(42 53% 64%)" }}
+            style={{ color: "hsl(var(--turquoise-bright))" }}
           >
             Your bag
           </p>
@@ -266,7 +266,7 @@ export default function CartPage() {
             The drop is{" "}
             <span
               className="font-display-italic"
-              style={{ color: "hsl(95 30% 78%)" }}
+              style={{ color: "hsl(var(--pink-soft))" }}
             >
               ready.
             </span>
@@ -280,7 +280,7 @@ export default function CartPage() {
           {resume.state === "ok" && (
             <p
               className="mt-6 inline-block rounded-md px-4 py-2 text-sm"
-              style={{ background: "hsla(45,49%,90%,0.1)" }}
+              style={{ background: "hsl(var(--white) / 0.1)" }}
               data-testid="resume-status-ok"
             >
               Welcome back — we picked up where you left off.
@@ -307,13 +307,13 @@ export default function CartPage() {
           <div className="text-center" data-testid="cart-empty">
             <p
               className="font-display text-3xl"
-              style={{ color: "hsl(166 95% 19%)" }}
+              style={{ color: "hsl(var(--ink))" }}
             >
               Your bag is empty.
             </p>
             <p
               className="mt-2 text-sm"
-              style={{ color: "hsl(170 18% 32%)" }}
+              style={{ color: "hsl(var(--silver-dark))" }}
             >
               Find your ritual in the shop.
             </p>
@@ -321,8 +321,8 @@ export default function CartPage() {
               asChild
               className="mt-6 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
-                background: "hsl(166 95% 19%)",
-                color: "hsl(45 49% 90%)",
+                background: "hsl(var(--ink))",
+                color: "hsl(var(--white))",
               }}
             >
               <Link href="/shop">Browse the shop</Link>
@@ -332,7 +332,7 @@ export default function CartPage() {
           <div className="grid gap-12 md:grid-cols-3">
             <ul
               className="md:col-span-2 divide-y"
-              style={{ borderColor: "hsl(40 18% 80%)" }}
+              style={{ borderColor: "hsl(var(--silver))" }}
               data-testid="cart-items"
             >
               {data!.items.map((it) => (
@@ -343,7 +343,7 @@ export default function CartPage() {
                 >
                   <div
                     className="aspect-square w-24 overflow-hidden rounded-xl"
-                    style={{ background: "hsl(40 30% 88%)" }}
+                    style={{ background: "hsl(var(--silver-light))" }}
                   >
                     {it.product.images[0] ? (
                       <img
@@ -364,7 +364,7 @@ export default function CartPage() {
                         </Link>
                         <p
                           className="mt-1 text-sm"
-                          style={{ color: "hsl(170 18% 32%)" }}
+                          style={{ color: "hsl(var(--silver-dark))" }}
                         >
                           {formatMoney(it.product.priceCents, it.product.currency)}{" "}
                           each
@@ -377,7 +377,7 @@ export default function CartPage() {
                     <div className="mt-3 flex items-center gap-3">
                       <div
                         className="inline-flex items-center overflow-hidden rounded-full border"
-                        style={{ borderColor: "hsl(40 18% 80%)" }}
+                        style={{ borderColor: "hsl(var(--silver))" }}
                       >
                         <button
                           type="button"
@@ -426,7 +426,7 @@ export default function CartPage() {
                           refetch();
                         }}
                         className="inline-flex items-center gap-1 text-xs uppercase tracking-[0.18em]"
-                        style={{ color: "hsl(170 18% 32%)" }}
+                        style={{ color: "hsl(var(--silver-dark))" }}
                         data-testid={`cart-item-${it.id}-remove`}
                       >
                         <Trash2 className="h-3.5 w-3.5" /> Remove
@@ -439,13 +439,13 @@ export default function CartPage() {
 
             <aside
               className="h-fit rounded-2xl border bg-card p-6"
-              style={{ borderColor: "hsl(40 18% 80%)" }}
+              style={{ borderColor: "hsl(var(--silver))" }}
               data-testid="cart-summary"
             >
               <h2 className="font-display text-2xl">Order summary</h2>
               <dl
                 className="mt-4 space-y-2 text-sm"
-                style={{ color: "hsl(170 18% 28%)" }}
+                style={{ color: "hsl(var(--graphite))" }}
               >
                 <div className="flex justify-between">
                   <dt>Subtotal</dt>
@@ -456,7 +456,7 @@ export default function CartPage() {
                 {data!.discountCents && data!.discountCents > 0 ? (
                   <div
                     className="flex items-center justify-between"
-                    style={{ color: "hsl(95 30% 35%)" }}
+                    style={{ color: "hsl(var(--turquoise-deep))" }}
                     data-testid="summary-discount-row"
                   >
                     <dt className="flex items-center gap-2">
@@ -465,8 +465,8 @@ export default function CartPage() {
                         <span
                           className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
                           style={{
-                            background: "hsl(166 95% 19%)",
-                            color: "hsl(45 49% 90%)",
+                            background: "hsl(var(--ink))",
+                            color: "hsl(var(--white))",
                           }}
                           data-testid="summary-discount-code"
                         >
@@ -625,7 +625,7 @@ export default function CartPage() {
 
               <div
                 className="mt-4 flex justify-between border-t pt-4 font-display text-xl"
-                style={{ borderColor: "hsl(40 18% 80%)" }}
+                style={{ borderColor: "hsl(var(--silver))" }}
               >
                 <span>Total</span>
                 <span data-testid="summary-total">
@@ -716,8 +716,8 @@ export default function CartPage() {
                 asChild
                 className="mt-6 w-full rounded-full py-6 text-[11px] font-semibold uppercase tracking-[0.22em]"
                 style={{
-                  background: "hsl(42 53% 54%)",
-                  color: "hsl(166 95% 19%)",
+                  background: "hsl(var(--pink))",
+                  color: "hsl(var(--white))",
                 }}
                 data-testid="cart-checkout"
               >

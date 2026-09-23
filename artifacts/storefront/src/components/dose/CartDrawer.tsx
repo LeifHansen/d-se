@@ -17,9 +17,10 @@ import { Button } from "@/components/ui/button";
 import { useStoredCartId } from "@/lib/cart";
 import { formatMoney } from "@/lib/api";
 
-const CREAM = "hsl(45 49% 90%)";
-const FOREST = "hsl(166 95% 19%)";
-const GOLD = "hsl(42 53% 54%)";
+const CREAM = "hsl(var(--white))";
+const FOREST = "hsl(var(--ink))";
+const GOLD = "hsl(var(--turquoise-deep))";
+const PINK = "hsl(var(--pink))";
 
 export function CartDrawer({
   open,
@@ -54,7 +55,7 @@ export function CartDrawer({
       >
         <SheetHeader
           className="border-b px-6 py-5"
-          style={{ borderColor: "hsla(170,58%,14%,0.10)" }}
+          style={{ borderColor: "hsl(var(--ink) / 0.10)" }}
         >
           <p
             className="text-[11px] font-semibold uppercase tracking-[0.22em]"
@@ -90,9 +91,9 @@ export function CartDrawer({
             <h3 className="font-display text-2xl">Your bag is empty.</h3>
             <p
               className="max-w-xs text-sm"
-              style={{ color: "hsla(170,58%,14%,0.6)" }}
+              style={{ color: "hsl(var(--ink) / 0.6)" }}
             >
-              Add a tonic to get started — every order ships free over $60.
+              Add the dropper to get started — every order ships free over $60.
             </p>
             <Link href="/shop" onClick={() => onOpenChange(false)}>
               <Button
@@ -110,7 +111,7 @@ export function CartDrawer({
           <>
             <ul
               className="flex-1 divide-y overflow-y-auto px-6"
-              style={{ borderColor: "hsla(170,58%,14%,0.10)" }}
+              style={{ borderColor: "hsl(var(--ink) / 0.10)" }}
               data-testid="cart-drawer-items"
             >
               {cart.items.map((it) => {
@@ -126,7 +127,6 @@ export function CartDrawer({
                   className="flex gap-4 py-5"
                   data-testid={`cart-drawer-item-${it.id}`}
                 >
-                  
                   {it.product.images[0] ? (
                     <img
                       src={it.product.images[0]}
@@ -134,7 +134,10 @@ export function CartDrawer({
                       className="h-20 w-20 flex-shrink-0 rounded-lg object-cover"
                     />
                   ) : (
-                    <div className="h-20 w-20 flex-shrink-0 rounded-lg bg-black/5" />
+                    <div
+                      className="h-20 w-20 flex-shrink-0 rounded-lg border border-dashed border-silver bg-silver-light"
+                      aria-hidden="true"
+                    />
                   )}
                   <div className="flex flex-1 flex-col">
                     <div className="flex items-start justify-between gap-3">
@@ -148,7 +151,7 @@ export function CartDrawer({
                         </Link>
                         <p
                           className="text-[10px] uppercase tracking-[0.18em]"
-                          style={{ color: "hsla(170,58%,14%,0.6)" }}
+                          style={{ color: "hsl(var(--ink) / 0.6)" }}
                         >
                           {formatMoney(it.product.priceCents, cart.currency)} each
                         </p>
@@ -203,7 +206,7 @@ export function CartDrawer({
                         ) : lowStock ? (
                           <p
                             className="mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.18em]"
-                            style={{ background: GOLD, color: FOREST }}
+                            style={{ background: "hsl(var(--turquoise))", color: FOREST }}
                             data-testid={`cart-drawer-stock-${it.id}`}
                           >
                             Only {inv} left
@@ -228,7 +231,7 @@ export function CartDrawer({
                     <div className="mt-3 flex items-center justify-between">
                       <div
                         className="inline-flex items-center rounded-full border"
-                        style={{ borderColor: "hsla(170,58%,14%,0.18)" }}
+                        style={{ borderColor: "hsl(var(--ink) / 0.18)" }}
                       >
                         <button
                           type="button"
@@ -283,7 +286,7 @@ export function CartDrawer({
 
             <div
               className="border-t px-6 py-5"
-              style={{ borderColor: "hsla(170,58%,14%,0.10)" }}
+              style={{ borderColor: "hsl(var(--ink) / 0.10)" }}
               data-testid="cart-drawer-summary"
             >
               <dl className="space-y-2 text-sm">
@@ -314,7 +317,7 @@ export function CartDrawer({
                 )}
                 <div
                   className="flex justify-between border-t pt-3 font-display text-lg"
-                  style={{ borderColor: "hsla(170,58%,14%,0.10)" }}
+                  style={{ borderColor: "hsl(var(--ink) / 0.10)" }}
                 >
                   <dt>Total</dt>
                   <dd data-testid="cart-drawer-total">
@@ -327,14 +330,14 @@ export function CartDrawer({
               </dl>
               <p
                 className="mt-2 text-[11px]"
-                style={{ color: "hsla(170,58%,14%,0.6)" }}
+                style={{ color: "hsl(var(--ink) / 0.6)" }}
               >
                 Shipping &amp; taxes calculated at checkout.
               </p>
               <Link href="/checkout" onClick={() => onOpenChange(false)}>
                 <Button
                   className="mt-4 w-full rounded-full py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
-                  style={{ background: GOLD, color: FOREST }}
+                  style={{ background: PINK, color: CREAM }}
                   data-testid="cart-drawer-checkout"
                 >
                   Checkout

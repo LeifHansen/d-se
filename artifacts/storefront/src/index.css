@@ -56,10 +56,29 @@
   --color-sidebar-accent-border: var(--sidebar-accent-border);
   --color-sidebar-ring: hsl(var(--sidebar-ring));
 
+  /* Brand palette exposed as Tailwind colors (bg-turquoise, text-pink, …) */
+  --color-white: hsl(var(--white));
+  --color-ink: hsl(var(--ink));
+  --color-ink-deep: hsl(var(--ink-deep));
+  --color-ink-soft: hsl(var(--ink-soft));
+  --color-graphite: hsl(var(--graphite));
+  --color-turquoise: hsl(var(--turquoise));
+  --color-turquoise-bright: hsl(var(--turquoise-bright));
+  --color-turquoise-deep: hsl(var(--turquoise-deep));
+  --color-turquoise-tint: hsl(var(--turquoise-tint));
+  --color-pink: hsl(var(--pink));
+  --color-pink-deep: hsl(var(--pink-deep));
+  --color-pink-soft: hsl(var(--pink-soft));
+  --color-pink-tint: hsl(var(--pink-tint));
+  --color-silver: hsl(var(--silver));
+  --color-silver-light: hsl(var(--silver-light));
+  --color-silver-dark: hsl(var(--silver-dark));
+
   --font-sans: var(--app-font-sans);
   --font-serif: var(--app-font-serif);
   --font-mono: var(--app-font-mono);
   --font-display: var(--app-font-display);
+  --font-marker: var(--app-font-marker);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -67,87 +86,118 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* DŌSE — Brand palette
-   Emerald:   #00674F   hsl(166 95% 19%)   — primary brand surface / ink
-   Forest hi:            hsl(164 68% 27%)   — gradient highlight
-   Sage:      #A8B89D    hsl(95 14% 67%)
-   Seafoam:   #B6C8C2    hsl(170 14% 75%)
-   Cream:     #F1ECDC    hsl(45 49% 90%)
-   Ivory:     #F7F2E2    hsl(45 50% 93%)
-   Gold:      #C9A24C    hsl(42 53% 54%)
+/* DŌSE — Brand palette (classy urban / street-art)
+   Every value is an HSL triplet so it can be used as `hsl(var(--x))` or with
+   alpha as `hsl(var(--x) / 0.5)`.
+
+   Turquoise         #1FB2A3  hsl(174 70% 41%)  — brand colour, surfaces, accents
+   Turquoise bright  #3CDDCD  hsl(174 70% 55%)  — accents on dark surfaces
+   Turquoise deep    #176D68  hsl(176 65% 26%)  — text-safe turquoise (6.1:1 on white)
+   Turquoise tint    #E6F7F5  hsl(174 60% 94%)  — pale wash
+   Pink              #D51A68  hsl(335 78% 47%)  — primary CTA (5:1 with white text)
+   Pink deep         #B21356  hsl(335 78% 39%)  — CTA hover
+   Pink soft         #F877AD  hsl(335 90% 72%)  — stickers, accents on dark
+   Pink tint         #FDEEF4  hsl(335 80% 95%)  — pale wash
+   White             #FFFFFF  hsl(0 0% 100%)    — primary surface
+   Silver            #BDC4C8  hsl(205 8% 76%)   — borders, dividers, chrome
+   Silver light      #F0F3F4  hsl(205 12% 95%)  — "concrete" section surface
+   Silver dark       #636D74  hsl(205 8% 42%)   — muted labels (5.3:1 on white)
+   Ink               #111D1D  hsl(180 25% 9%)   — charcoal ink / dark surfaces
+   Graphite          #49545A  hsl(200 10% 32%)  — body copy on light surfaces
 */
 
-/* LIGHT MODE — cream surface, deep teal ink */
+/* LIGHT MODE — white surface, charcoal ink, turquoise + pink accents */
 :root {
-  --button-outline: rgba(15,57,51, .10);
-  --badge-outline: rgba(15,57,51, .08);
+  --white: 0 0% 100%;
+  --ink: 180 25% 9%;
+  --ink-deep: 180 25% 6%;
+  --ink-soft: 185 18% 15%;
+  --graphite: 200 10% 32%;
+  --turquoise: 174 70% 41%;
+  --turquoise-bright: 174 70% 55%;
+  --turquoise-deep: 176 65% 26%;
+  --turquoise-tint: 174 60% 94%;
+  --pink: 335 78% 47%;
+  --pink-deep: 335 78% 39%;
+  --pink-soft: 335 90% 72%;
+  --pink-tint: 335 80% 95%;
+  --silver: 205 8% 76%;
+  --silver-light: 205 12% 95%;
+  --silver-dark: 205 8% 42%;
+
+  --button-outline: rgba(17, 29, 29, 0.16);
+  --badge-outline: rgba(17, 29, 29, 0.1);
 
   --opaque-button-border-intensity: -8;
 
-  --elevate-1: rgba(15,57,51, .03);
-  --elevate-2: rgba(15,57,51, .07);
+  --elevate-1: rgba(17, 29, 29, 0.03);
+  --elevate-2: rgba(17, 29, 29, 0.07);
 
-  --background: 45 49% 90%;
-  --foreground: 166 95% 19%;
+  --background: var(--white);
+  --foreground: var(--ink);
 
-  --border: 40 18% 80%;
+  --border: var(--silver);
 
-  --card: 45 50% 93%;
-  --card-foreground: 166 95% 19%;
-  --card-border: 40 18% 80%;
+  --card: var(--white);
+  --card-foreground: var(--ink);
+  --card-border: var(--silver);
 
-  --sidebar: 166 95% 19%;
-  --sidebar-foreground: 45 49% 90%;
-  --sidebar-border: 170 30% 22%;
-  --sidebar-primary: 42 53% 54%;
-  --sidebar-primary-foreground: 166 95% 19%;
-  --sidebar-accent: 170 14% 75%;
-  --sidebar-accent-foreground: 166 95% 19%;
-  --sidebar-ring: 42 53% 54%;
+  --sidebar: var(--ink);
+  --sidebar-foreground: var(--white);
+  --sidebar-border: 190 12% 22%;
+  --sidebar-primary: var(--turquoise);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent: var(--pink-soft);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-ring: var(--turquoise);
 
-  --popover: 45 50% 93%;
-  --popover-foreground: 166 95% 19%;
-  --popover-border: 40 18% 80%;
+  --popover: var(--white);
+  --popover-foreground: var(--ink);
+  --popover-border: var(--silver);
 
-  --primary: 166 95% 19%;
-  --primary-foreground: 45 49% 90%;
+  --primary: var(--turquoise-deep);
+  --primary-foreground: var(--white);
 
-  --secondary: 95 14% 67%;
-  --secondary-foreground: 166 95% 19%;
+  --secondary: var(--silver-light);
+  --secondary-foreground: var(--ink);
 
-  --muted: 40 30% 88%;
-  --muted-foreground: 170 18% 32%;
+  --muted: var(--silver-light);
+  --muted-foreground: var(--silver-dark);
 
-  --accent: 42 53% 54%;
-  --accent-foreground: 166 95% 19%;
+  --accent: var(--pink);
+  --accent-foreground: var(--white);
 
-  --destructive: 12 55% 42%;
-  --destructive-foreground: 45 49% 90%;
+  --destructive: 0 70% 42%;
+  --destructive-foreground: var(--white);
 
-  --input: 40 18% 80%;
-  --ring: 42 53% 54%;
+  --input: var(--silver);
+  --ring: var(--turquoise);
 
-  --chart-1: 42 53% 54%;
-  --chart-2: 95 14% 67%;
-  --chart-3: 170 14% 75%;
-  --chart-4: 166 95% 19%;
-  --chart-5: 12 55% 42%;
+  --chart-1: var(--turquoise);
+  --chart-2: var(--pink);
+  --chart-3: var(--silver-dark);
+  --chart-4: var(--turquoise-deep);
+  --chart-5: var(--pink-soft);
 
   --app-font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --app-font-serif: 'Cormorant Garamond', Georgia, serif;
-  --app-font-display: 'Cormorant Garamond', Georgia, serif;
+  --app-font-serif: 'Bebas Neue', 'Inter', ui-sans-serif, sans-serif;
+  --app-font-display: 'Bebas Neue', 'Oswald', Impact, 'Arial Narrow', sans-serif;
+  --app-font-marker: 'Permanent Marker', 'Marker Felt', 'Comic Sans MS', cursive;
   --app-font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --radius: .5rem;
-  --shadow-2xs: 0px 1px 0px 0px hsl(167 85% 16% / 0.04);
-  --shadow-xs: 0px 1px 2px 0px hsl(167 85% 16% / 0.06);
-  --shadow-sm: 0px 1px 2px 0px hsl(167 85% 16% / 0.08), 0px 1px 1px -1px hsl(167 85% 16% / 0.06);
-  --shadow: 0px 2px 4px -1px hsl(167 85% 16% / 0.10), 0px 1px 2px -1px hsl(167 85% 16% / 0.06);
-  --shadow-md: 0px 4px 6px -1px hsl(167 85% 16% / 0.10), 0px 2px 4px -2px hsl(167 85% 16% / 0.08);
-  --shadow-lg: 0px 10px 15px -3px hsl(167 85% 16% / 0.12), 0px 4px 6px -4px hsl(167 85% 16% / 0.08);
-  --shadow-xl: 0px 20px 25px -5px hsl(167 85% 16% / 0.14), 0px 8px 10px -6px hsl(167 85% 16% / 0.08);
-  --shadow-2xl: 0px 25px 50px -12px hsl(167 85% 16% / 0.25);
+  --shadow-2xs: 0px 1px 0px 0px hsl(180 25% 9% / 0.04);
+  --shadow-xs: 0px 1px 2px 0px hsl(180 25% 9% / 0.06);
+  --shadow-sm: 0px 1px 2px 0px hsl(180 25% 9% / 0.08), 0px 1px 1px -1px hsl(180 25% 9% / 0.06);
+  --shadow: 0px 2px 4px -1px hsl(180 25% 9% / 0.10), 0px 1px 2px -1px hsl(180 25% 9% / 0.06);
+  --shadow-md: 0px 4px 6px -1px hsl(180 25% 9% / 0.10), 0px 2px 4px -2px hsl(180 25% 9% / 0.08);
+  --shadow-lg: 0px 10px 15px -3px hsl(180 25% 9% / 0.12), 0px 4px 6px -4px hsl(180 25% 9% / 0.08);
+  --shadow-xl: 0px 20px 25px -5px hsl(180 25% 9% / 0.14), 0px 8px 10px -6px hsl(180 25% 9% / 0.08);
+  --shadow-2xl: 0px 25px 50px -12px hsl(180 25% 9% / 0.25);
   --tracking-normal: 0em;
   --spacing: 0.25rem;
+
+  /* Concrete grain: monochrome fractal noise, tiled. Used by `.grain`. */
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.55'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
 
   --sidebar-primary-border: hsl(var(--sidebar-primary));
   --sidebar-primary-border: hsl(from hsl(var(--sidebar-primary)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
@@ -171,61 +221,61 @@
   --destructive-border: hsl(from hsl(var(--destructive)) h s calc(l + var(--opaque-button-border-intensity)) / alpha);
 }
 
-/* DARK MODE — deep teal surface, cream ink */
+/* DARK MODE — charcoal surface, white ink, brighter turquoise + pink */
 .dark {
-  --button-outline: rgba(241,236,220, .14);
-  --badge-outline: rgba(241,236,220, .08);
+  --button-outline: rgba(255, 255, 255, 0.16);
+  --badge-outline: rgba(255, 255, 255, 0.1);
 
   --opaque-button-border-intensity: 9;
 
-  --elevate-1: rgba(241,236,220, .04);
-  --elevate-2: rgba(241,236,220, .09);
+  --elevate-1: rgba(255, 255, 255, 0.04);
+  --elevate-2: rgba(255, 255, 255, 0.09);
 
-  --background: 166 95% 19%;
-  --foreground: 45 49% 90%;
+  --background: var(--ink);
+  --foreground: var(--white);
 
-  --border: 170 30% 24%;
+  --border: 190 12% 22%;
 
-  --card: 165 58% 25%;
-  --card-foreground: 45 49% 90%;
-  --card-border: 170 30% 24%;
+  --card: var(--ink-soft);
+  --card-foreground: var(--white);
+  --card-border: 190 12% 22%;
 
-  --sidebar: 167 95% 13%;
-  --sidebar-foreground: 45 49% 90%;
-  --sidebar-border: 170 30% 22%;
-  --sidebar-primary: 42 53% 54%;
-  --sidebar-primary-foreground: 166 95% 19%;
-  --sidebar-accent: 170 14% 75%;
-  --sidebar-accent-foreground: 166 95% 19%;
-  --sidebar-ring: 42 53% 54%;
+  --sidebar: var(--ink-deep);
+  --sidebar-foreground: var(--white);
+  --sidebar-border: 190 12% 22%;
+  --sidebar-primary: var(--turquoise);
+  --sidebar-primary-foreground: var(--ink);
+  --sidebar-accent: var(--pink-soft);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-ring: var(--turquoise);
 
-  --popover: 165 58% 25%;
-  --popover-foreground: 45 49% 90%;
-  --popover-border: 170 30% 24%;
+  --popover: var(--ink-soft);
+  --popover-foreground: var(--white);
+  --popover-border: 190 12% 22%;
 
-  --primary: 42 53% 54%;
-  --primary-foreground: 166 95% 19%;
+  --primary: var(--turquoise);
+  --primary-foreground: var(--ink);
 
-  --secondary: 95 14% 67%;
-  --secondary-foreground: 166 95% 19%;
+  --secondary: 185 14% 20%;
+  --secondary-foreground: var(--white);
 
-  --muted: 170 35% 22%;
-  --muted-foreground: 45 25% 78%;
+  --muted: 185 12% 18%;
+  --muted-foreground: var(--silver);
 
-  --accent: 170 14% 75%;
-  --accent-foreground: 166 95% 19%;
+  --accent: var(--pink-soft);
+  --accent-foreground: var(--ink);
 
-  --destructive: 12 55% 52%;
-  --destructive-foreground: 45 49% 90%;
+  --destructive: 0 70% 55%;
+  --destructive-foreground: var(--white);
 
-  --input: 170 30% 24%;
-  --ring: 42 53% 54%;
+  --input: 190 12% 22%;
+  --ring: var(--turquoise);
 
-  --chart-1: 42 53% 54%;
-  --chart-2: 95 14% 67%;
-  --chart-3: 170 14% 75%;
-  --chart-4: 45 49% 90%;
-  --chart-5: 12 55% 52%;
+  --chart-1: var(--turquoise-bright);
+  --chart-2: var(--pink-soft);
+  --chart-3: var(--silver);
+  --chart-4: var(--turquoise);
+  --chart-5: var(--pink);
 
   --shadow-2xs: 0px 1px 0px 0px hsl(0 0% 0% / 0.10);
   --shadow-xs: 0px 1px 2px 0px hsl(0 0% 0% / 0.20);
@@ -246,32 +296,54 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 
-  /* DŌSE wordmark — bold geometric sans with macron */
-  .font-wordmark {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
   }
 
+  ::selection {
+    background: hsl(var(--pink-soft));
+    color: hsl(var(--ink));
+  }
+
+  /* DŌSE wordmark — condensed poster caps with the macron */
+  .font-wordmark {
+    font-family: var(--app-font-display);
+    font-weight: 400;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+  }
+
+  /* Display type — condensed, stencil-like poster caps */
   .font-display {
     font-family: var(--app-font-display);
-    font-weight: 500;
-    letter-spacing: -0.01em;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    line-height: 0.95;
+    text-transform: uppercase;
   }
 
-  /* Pretty serif italic accents like the brez-style "ever" word */
+  /* The "tag": a hand-marker accent word inside a display heading */
   .font-display-italic {
-    font-family: var(--app-font-display);
-    font-style: italic;
-    font-weight: 500;
+    display: inline-block;
+    font-family: var(--app-font-marker);
+    font-style: normal;
+    font-weight: 400;
+    font-size: 0.78em;
+    line-height: 1;
+    letter-spacing: 0;
+    text-transform: none;
+    transform: rotate(-1.5deg);
+    transform-origin: left bottom;
   }
 
   .eyebrow {
-    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
-    font-weight: 500;
-    letter-spacing: 0.18em;
+    font-family: var(--app-font-sans);
+    font-weight: 600;
+    letter-spacing: 0.24em;
     text-transform: uppercase;
-    font-size: 0.72rem;
+    font-size: 0.7rem;
   }
 }
 
@@ -348,10 +420,236 @@
     inset: -1px;
   }
 
-  /* Soft palm-shadow overlay reused across hero / story sections */
-  .palm-shadow {
-    background-image: radial-gradient(ellipse at 18% 30%, rgba(0,0,0,0.15) 0%, transparent 38%),
-      radial-gradient(ellipse at 80% 70%, rgba(0,0,0,0.18) 0%, transparent 45%);
+  /* ------------------------------------------------------------------ */
+  /* Street-art texture kit                                              */
+  /* ------------------------------------------------------------------ */
+
+  /* Concrete grain overlay. `.grain` isolates a stacking context and paints
+     the noise on a ::before at z-index -1, so it sits above the element's own
+     background but underneath every child (including absolutely positioned
+     decorations). */
+  .grain {
+    position: relative;
+    isolation: isolate;
+  }
+  .grain::before {
+    content: "";
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: var(--grain);
+    background-size: 240px 240px;
+    opacity: 0.32;
+    mix-blend-mode: multiply;
+  }
+  .grain-dark::before {
+    opacity: 0.22;
+    mix-blend-mode: screen;
+  }
+
+  /* Screen-print halftone dots; size/position it and fade with a mask. */
+  .halftone {
+    background-image: radial-gradient(circle at center, currentColor 1px, transparent 1.6px);
+    background-size: 10px 10px;
+    -webkit-mask-image: radial-gradient(closest-side, black 20%, transparent 100%);
+    mask-image: radial-gradient(closest-side, black 20%, transparent 100%);
+  }
+
+  /* Thin jersey-trim bar: turquoise / pink / silver */
+  .brand-stripe {
+    height: 4px;
+    background: linear-gradient(
+      90deg,
+      hsl(var(--turquoise)) 0 40%,
+      hsl(var(--pink)) 40% 70%,
+      hsl(var(--silver)) 70% 100%
+    );
+  }
+
+  /* Stencil outline watermarks. The word lives in a data attribute and is
+     painted by ::before, so it never enters the accessibility tree and never
+     trips text-contrast audits. Size it with a font-size utility. */
+  .watermark {
+    position: absolute;
+    pointer-events: none;
+    user-select: none;
+    line-height: 1;
+  }
+  .watermark::before {
+    content: attr(data-watermark);
+    display: block;
+    font-family: var(--app-font-display);
+    font-weight: 400;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: transparent;
+    -webkit-text-stroke: 1.5px hsl(var(--ink) / 0.13);
+  }
+  .watermark-white::before {
+    -webkit-text-stroke-color: hsl(var(--white) / 0.13);
+  }
+  .watermark-turquoise::before {
+    -webkit-text-stroke-color: hsl(var(--turquoise) / 0.55);
+  }
+  .watermark-pink::before {
+    -webkit-text-stroke-color: hsl(var(--pink) / 0.4);
+  }
+  .watermark-solid::before {
+    color: hsl(var(--silver-light));
+    -webkit-text-stroke: 0;
+  }
+
+  /* Highlighter swipe behind a word */
+  .marker {
+    padding: 0 0.12em;
+    background-image: linear-gradient(
+      transparent 52%,
+      hsl(var(--pink-soft) / 0.55) 52%,
+      hsl(var(--pink-soft) / 0.55) 94%,
+      transparent 94%
+    );
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
+  }
+  .marker-turquoise {
+    background-image: linear-gradient(
+      transparent 52%,
+      hsl(var(--turquoise) / 0.4) 52%,
+      hsl(var(--turquoise) / 0.4) 94%,
+      transparent 94%
+    );
+  }
+
+  /* Slap-tag sticker chip */
+  .sticker {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: 0.3rem;
+    font-family: var(--app-font-sans);
+    font-size: 0.66rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    background: hsl(var(--pink-soft));
+    color: hsl(var(--ink));
+    transform: rotate(-2deg);
+    box-shadow: 0 10px 24px -12px hsl(var(--ink) / 0.5);
+  }
+  .sticker-turquoise {
+    background: hsl(var(--turquoise));
+    color: hsl(var(--ink));
+  }
+  .sticker-white {
+    background: hsl(var(--white));
+    color: hsl(var(--ink));
+  }
+  .sticker-ink {
+    background: hsl(var(--ink));
+    color: hsl(var(--white));
+  }
+  .sticker-flat {
+    transform: none;
+  }
+
+  /* Pill CTAs (use on <a> / <button>) */
+  .cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    padding: 1.05rem 2rem;
+    border: 1px solid transparent;
+    font-family: var(--app-font-sans);
+    font-size: 0.72rem;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    text-decoration: none;
+    white-space: nowrap;
+    cursor: pointer;
+    transition:
+      transform 180ms ease,
+      box-shadow 180ms ease,
+      background-color 180ms ease,
+      border-color 180ms ease,
+      color 180ms ease;
+  }
+  .cta:hover {
+    transform: translateY(-1px);
+  }
+  .cta:active {
+    transform: translateY(0);
+  }
+  .cta:focus-visible {
+    outline: 2px solid hsl(var(--turquoise));
+    outline-offset: 3px;
+  }
+  .cta:disabled,
+  .cta[aria-disabled="true"] {
+    opacity: 0.55;
+    pointer-events: none;
+    transform: none;
+  }
+  .cta-sm {
+    padding: 0.8rem 1.4rem;
+    font-size: 0.66rem;
+  }
+  .cta-block {
+    display: flex;
+    width: 100%;
+  }
+  .cta-pink {
+    background: hsl(var(--pink));
+    color: hsl(var(--white));
+    box-shadow: 0 14px 32px -14px hsl(var(--pink) / 0.75);
+  }
+  .cta-pink:hover {
+    background: hsl(var(--pink-deep));
+  }
+  .cta-ink {
+    background: hsl(var(--ink));
+    color: hsl(var(--white));
+  }
+  .cta-ink:hover {
+    background: hsl(var(--ink-soft));
+  }
+  .cta-white {
+    background: hsl(var(--white));
+    color: hsl(var(--ink));
+  }
+  .cta-white:hover {
+    background: hsl(var(--silver-light));
+  }
+  .cta-turquoise {
+    background: hsl(var(--turquoise));
+    color: hsl(var(--ink));
+  }
+  .cta-turquoise:hover {
+    background: hsl(var(--turquoise-bright));
+  }
+  .cta-outline {
+    background: transparent;
+    color: hsl(var(--ink));
+    border-color: hsl(var(--ink) / 0.28);
+  }
+  .cta-outline:hover {
+    border-color: hsl(var(--ink));
+  }
+  .cta-outline-white {
+    background: transparent;
+    color: hsl(var(--white));
+    border-color: hsl(var(--white) / 0.38);
+  }
+  .cta-outline-white:hover {
+    border-color: hsl(var(--white));
   }
 
   /* Marquee for the rotating top promo bar */
@@ -360,6 +658,11 @@
     100% { transform: translateX(-50%); }
   }
   .marquee-track {
-    animation: dose-marquee 32s linear infinite;
+    animation: dose-marquee 36s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .marquee-track {
+      animation: none;
+    }
   }
 }

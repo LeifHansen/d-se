@@ -14,7 +14,6 @@ import {
 import { RootErrorBoundary } from "./components/RootErrorBoundary";
 import { startWebVitals } from "./lib/web-vitals";
 import { ComingSoon, isComingSoonEnabled } from "./pages/coming-soon";
-import heroBottleSrc from "@/assets/brand/final/emblem-gold.jpg";
 
 initSentry();
 installFetchRequestIdBreadcrumbs();
@@ -34,17 +33,6 @@ if (typeof window !== "undefined") {
   });
 }
 
-function preloadHero() {
-  if (typeof document === "undefined") return;
-  const link = document.createElement("link");
-  link.rel = "preload";
-  link.as = "image";
-  link.fetchPriority = "high";
-  link.type = "image/jpeg";
-  link.href = heroBottleSrc;
-  document.head.appendChild(link);
-}
-
 const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
   | string
   | undefined;
@@ -62,8 +50,6 @@ function MaybeClerkProvider({ children }: { children: ReactNode }) {
 }
 
 const comingSoon = isComingSoonEnabled();
-
-if (!comingSoon) preloadHero();
 
 createRoot(document.getElementById("root")!).render(
   <RootErrorBoundary>

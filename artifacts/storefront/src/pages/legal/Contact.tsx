@@ -211,8 +211,8 @@ export default function Contact() {
           aria-live="polite"
           className="mt-8 rounded-lg border p-6"
           style={{
-            background: "hsl(45 50% 93%)",
-            borderColor: "hsl(40 18% 80%)",
+            background: "hsl(var(--silver-light))",
+            borderColor: "hsl(var(--silver))",
           }}
           data-testid="contact-success"
         >
@@ -299,7 +299,7 @@ export default function Contact() {
             >
               {status === "submitting" ? "Sending…" : "Send message"}
             </Button>
-            <p className="mt-2 text-xs opacity-70">
+            <p className="mt-2 text-xs text-silver-dark">
               Protected by Cloudflare Turnstile.
             </p>
           </div>

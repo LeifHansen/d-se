@@ -7,7 +7,9 @@ import { Seo } from "@/components/seo/Seo";
 import { formatMoney } from "@/lib/cart";
 import { Stars } from "@/components/dose/Stars";
 import { Image } from "@/components/dose/Image";
+import { ImagePlaceholder } from "@/components/dose/ImagePlaceholder";
 import { parseTagsFromSearch, buildShopHref, toggleTag } from "@/lib/tagFilter";
+import { cn } from "@/lib/utils";
 
 export default function Shop() {
   const search = useSearch();
@@ -30,44 +32,44 @@ export default function Shop() {
     <SiteShell testId="page-shop">
       <Seo
         title="Shop"
-        description="The full DŌSE collection — precision THC droppers, wellness elixirs, and ritual essentials."
+        description="The DŌSE dropper — a precision 1000mg hemp-derived Delta-9 THC beverage additive, lab-tested and traceable."
       />
       <section
-        style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
+        style={{ background: "hsl(var(--ink))", color: "hsl(var(--white))" }}
       >
         <div className="mx-auto max-w-7xl px-6 py-20 md:px-10 md:py-28">
           <p
             className="text-[11px] font-semibold uppercase tracking-[0.22em]"
-            style={{ color: "hsl(42 53% 64%)" }}
+            style={{ color: "hsl(var(--turquoise-bright))" }}
           >
-            The Collection
+            The Dropper
           </p>
           <h1 className="mt-3 font-display text-5xl leading-tight md:text-6xl">
-            Every drop,
+            One bottle,
             <br />
             <span
               className="font-display-italic"
-              style={{ color: "hsl(95 30% 78%)" }}
+              style={{ color: "hsl(var(--pink-soft))" }}
             >
               dialed in.
             </span>
           </h1>
           <p
             className="mt-6 max-w-xl text-base md:text-lg"
-            style={{ color: "hsla(45,49%,90%,0.78)" }}
+            style={{ color: "hsl(var(--white) / 0.78)" }}
           >
-            Hemp-derived, lab-verified, and small-batch made. Browse the
-            full lineup and find your ritual.
+            Hemp-derived, lab-verified, and small-batch made. One precision
+            dropper for every ritual.
           </p>
         </div>
       </section>
 
       <section
         className="bg-background"
-        style={{ color: "hsl(166 95% 19%)" }}
+        style={{ color: "hsl(var(--ink))" }}
       >
         <div className="mx-auto max-w-7xl px-6 py-16 md:px-10 md:py-24">
-          {allTags.length > 0 ? (
+          {allTags.length > 0 && (allProducts?.length ?? 0) > 1 ? (
             <div
               className="mb-10 flex flex-wrap items-center gap-2"
               data-testid="shop-tag-filter"
@@ -79,14 +81,14 @@ export default function Shop() {
                 style={
                   activeTags.length === 0
                     ? {
-                        background: "hsl(166 95% 19%)",
-                        color: "hsl(45 49% 90%)",
-                        borderColor: "hsl(166 95% 19%)",
+                        background: "hsl(var(--ink))",
+                        color: "hsl(var(--white))",
+                        borderColor: "hsl(var(--ink))",
                       }
                     : {
                         background: "transparent",
-                        color: "hsl(166 95% 19%)",
-                        borderColor: "hsl(40 18% 80%)",
+                        color: "hsl(var(--ink))",
+                        borderColor: "hsl(var(--silver))",
                       }
                 }
                 aria-pressed={activeTags.length === 0}
@@ -105,14 +107,14 @@ export default function Shop() {
                     style={
                       isActive
                         ? {
-                            background: "hsl(166 95% 19%)",
-                            color: "hsl(45 49% 90%)",
-                            borderColor: "hsl(166 95% 19%)",
+                            background: "hsl(var(--ink))",
+                            color: "hsl(var(--white))",
+                            borderColor: "hsl(var(--ink))",
                           }
                         : {
                             background: "transparent",
-                            color: "hsl(166 95% 19%)",
-                            borderColor: "hsl(40 18% 80%)",
+                            color: "hsl(var(--ink))",
+                            borderColor: "hsl(var(--silver))",
                           }
                     }
                     aria-pressed={isActive}
@@ -133,7 +135,7 @@ export default function Shop() {
                 <div
                   key={i}
                   className="aspect-[4/5] w-full animate-pulse rounded-3xl"
-                  style={{ background: "hsl(40 30% 88%)" }}
+                  style={{ background: "hsl(var(--silver-light))" }}
                 />
               ))}
             </div>
@@ -142,8 +144,8 @@ export default function Shop() {
               role="alert"
               className="rounded-2xl border p-8 text-center"
               style={{
-                borderColor: "hsl(40 18% 80%)",
-                background: "hsl(45 50% 93%)",
+                borderColor: "hsl(var(--silver))",
+                background: "hsl(var(--silver-light))",
               }}
               data-testid="shop-error"
             >
@@ -158,8 +160,8 @@ export default function Shop() {
                 onClick={() => refetch()}
                 className="mt-4 inline-flex items-center gap-2 rounded-full px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.22em]"
                 style={{
-                  background: "hsl(166 95% 19%)",
-                  color: "hsl(45 49% 90%)",
+                  background: "hsl(var(--ink))",
+                  color: "hsl(var(--white))",
                 }}
               >
                 Try again
@@ -167,7 +169,12 @@ export default function Shop() {
             </div>
           ) : data && data.length > 0 ? (
             <div
-              className="grid gap-8 md:grid-cols-2 lg:grid-cols-3"
+              className={cn(
+                "grid gap-8",
+                data.length === 1
+                  ? "mx-auto max-w-md"
+                  : "md:grid-cols-2 lg:grid-cols-3",
+              )}
               data-testid="shop-grid"
             >
               {data.map((p) => (
@@ -175,14 +182,14 @@ export default function Shop() {
                   key={p.id}
                   href={`/products/${p.slug}`}
                   className="group flex flex-col overflow-hidden rounded-3xl border bg-card transition-shadow hover:shadow-lg"
-                  style={{ borderColor: "hsl(40 18% 80%)" }}
+                  style={{ borderColor: "hsl(var(--silver))" }}
                   data-testid={`product-card-${p.slug}`}
                 >
                   <div
                     className="relative aspect-[4/5] w-full overflow-hidden"
-                    style={{ background: "hsl(40 30% 88%)" }}
+                    style={{ background: "hsl(var(--silver-light))" }}
                   >
-                    {p.images[0] && (
+                    {p.images[0] ? (
                       <Image
                         src={p.images[0]}
                         width={800}
@@ -192,13 +199,21 @@ export default function Shop() {
                         className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
                         pictureClassName="block h-full w-full"
                       />
+                    ) : (
+                      <ImagePlaceholder
+                        label="Product packshot"
+                        hint="Replace · 1200 × 1500"
+                        slug={`shop-${p.slug}`}
+                        aspect="auto"
+                        className="absolute inset-0 h-full rounded-none border-0"
+                      />
                     )}
                     {p.featured ? (
                       <span
                         className="absolute left-4 top-4 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em]"
                         style={{
-                          background: "hsl(42 53% 54%)",
-                          color: "hsl(166 95% 19%)",
+                          background: "hsl(var(--pink))",
+                          color: "hsl(var(--white))",
                         }}
                       >
                         Featured
@@ -211,7 +226,7 @@ export default function Shop() {
                         <h2 className="font-display text-2xl">{p.name}</h2>
                         <p
                           className="font-display text-xl"
-                          style={{ color: "hsl(166 95% 19%)" }}
+                          style={{ color: "hsl(var(--ink))" }}
                         >
                           {formatMoney(p.priceCents, p.currency)}
                         </p>
@@ -225,14 +240,14 @@ export default function Shop() {
                     {p.shortDescription ? (
                       <p
                         className="text-sm leading-relaxed"
-                        style={{ color: "hsl(170 18% 32%)" }}
+                        style={{ color: "hsl(var(--silver-dark))" }}
                       >
                         {p.shortDescription}
                       </p>
                     ) : null}
                     <span
                       className="mt-auto inline-flex items-center gap-1 pt-2 text-[11px] font-semibold uppercase tracking-[0.22em]"
-                      style={{ color: "hsl(42 53% 54%)" }}
+                      style={{ color: "hsl(var(--turquoise-deep))" }}
                     >
                       View product <ArrowRight className="h-3.5 w-3.5" />
                     </span>

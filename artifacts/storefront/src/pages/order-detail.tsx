@@ -169,12 +169,12 @@ export default function OrderDetailPage() {
         noindex
       />
       <section
-        style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
+        style={{ background: "hsl(var(--ink))", color: "hsl(var(--white))" }}
       >
         <div className="mx-auto max-w-3xl px-6 py-14 md:px-10">
           <p
             className="text-[11px] font-semibold uppercase tracking-[0.22em]"
-            style={{ color: "hsl(42 53% 64%)" }}
+            style={{ color: "hsl(var(--turquoise-bright))" }}
           >
             {order ? "Order confirmed" : "Order lookup"}
           </p>
@@ -201,8 +201,8 @@ export default function OrderDetailPage() {
             <ul
               className="space-y-3 border-b pb-4 text-sm"
               style={{
-                borderColor: "hsl(40 18% 80%)",
-                color: "hsl(170 18% 28%)",
+                borderColor: "hsl(var(--silver))",
+                color: "hsl(var(--graphite))",
               }}
             >
               {order.items.map((it) => (
@@ -242,7 +242,7 @@ export default function OrderDetailPage() {
             </ul>
             <dl
               className="mt-4 space-y-1.5 text-sm"
-              style={{ color: "hsl(170 18% 28%)" }}
+              style={{ color: "hsl(var(--graphite))" }}
             >
               <div className="flex justify-between">
                 <dt>Subtotal</dt>
@@ -269,7 +269,7 @@ export default function OrderDetailPage() {
               ) : null}
               <div
                 className="flex justify-between border-t pt-2 font-display text-base"
-                style={{ borderColor: "hsl(40 18% 80%)", color: "hsl(166 95% 19%)" }}
+                style={{ borderColor: "hsl(var(--silver))", color: "hsl(var(--ink))" }}
               >
                 <dt>Total</dt>
                 <dd data-testid="order-total">
@@ -282,7 +282,7 @@ export default function OrderDetailPage() {
                 <h2 className="font-display text-xl">Shipping to</h2>
                 <p
                   className="mt-2 text-sm leading-relaxed"
-                  style={{ color: "hsl(170 18% 28%)" }}
+                  style={{ color: "hsl(var(--graphite))" }}
                 >
                   {order.shippingAddress.name}
                   <br />
@@ -310,7 +310,7 @@ export default function OrderDetailPage() {
               {order.deliveredEmailSentAt ? (
                 <p
                   className="mt-3 text-sm"
-                  style={{ color: "hsl(170 18% 32%)" }}
+                  style={{ color: "hsl(var(--silver-dark))" }}
                   data-testid="order-delivered-email-notice"
                 >
                   We emailed you a delivery confirmation on{" "}
@@ -320,7 +320,7 @@ export default function OrderDetailPage() {
               {!order.trackingCode ? (
                 <p
                   className="mt-3 text-sm"
-                  style={{ color: "hsl(170 18% 32%)" }}
+                  style={{ color: "hsl(var(--silver-dark))" }}
                   data-testid="order-tracking-pending"
                 >
                   Tracking will appear here once your order ships.
@@ -331,8 +331,8 @@ export default function OrderDetailPage() {
               asChild
               className="mt-8 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
-                background: "hsl(166 95% 19%)",
-                color: "hsl(45 49% 90%)",
+                background: "hsl(var(--ink))",
+                color: "hsl(var(--white))",
               }}
             >
               <Link href="/shop">Keep shopping</Link>
@@ -344,13 +344,13 @@ export default function OrderDetailPage() {
             <form
               onSubmit={onResend}
               className="mb-6 rounded-2xl border bg-card p-6"
-              style={{ borderColor: "hsl(40 18% 80%)" }}
+              style={{ borderColor: "hsl(var(--silver))" }}
               data-testid="order-resend-form"
             >
               <h2 className="font-display text-2xl">Send me a fresh link</h2>
               <p
                 className="mt-1 text-sm"
-                style={{ color: "hsl(170 18% 32%)" }}
+                style={{ color: "hsl(var(--silver-dark))" }}
               >
                 Enter the email used at checkout and we'll email you a new link
                 to this order.
@@ -372,8 +372,8 @@ export default function OrderDetailPage() {
                 disabled={resendLink.isPending || resendStatus === "sent"}
                 className="mt-5 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
                 style={{
-                  background: "hsl(166 95% 19%)",
-                  color: "hsl(45 49% 90%)",
+                  background: "hsl(var(--ink))",
+                  color: "hsl(var(--white))",
                 }}
                 data-testid="order-resend-submit"
               >
@@ -387,7 +387,7 @@ export default function OrderDetailPage() {
                 <p
                   role="status"
                   className="mt-3 text-xs"
-                  style={{ color: "hsl(166 95% 19%)" }}
+                  style={{ color: "hsl(var(--ink))" }}
                   data-testid="order-resend-success"
                 >
                   If that email matches the order on file, a fresh link is on
@@ -419,13 +419,13 @@ export default function OrderDetailPage() {
           <form
             onSubmit={onSubmit}
             className="rounded-2xl border bg-card p-6"
-            style={{ borderColor: "hsl(40 18% 80%)" }}
+            style={{ borderColor: "hsl(var(--silver))" }}
             data-testid="order-lookup-form"
           >
             <h2 className="font-display text-2xl">Find your order</h2>
             <p
               className="mt-1 text-sm"
-              style={{ color: "hsl(170 18% 32%)" }}
+              style={{ color: "hsl(var(--silver-dark))" }}
             >
               Enter the email you used at checkout to view this order.
             </p>
@@ -446,8 +446,8 @@ export default function OrderDetailPage() {
               disabled={lookup.isPending}
               className="mt-5 rounded-full px-6 py-5 text-[11px] font-semibold uppercase tracking-[0.22em]"
               style={{
-                background: "hsl(166 95% 19%)",
-                color: "hsl(45 49% 90%)",
+                background: "hsl(var(--ink))",
+                color: "hsl(var(--white))",
               }}
               data-testid="order-lookup-submit"
             >

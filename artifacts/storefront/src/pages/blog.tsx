@@ -43,12 +43,12 @@ export default function BlogIndex() {
         description="Notes, recipes, and ritual ideas from the DŌSE team."
       />
       <section
-        style={{ background: "hsl(166 95% 19%)", color: "hsl(45 49% 90%)" }}
+        style={{ background: "hsl(var(--ink))", color: "hsl(var(--white))" }}
       >
         <div className="mx-auto max-w-5xl px-6 py-16 md:px-10 md:py-24">
           <p
             className="text-[11px] font-semibold uppercase tracking-[0.22em]"
-            style={{ color: "hsl(42 53% 64%)" }}
+            style={{ color: "hsl(var(--turquoise-bright))" }}
           >
             The Journal
           </p>
@@ -57,7 +57,7 @@ export default function BlogIndex() {
             <br />
             <span
               className="font-display-italic"
-              style={{ color: "hsl(95 30% 78%)" }}
+              style={{ color: "hsl(var(--pink-soft))" }}
             >
               the dropper.
             </span>
@@ -78,14 +78,14 @@ export default function BlogIndex() {
               style={
                 activeTags.length === 0
                   ? {
-                      background: "hsl(166 95% 19%)",
-                      color: "hsl(45 49% 90%)",
-                      borderColor: "hsl(166 95% 19%)",
+                      background: "hsl(var(--ink))",
+                      color: "hsl(var(--white))",
+                      borderColor: "hsl(var(--ink))",
                     }
                   : {
                       background: "transparent",
-                      color: "hsl(166 95% 19%)",
-                      borderColor: "hsl(40 18% 80%)",
+                      color: "hsl(var(--ink))",
+                      borderColor: "hsl(var(--silver))",
                     }
               }
               aria-pressed={activeTags.length === 0}
@@ -104,14 +104,14 @@ export default function BlogIndex() {
                   style={
                     isActive
                       ? {
-                          background: "hsl(166 95% 19%)",
-                          color: "hsl(45 49% 90%)",
-                          borderColor: "hsl(166 95% 19%)",
+                          background: "hsl(var(--ink))",
+                          color: "hsl(var(--white))",
+                          borderColor: "hsl(var(--ink))",
                         }
                       : {
                           background: "transparent",
-                          color: "hsl(166 95% 19%)",
-                          borderColor: "hsl(40 18% 80%)",
+                          color: "hsl(var(--ink))",
+                          borderColor: "hsl(var(--silver))",
                         }
                   }
                   aria-pressed={isActive}
@@ -132,7 +132,7 @@ export default function BlogIndex() {
               <div
                 key={i}
                 className="aspect-[5/4] w-full animate-pulse rounded-3xl"
-                style={{ background: "hsl(40 30% 88%)" }}
+                style={{ background: "hsl(var(--silver-light))" }}
               />
             ))}
           </div>
@@ -155,13 +155,13 @@ export default function BlogIndex() {
                 key={post.id}
                 href={`/blog/${post.slug}`}
                 className="group block overflow-hidden rounded-3xl border bg-card transition-shadow hover:shadow-lg"
-                style={{ borderColor: "hsl(40 18% 80%)" }}
+                style={{ borderColor: "hsl(var(--silver))" }}
                 data-testid={`blog-post-${post.slug}`}
               >
                 {post.coverImage ? (
                   <div
                     className="aspect-[5/3] w-full overflow-hidden"
-                    style={{ background: "hsl(40 30% 88%)" }}
+                    style={{ background: "hsl(var(--silver-light))" }}
                   >
                     <img
                       src={post.coverImage}
@@ -176,7 +176,7 @@ export default function BlogIndex() {
                   {post.tags && post.tags[0] ? (
                     <p
                       className="text-[10px] font-semibold uppercase tracking-[0.22em]"
-                      style={{ color: "hsl(42 53% 54%)" }}
+                      style={{ color: "hsl(var(--turquoise-deep))" }}
                     >
                       {post.tags[0]}
                     </p>
@@ -186,18 +186,18 @@ export default function BlogIndex() {
                   </h2>
                   <p
                     className="mt-2 text-sm leading-relaxed"
-                    style={{ color: "hsl(170 18% 32%)" }}
+                    style={{ color: "hsl(var(--silver-dark))" }}
                   >
                     {post.excerpt}
                   </p>
                   <div
                     className="mt-4 flex items-center justify-between text-xs"
-                    style={{ color: "hsl(170 18% 32%)" }}
+                    style={{ color: "hsl(var(--silver-dark))" }}
                   >
                     <span>{formatDate(post.publishedAt)}</span>
                     <span
                       className="inline-flex items-center gap-1 font-semibold uppercase tracking-[0.18em]"
-                      style={{ color: "hsl(42 53% 54%)" }}
+                      style={{ color: "hsl(var(--turquoise-deep))" }}
                     >
                       Read <ArrowUpRight className="h-3.5 w-3.5" />
                     </span>

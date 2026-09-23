@@ -23,9 +23,9 @@ import {
   slugifyHeading,
 } from "@/components/blog/BlogMarkdown";
 
-const ACCENT = "hsl(42 53% 54%)";
-const MUTED = "hsl(170 18% 32%)";
-const RULE = "hsl(40 18% 80%)";
+const ACCENT = "hsl(var(--turquoise-deep))";
+const MUTED = "hsl(var(--silver-dark))";
+const RULE = "hsl(var(--silver))";
 
 function formatDate(s?: string | null): string {
   if (!s) return "";
@@ -83,7 +83,7 @@ function ShareButtons({ title }: { title: string }) {
   const encodedTitle = encodeURIComponent(title);
 
   const buttonStyle =
-    "inline-flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:bg-[hsl(40_30%_92%)]";
+    "inline-flex h-9 w-9 items-center justify-center rounded-full border transition-colors hover:bg-[hsl(var(--silver-light))]";
 
   async function copy() {
     try {
@@ -205,7 +205,7 @@ function RelatedPosts({
             {p.coverImage ? (
               <div
                 className="aspect-[5/3] w-full overflow-hidden"
-                style={{ background: "hsl(40 30% 88%)" }}
+                style={{ background: "hsl(var(--silver-light))" }}
               >
                 <img
                   src={p.coverImage}
@@ -248,7 +248,7 @@ function TableOfContents({ entries }: { entries: TocEntry[] }) {
     <nav
       aria-label="Table of contents"
       className="not-prose mb-10 rounded-2xl border p-5"
-      style={{ borderColor: RULE, background: "hsl(40 30% 96%)" }}
+      style={{ borderColor: RULE, background: "hsl(var(--silver-light))" }}
       data-testid="blog-toc"
     >
       <p
@@ -335,9 +335,9 @@ export default function BlogPost() {
         <div
           className="border-b"
           style={{
-            background: "hsl(42 53% 54%)",
-            borderColor: "hsl(42 53% 44%)",
-            color: "hsl(166 95% 19%)",
+            background: "hsl(var(--pink))",
+            borderColor: "hsl(var(--pink-deep))",
+            color: "hsl(var(--white))",
           }}
           data-testid="blog-draft-banner"
           role="status"
@@ -374,11 +374,11 @@ export default function BlogPost() {
         >
           <div
             className="h-10 w-3/4 animate-pulse rounded"
-            style={{ background: "hsl(40 30% 88%)" }}
+            style={{ background: "hsl(var(--silver-light))" }}
           />
           <div
             className="h-4 w-1/3 animate-pulse rounded"
-            style={{ background: "hsl(40 30% 88%)" }}
+            style={{ background: "hsl(var(--silver-light))" }}
           />
         </div>
       ) : isError || !post ? (
@@ -428,7 +428,7 @@ export default function BlogPost() {
             {post.coverImage ? (
               <div
                 className="mt-8 aspect-[16/9] w-full overflow-hidden rounded-3xl"
-                style={{ background: "hsl(40 30% 88%)" }}
+                style={{ background: "hsl(var(--silver-light))" }}
               >
                 <img
                   src={post.coverImage}

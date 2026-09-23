@@ -22,10 +22,10 @@ import {
 } from "@/lib/cart";
 import { useToast } from "@/hooks/use-toast";
 
-const CREAM = "hsl(45 49% 90%)";
-const FOREST = "hsl(166 95% 19%)";
-const GOLD = "hsl(42 53% 54%)";
-const MUTED = "hsla(170,58%,14%,0.65)";
+const CREAM = "hsl(var(--white))";
+const FOREST = "hsl(var(--ink))";
+const GOLD = "hsl(var(--turquoise-deep))";
+const MUTED = "hsl(var(--ink) / 0.65)";
 
 const SHIP_WINDOW_DAYS_MIN = 3;
 const SHIP_WINDOW_DAYS_MAX = 7;
@@ -272,8 +272,8 @@ export default function CheckoutSuccessPage() {
                 <div
                   className="rounded-2xl border p-4 text-center text-sm"
                   style={{
-                    borderColor: "hsl(40 18% 80%)",
-                    background: "hsl(45 50% 93%)",
+                    borderColor: "hsl(var(--silver))",
+                    background: "hsl(var(--silver-light))",
                     color: MUTED,
                   }}
                   data-testid="success-order-processing"
@@ -285,7 +285,7 @@ export default function CheckoutSuccessPage() {
 
               <div
                 className="rounded-2xl border bg-card p-6 md:p-7"
-                style={{ borderColor: "hsl(40 18% 80%)" }}
+                style={{ borderColor: "hsl(var(--silver))" }}
                 data-testid="success-order-summary"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -301,7 +301,7 @@ export default function CheckoutSuccessPage() {
 
                 <ul
                   className="mt-5 divide-y"
-                  style={{ borderColor: "hsl(40 18% 86%)" }}
+                  style={{ borderColor: "hsl(var(--silver))" }}
                   data-testid="success-order-items"
                 >
                   {order.items.map((it) => (
@@ -314,12 +314,12 @@ export default function CheckoutSuccessPage() {
                           src={it.productImage}
                           alt=""
                           className="h-14 w-14 rounded-md object-cover"
-                          style={{ background: "hsl(45 50% 93%)" }}
+                          style={{ background: "hsl(var(--silver-light))" }}
                         />
                       ) : (
                         <div
                           className="h-14 w-14 rounded-md"
-                          style={{ background: "hsl(45 50% 93%)" }}
+                          style={{ background: "hsl(var(--silver-light))" }}
                           aria-hidden
                         />
                       )}
@@ -405,7 +405,7 @@ export default function CheckoutSuccessPage() {
               <div className="grid gap-6 md:grid-cols-2">
                 <div
                   className="rounded-2xl border bg-card p-6"
-                  style={{ borderColor: "hsl(40 18% 80%)" }}
+                  style={{ borderColor: "hsl(var(--silver))" }}
                 >
                   <h3 className="font-display text-lg">Shipping to</h3>
                   {order.shippingAddress ? (
@@ -454,7 +454,7 @@ export default function CheckoutSuccessPage() {
 
                 <div
                   className="rounded-2xl border bg-card p-6"
-                  style={{ borderColor: "hsl(40 18% 80%)" }}
+                  style={{ borderColor: "hsl(var(--silver))" }}
                 >
                   <h3 className="font-display text-lg">Estimated delivery</h3>
                   <p

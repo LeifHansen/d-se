@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ShoppingBag, User, Menu, X, Package } from "lucide-react";
+import { ShoppingBag, User, Package } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import {
   ClerkLoaded,
@@ -20,16 +20,12 @@ const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as
   | string
   | undefined;
 
-const nav = [
-  { label: "Shop", href: "/shop" },
-  { label: "Our Story", href: "/about" },
-  { label: "Journal", href: "/blog" },
-  { label: "Contact", href: "/contact" },
-];
-
+/**
+ * Simplified site header: wordmark on the left, a single "Shop" action plus
+ * account and cart on the right. No secondary navigation, no mobile drawer.
+ */
 export function Header() {
   const [scrolled, setScrolled] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [, setLocation] = useLocation();
   const cartId = useStoredCartId();
@@ -43,99 +39,59 @@ export function Header() {
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
     onScroll();
-    window.addEventListener("scroll", onScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   useEffect(() => onOpenCartDrawer(() => setCartOpen(true)), []);
 
+  const returnUrl =
+    typeof window !== "undefined"
+      ? window.location.pathname + window.location.search
+      : undefined;
+
   return (
     <header
       data-testid="dose-header"
       className={cn(
-        "sticky top-0 z-40 w-full transition-colors duration-300",
-        scrolled ? "backdrop-blur-md" : "backdrop-blur-sm",
+        "sticky top-0 z-40 w-full bg-white/92 text-ink backdrop-blur-md transition-shadow duration-300",
+        scrolled ? "shadow-[0_1px_0_0_hsl(var(--silver))]" : "shadow-none",
       )}
-      style={{
-        background: scrolled
-          ? "hsla(170, 58%, 14%, 0.96)"
-          : "hsla(170, 58%, 14%, 0.92)",
-        color: "hsl(45 49% 90%)",
-        borderBottom: scrolled
-          ? "1px solid hsla(45, 49%, 90%, 0.10)"
-          : "1px solid transparent",
-      }}
     >
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-4 md:px-10">
-        {/* Left: nav */}
-        <nav className="hidden items-center gap-8 md:flex">
-          {nav.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className="inline-flex items-center text-[13px] font-medium tracking-wide transition-opacity hover:opacity-70"
-              data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
-
-        {/* Mobile menu trigger */}
-        <button
-          className="md:hidden"
-          aria-label="Open menu"
-          onClick={() => setMobileOpen(true)}
-          data-testid="mobile-menu-trigger"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-
-        {/* Center logo */}
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-3.5 md:px-10">
         <Link
           href="/"
-          className="flex items-center gap-2"
+          className="flex items-center gap-2.5"
           data-testid="header-logo"
           aria-label="DŌSE home"
         >
-          <Emblem className="h-7 w-auto" color="hsl(45 49% 90%)" />
-          <Logo variant="wordmark" tone="cream" className="text-lg" />
+          <Emblem className="h-7 w-auto text-turquoise" />
+          <Logo variant="wordmark" tone="ink" className="text-[1.45rem]" />
         </Link>
 
-        {/* Right: account & cart */}
-        <div className="flex items-center gap-3">
+        <nav className="flex items-center gap-1 sm:gap-2" aria-label="Primary">
+          <Link href="/shop" className="cta cta-sm cta-ink" data-testid="nav-shop">
+            Shop
+          </Link>
+
           {clerkPublishableKey ? (
             <ClerkLoaded>
               <SignedOut>
-                <SignInButton
-                  mode="modal"
-                  forceRedirectUrl={
-                    typeof window !== "undefined"
-                      ? window.location.pathname + window.location.search
-                      : undefined
-                  }
-                >
+                <SignInButton mode="modal" forceRedirectUrl={returnUrl}>
                   <Button
                     variant="ghost"
                     size="icon"
                     aria-label="Sign in"
-                    className="text-current hover:bg-white/5"
+                    className="text-current hover:bg-ink/5"
                     data-testid="header-account"
                   >
                     <User className="h-4 w-4" />
                   </Button>
                 </SignInButton>
-                <SignUpButton
-                  mode="modal"
-                  forceRedirectUrl={
-                    typeof window !== "undefined"
-                      ? window.location.pathname + window.location.search
-                      : undefined
-                  }
-                >
+                <SignUpButton mode="modal" forceRedirectUrl={returnUrl}>
                   <button
                     type="button"
-                    className="hidden text-[11px] font-semibold uppercase tracking-[0.22em] hover:opacity-70 md:inline"
+                    className="hidden text-[11px] font-semibold uppercase tracking-[0.22em] text-graphite hover:text-ink md:inline"
                     data-testid="header-signup"
                   >
                     Join
@@ -175,7 +131,7 @@ export function Header() {
               variant="ghost"
               size="icon"
               aria-label="Account"
-              className="text-current hover:bg-white/5"
+              className="text-current hover:bg-ink/5"
               data-testid="header-account"
             >
               <Link href="/account">
@@ -183,61 +139,26 @@ export function Header() {
               </Link>
             </Button>
           )}
+
           <Button
             variant="ghost"
             size="icon"
             aria-label={`Cart, ${cartCount} item${cartCount === 1 ? "" : "s"}`}
-            className="relative text-current hover:bg-white/5"
+            className="relative text-current hover:bg-ink/5"
             data-testid="header-cart"
             onClick={() => setCartOpen(true)}
           >
             <ShoppingBag className="h-4 w-4" />
             <span
-              className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full px-1 text-[9px] font-semibold"
-              style={{
-                background: "hsl(42 53% 54%)",
-                color: "hsl(166 95% 19%)",
-              }}
+              className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-pink px-1 text-[9px] font-bold text-white"
               data-testid="header-cart-count"
             >
               {cartCount > 99 ? "99+" : cartCount}
             </span>
           </Button>
-        </div>
+        </nav>
       </div>
-
-      {/* Mobile drawer */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-50 md:hidden"
-          style={{ background: "hsl(166 95% 19%)" }}
-          data-testid="mobile-menu"
-        >
-          <div className="flex items-center justify-between px-6 py-4">
-            <Logo variant="wordmark" tone="cream" />
-            <button
-              onClick={() => setMobileOpen(false)}
-              aria-label="Close menu"
-              data-testid="mobile-menu-close"
-            >
-              <X className="h-6 w-6" style={{ color: "hsl(45 49% 90%)" }} />
-            </button>
-          </div>
-          <nav className="mt-8 flex flex-col gap-6 px-8">
-            {nav.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                onClick={() => setMobileOpen(false)}
-                className="font-display text-3xl"
-                style={{ color: "hsl(45 49% 90%)" }}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
-        </div>
-      )}
+      <div className="brand-stripe" aria-hidden="true" />
 
       <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
     </header>

@@ -2,64 +2,70 @@ import type { ClerkProviderProps } from "@clerk/clerk-react";
 
 type Appearance = NonNullable<ClerkProviderProps["appearance"]>;
 
-const teal = "#0F3933";
-const tealDeep = "#0B2A26";
-const cream = "#F1ECDC";
-const ivory = "#F7F2E2";
-const gold = "#C9A24C";
-const goldHover = "#B8902F";
-const border = "rgba(15, 57, 51, 0.14)";
-const mutedInk = "rgba(15, 57, 51, 0.62)";
-const display = "'Cormorant Garamond', Georgia, serif";
+// Clerk derives shades from these, so they must be literal colours rather
+// than CSS variables. Keep in sync with the palette in src/index.css.
+const ink = "#111D1D";
+const white = "#FFFFFF";
+const silverLight = "#F0F3F4";
+const silver = "#BDC4C8";
+const turquoise = "#1FB2A3";
+const turquoiseDeep = "#176D68";
+const pink = "#D51A68";
+const pinkDeep = "#B21356";
+const border = "rgba(17, 29, 29, 0.14)";
+const mutedInk = "rgba(17, 29, 29, 0.62)";
+const display = "'Bebas Neue', Impact, 'Arial Narrow', sans-serif";
 const sans = "'Inter', ui-sans-serif, system-ui, sans-serif";
 
 export const doseClerkAppearance: Appearance = {
   variables: {
-    colorPrimary: teal,
-    colorBackground: ivory,
-    colorText: teal,
+    colorPrimary: turquoiseDeep,
+    colorBackground: white,
+    colorText: ink,
     colorTextSecondary: mutedInk,
-    colorInputBackground: "#FFFFFF",
-    colorInputText: teal,
-    colorDanger: "#A93C24",
-    colorSuccess: "#3F6B5A",
-    colorNeutral: teal,
+    colorInputBackground: white,
+    colorInputText: ink,
+    colorDanger: "#B3261E",
+    colorSuccess: turquoiseDeep,
+    colorNeutral: ink,
     fontFamily: sans,
     fontFamilyButtons: sans,
-    borderRadius: "0.5rem",
+    borderRadius: "0.75rem",
     fontSize: "15px",
   },
   elements: {
     rootBox: { fontFamily: sans },
     card: {
-      backgroundColor: ivory,
+      backgroundColor: white,
       border: `1px solid ${border}`,
       boxShadow:
-        "0 24px 50px -20px rgba(15,57,51,0.35), 0 4px 12px -6px rgba(15,57,51,0.18)",
-      color: teal,
+        "0 24px 50px -20px rgba(17,29,29,0.35), 0 4px 12px -6px rgba(17,29,29,0.18)",
+      color: ink,
     },
     headerTitle: {
       fontFamily: display,
-      fontWeight: 500,
-      letterSpacing: "-0.01em",
-      fontSize: "1.85rem",
-      color: teal,
+      fontWeight: 400,
+      letterSpacing: "0.04em",
+      textTransform: "uppercase",
+      fontSize: "2.1rem",
+      lineHeight: 1,
+      color: ink,
     },
     headerSubtitle: {
       color: mutedInk,
       fontFamily: sans,
     },
     socialButtonsBlockButton: {
-      backgroundColor: cream,
+      backgroundColor: silverLight,
       border: `1px solid ${border}`,
-      color: teal,
+      color: ink,
       fontWeight: 500,
       "&:hover, &:focus": {
-        backgroundColor: "#E8E1CC",
+        backgroundColor: silver,
       },
     },
     socialButtonsBlockButtonText: {
-      color: teal,
+      color: ink,
       fontWeight: 500,
     },
     dividerLine: { backgroundColor: border },
@@ -70,76 +76,77 @@ export const doseClerkAppearance: Appearance = {
       fontSize: "0.7rem",
     },
     formFieldLabel: {
-      color: teal,
-      fontWeight: 500,
-      fontSize: "0.78rem",
-      letterSpacing: "0.04em",
+      color: ink,
+      fontWeight: 600,
+      fontSize: "0.72rem",
+      letterSpacing: "0.12em",
       textTransform: "uppercase",
     },
     formFieldInput: {
-      backgroundColor: "#FFFFFF",
-      border: `1px solid ${border}`,
-      color: teal,
+      backgroundColor: white,
+      border: `1px solid ${silver}`,
+      color: ink,
       "&:focus": {
-        borderColor: gold,
-        boxShadow: `0 0 0 3px ${gold}33`,
+        borderColor: turquoise,
+        boxShadow: `0 0 0 3px ${turquoise}40`,
       },
     },
     formButtonPrimary: {
-      backgroundColor: teal,
-      color: cream,
+      backgroundColor: pink,
+      color: white,
+      borderRadius: "9999px",
       fontFamily: sans,
-      fontWeight: 600,
-      letterSpacing: "0.06em",
+      fontWeight: 700,
+      letterSpacing: "0.18em",
       textTransform: "uppercase",
-      fontSize: "0.78rem",
+      fontSize: "0.72rem",
       "&:hover, &:focus, &:active": {
-        backgroundColor: tealDeep,
+        backgroundColor: pinkDeep,
       },
     },
     footerActionText: { color: mutedInk },
     footerActionLink: {
-      color: teal,
+      color: turquoiseDeep,
       fontWeight: 600,
-      "&:hover": { color: goldHover },
+      "&:hover": { color: pink },
     },
     identityPreview: {
-      backgroundColor: cream,
+      backgroundColor: silverLight,
       border: `1px solid ${border}`,
     },
-    identityPreviewText: { color: teal },
-    identityPreviewEditButton: { color: goldHover },
+    identityPreviewText: { color: ink },
+    identityPreviewEditButton: { color: turquoiseDeep },
     formResendCodeLink: {
-      color: teal,
-      "&:hover": { color: goldHover },
+      color: turquoiseDeep,
+      "&:hover": { color: pink },
     },
     otpCodeFieldInput: {
-      borderColor: border,
-      color: teal,
+      borderColor: silver,
+      color: ink,
       "&:focus": {
-        borderColor: gold,
-        boxShadow: `0 0 0 3px ${gold}33`,
+        borderColor: turquoise,
+        boxShadow: `0 0 0 3px ${turquoise}40`,
       },
     },
     alert: {
-      backgroundColor: cream,
+      backgroundColor: silverLight,
       border: `1px solid ${border}`,
-      color: teal,
+      color: ink,
     },
     badge: {
-      backgroundColor: cream,
-      color: teal,
+      backgroundColor: silverLight,
+      color: ink,
     },
     userButtonPopoverCard: {
-      backgroundColor: ivory,
+      backgroundColor: white,
       border: `1px solid ${border}`,
-      color: teal,
+      color: ink,
     },
     userButtonPopoverActionButton: {
-      color: teal,
-      "&:hover": { backgroundColor: cream },
+      color: ink,
+      "&:hover": { backgroundColor: silverLight },
     },
-    userButtonPopoverActionButtonText: { color: teal },
+    userButtonPopoverActionButtonText: { color: ink },
     userButtonPopoverFooter: { display: "none" },
   },
 };

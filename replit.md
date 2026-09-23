@@ -31,23 +31,25 @@ Monorepo (pnpm workspaces) with:
 
 ## Brand: DŌSE
 
-Storefront is branded as **DŌSE** — a precision THC-infused beverage dropper (10 mg per drop, 30 doses per bottle).
+Storefront is branded as **DŌSE** — a precision THC-infused beverage dropper (10 mg per drop, 30 doses per bottle). One SKU only.
 
-- **Palette** (defined in `artifacts/storefront/src/index.css`):
-  - Deep teal `#0F3933` (primary surface / ink)
-  - Cream `#F1ECDC` (secondary surface / inverse ink)
-  - Sage `#A8B89D` (secondary)
-  - Seafoam `#B6C8C2` (accent in dark)
-  - Gold `#C9A24C` (primary accent / CTAs)
-- **Typography**: `Cormorant Garamond` for display/serif, `Inter` for body/UI. Loaded via Google Fonts in `index.html`.
-- **Logo**: Mountain-inside-droplet emblem + `DŌSE` wordmark. SVG component at `artifacts/storefront/src/components/dose/Logo.tsx`.
-- **Favicon**: `artifacts/storefront/public/favicon.svg` (gold emblem on teal).
-- **Brand assets**: Sourced one-time from the user's Google Drive folder and committed to `artifacts/storefront/src/assets/brand/`. Re-pull on demand by re-running the Drive listing/download flow used in task 2.
+- **Look**: classy urban / street-art. White and "concrete" silver surfaces, charcoal ink, turquoise + pink accents. Texture kit in `artifacts/storefront/src/index.css` (`.grain` noise overlay, `.halftone` dots, `.watermark` stencil outlines via `data-watermark`, `.sticker` slap-tag chips, `.marker` highlighter, `.brand-stripe`, `.cta*` pill buttons).
+- **Palette** (HSL triplets as CSS variables in `index.css`, also exposed as Tailwind colours such as `bg-turquoise`, `text-pink`, `border-silver`):
+  - Turquoise `#1FB2A3` (`--turquoise`), bright `#3CDDCD` (on dark), deep `#176D68` (text-safe), tint `#E6F7F5`
+  - Pink `#D51A68` (`--pink`, primary CTA, white text), deep `#B21356` (hover), soft `#F877AD` (stickers / accents on dark), tint `#FDEEF4`
+  - White `#FFFFFF` (primary surface)
+  - Silver `#BDC4C8` (borders), light `#F0F3F4` (concrete sections), dark `#636D74` (muted labels)
+  - Ink `#111D1D` (charcoal ink and dark sections), graphite `#49545A` (body copy)
+  - Semantic status colours (amber / blue / green / red) are unchanged.
+- **Typography**: `Bebas Neue` for display + wordmark (`.font-display`, `.font-wordmark`, uppercase condensed), `Permanent Marker` for the single hand-tag accent word in a heading (`.font-display-italic`), `Inter` for body/UI. Loaded via Google Fonts in `index.html`.
+- **Logo**: Mountain-inside-droplet emblem + `DŌSE` wordmark. SVG component at `artifacts/storefront/src/components/dose/Logo.tsx` (tones: `white | ink | turquoise | pink`, or inherit `currentColor`).
+- **Favicon / social**: `public/favicon.svg` (turquoise emblem on ink). `public/apple-touch-icon.png`, `public/og-image.png`, `public/opengraph.jpg` are generated from the palette with `node scripts/generate-brand-assets.mjs` (renders the social card in headless Chromium so the web fonts are used; needs network for Google Fonts and a Chromium binary — set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` if Playwright's bundled browser isn't installed).
+- **Imagery**: there is none yet. Every image slot renders `ImagePlaceholder` (`src/components/dose/ImagePlaceholder.tsx`), a labelled, dashed "concrete" block with a `data-placeholder="<slot>"` id: `home-hero`, `home-about`, `home-product`, `age-gate`, `about-hero`, `about-team`, `shop-<slug>`, `product-<slug>`. Product photos uploaded through the admin UI replace the shop/product/homepage slots automatically; the marketing slots are swapped by replacing the component with an `<img>`/`<Image>`. The old brand photo library was removed from `src/assets/`.
 
 ## Storefront marketing landing
 
-`artifacts/storefront/src/pages/home.tsx` composes the brand-applied landing from `src/components/dose/`:
-`PromoBanner`, `Header` (with mobile drawer), `AgeGate` (21+ gate, persists in `localStorage` key `dose-age-confirmed`), `Hero`, `StorySection`, `ProductSection`, `RitualSection`, `TestimonialSection`, `JournalSection`, `NewsletterSection`, `Footer`, `MysteryOfferPill`, `CookieBanner` (`localStorage` key `dose-cookies-ack`).
+`artifacts/storefront/src/pages/home.tsx` composes the single-SKU landing from `src/components/dose/`:
+`PromoBanner`, `Header` (wordmark left; "Shop", account and cart on the right — no secondary nav or mobile drawer), `AgeGate` (21+ gate, persists in `localStorage` key `dose-age-confirmed`), `Hero` (CTAs anchor to `#product` and `#about`), `AboutSection` (`#about`), `FeaturedProduct` (`#product`, the one SKU from `GET /products/featured`, shown large with add-to-cart), `RitualSection` (`#how`), `TestimonialSection`, `NewsletterSection`, `Footer`, `CookieBanner` (`localStorage` key `dose-cookies-decision`), `NewsletterModal`.
 
 ## Observability & ops
 
