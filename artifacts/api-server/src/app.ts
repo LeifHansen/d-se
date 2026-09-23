@@ -51,7 +51,21 @@ app.use(cors({ credentials: true, origin: true, exposedHeaders: ["X-Request-Id"]
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(clerkMiddleware());
+// Clerk is required in production. Locally it's optional so the storefront
+// (browse, cart, guest checkout) runs without Clerk keys; account and admin
+// sign-in are unavailable until CLERK_SECRET_KEY + CLERK_PUBLISHABLE_KEY are set.
+const clerkConfigured = Boolean(
+  process.env.CLERK_SECRET_KEY && process.env.CLERK_PUBLISHABLE_KEY,
+);
+if (clerkConfigured) {
+  app.use(clerkMiddleware());
+} else if (process.env.NODE_ENV === "production") {
+  throw new Error(
+    "CLERK_SECRET_KEY and CLERK_PUBLISHABLE_KEY are required in production",
+  );
+} else {
+  logger.warn("Clerk not configured; auth disabled (development only)");
+}
 app.use(sentryUserMiddleware());
 
 app.use("/api", router);

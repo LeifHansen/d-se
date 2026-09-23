@@ -645,6 +645,31 @@ describe("POST /api/checkout — dev fallback when Stripe is not configured", ()
     expect(cart.checkedOutAt).not.toBeNull();
   });
 
+  it("refuses checkout in production instead of creating an unpaid order", async () => {
+    const product = await seedProduct({
+      slug: "p-fallback-prod",
+      priceCents: 3_000,
+    });
+    const cartId = "cart-fallback-prod";
+    await seedCart({ cartId, productId: product.id, quantity: 1 });
+
+    const prevEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+    try {
+      const res = await request(app).post("/api/checkout").send({ cartId });
+      expect(res.status).toBe(503);
+    } finally {
+      process.env.NODE_ENV = prevEnv;
+    }
+
+    expect(await db.select().from(ordersTable)).toHaveLength(0);
+    const remainingItems = await db
+      .select()
+      .from(cartItemsTable)
+      .where(eq(cartItemsTable.cartId, cartId));
+    expect(remainingItems).toHaveLength(1);
+  });
+
   it("rejects a shippingRateId without an address with a 400", async () => {
     const product = await seedProduct({
       slug: "p-fallback-rate",

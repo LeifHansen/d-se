@@ -107,6 +107,14 @@ const POSTS: BlogPost[] = [
   },
 ];
 
+// Mirrors the API: comma-separated `tags` (and legacy `tag`); all must match.
+function requestedTags(url: URL): string[] {
+  return [...url.searchParams.getAll("tags"), ...url.searchParams.getAll("tag")]
+    .flatMap((v) => v.split(","))
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
 async function installMocks(page: Page): Promise<void> {
   await page.route("**/api/products/featured", async (route: Route) => {
     await route.fulfill({
@@ -121,8 +129,8 @@ async function installMocks(page: Page): Promise<void> {
     if (req.method() !== "GET") return route.fallback();
     const url = new URL(req.url());
     if (url.pathname !== "/api/products") return route.fallback();
-    const tag = url.searchParams.get("tag");
-    const list = tag ? PRODUCTS.filter((p) => p.tags.includes(tag)) : PRODUCTS;
+    const tags = requestedTags(url);
+    const list = PRODUCTS.filter((p) => tags.every((t) => p.tags.includes(t)));
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -135,8 +143,8 @@ async function installMocks(page: Page): Promise<void> {
     if (req.method() !== "GET") return route.fallback();
     const url = new URL(req.url());
     if (url.pathname !== "/api/blog/posts") return route.fallback();
-    const tag = url.searchParams.get("tag");
-    const list = tag ? POSTS.filter((p) => p.tags.includes(tag)) : POSTS;
+    const tags = requestedTags(url);
+    const list = POSTS.filter((p) => tags.every((t) => p.tags.includes(t)));
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -187,7 +195,7 @@ test.describe("tag filter chips", () => {
     );
 
     await page.getByTestId("shop-tag-calm").click();
-    await expect(page).toHaveURL(/\/shop\?tag=calm$/);
+    await expect(page).toHaveURL(/\/shop\?tags=calm$/);
     await expect(page.getByTestId("shop-tag-calm")).toHaveAttribute(
       "aria-pressed",
       "true",
@@ -234,7 +242,7 @@ test.describe("tag filter chips", () => {
     );
 
     await page.getByTestId("blog-tag-Rituals").click();
-    await expect(page).toHaveURL(/\/blog\?tag=Rituals$/);
+    await expect(page).toHaveURL(/\/blog\?tags=Rituals$/);
     await expect(page.getByTestId("blog-tag-Rituals")).toHaveAttribute(
       "aria-pressed",
       "true",

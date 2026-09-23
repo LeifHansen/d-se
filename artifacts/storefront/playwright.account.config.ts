@@ -2,7 +2,7 @@ import { defineConfig, devices } from "@playwright/test";
 import { resolveChromiumLaunchOptions } from "./playwright.shared";
 
 const PORT = process.env.E2E_PORT ?? "5174";
-const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:${PORT}`;
+const BASE_URL = process.env.E2E_BASE_URL || `http://localhost:${PORT}`;
 
 export default defineConfig({
   testDir: "./tests",

@@ -3,6 +3,7 @@ import { vi } from "vitest";
 process.env.NODE_ENV = "test";
 process.env.DATABASE_URL = "postgres://test/test";
 process.env.ABANDONED_CART_SECRET = "test-secret";
+process.env.ORDER_TOKEN_SECRET = "test-order-token-secret";
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
 process.env.PUBLIC_APP_URL = "https://example.test";
 process.env.ADMIN_EMAILS = "admin@example.com";

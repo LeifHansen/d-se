@@ -229,6 +229,16 @@ router.post("/checkout", async (req, res): Promise<void> => {
     res.status(400).json({ error: parsed.error.message });
     return;
   }
+  // Never create unpaid orders in production because Stripe is missing or
+  // misconfigured; the instant-paid fallback below is for local dev only.
+  if (
+    process.env.NODE_ENV === "production" &&
+    !(await isStripeConfigured())
+  ) {
+    req.log.error("Stripe not configured; refusing checkout");
+    res.status(503).json({ error: "Checkout is temporarily unavailable" });
+    return;
+  }
   const cart = await loadCart(parsed.data.cartId);
   if (cart.items.length === 0) {
     res.status(400).json({ error: "Cart is empty" });
