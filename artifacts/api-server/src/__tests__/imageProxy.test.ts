@@ -43,7 +43,7 @@ function makeFakeFile(opts: {
   contentType: string;
 }): unknown {
   return {
-    getMetadata: async () => [{ contentType: opts.contentType }],
+    getMetadata: async () => ({ contentType: opts.contentType }),
     createReadStream: () => Readable.from([opts.body]),
   };
 }

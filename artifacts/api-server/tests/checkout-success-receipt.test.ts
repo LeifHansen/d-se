@@ -193,11 +193,12 @@ test("GET /api/orders/:id receipt: returns full order for matching cartId, 404 f
   );
 
   // ---- Negative: no auth at all (no cartId, no sessionId, not signed in) ----
+  // 401 is returned before the order is looked up, so it leaks nothing.
   const bareRes = await fetch(`${baseUrl}/api/orders/${createdOrderId}`);
   assert.equal(
     bareRes.status,
-    404,
-    "guest with no credentials should get 404",
+    401,
+    "guest with no credentials should get 401",
   );
 
   // ---- Negative: wrong sessionId must 404 ----

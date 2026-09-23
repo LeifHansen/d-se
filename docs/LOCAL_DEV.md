@@ -48,12 +48,12 @@ Open http://localhost:5173.
 
 ## What's live without keys
 
-| Integration | Unset locally | To enable |
-|---|---|---|
-| Stripe | Checkout skips payment and marks the order paid (**dev only**, refused when `NODE_ENV=production`) | `STRIPE_SECRET_KEY=sk_test_…`, `STRIPE_WEBHOOK_SECRET` (`stripe listen --forward-to localhost:4000/api/webhooks/stripe`) |
-| Clerk | Guest checkout works; account + admin sign-in unavailable (required in production) | `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY` (API) and `VITE_CLERK_PUBLISHABLE_KEY` (storefront) |
-| Resend | Emails are skipped | `RESEND_API_KEY`, `RESEND_FROM_EMAIL` |
-| EasyPost | Flat-rate shipping | `EASYPOST_API_KEY` |
+| Integration | Unset locally                                                                                      | To enable                                                                                                                |
+| ----------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Stripe      | Checkout skips payment and marks the order paid (**dev only**, refused when `NODE_ENV=production`) | `STRIPE_SECRET_KEY=sk_test_…`, `STRIPE_WEBHOOK_SECRET` (`stripe listen --forward-to localhost:4000/api/webhooks/stripe`) |
+| Clerk       | Guest checkout works; account + admin sign-in unavailable (required in production)                 | `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY` (API) and `VITE_CLERK_PUBLISHABLE_KEY` (storefront)                          |
+| Resend      | Emails are skipped                                                                                 | `RESEND_API_KEY`, `RESEND_FROM_EMAIL`                                                                                    |
+| EasyPost    | Flat-rate shipping                                                                                 | `EASYPOST_API_KEY`                                                                                                       |
 
 Admin API routes can be called locally with the header
 `x-e2e-admin-bypass: local-dev-admin`. This bypass is ignored in production.

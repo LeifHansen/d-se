@@ -1,7 +1,6 @@
 // Idempotent catalog seed for the DŌSE launch SKU (slug-keyed upsert).
-// Images reference files the storefront serves from `public/brand/`, so this
-// works locally without object storage. Swap them for uploaded images via the
-// admin UI once S3/Tigris is configured.
+// Products are seeded without photos: upload them via the admin UI. Re-running
+// the seed never touches images, price or inventory on an existing product.
 //
 // Usage: DATABASE_URL=postgres://... pnpm --filter @workspace/api-server seed
 import path from "node:path";
@@ -10,7 +9,9 @@ import { createRequire } from "node:module";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(__dirname, "..", "..", "..", "..");
-const { Pool } = createRequire(path.join(repoRoot, "lib/db/package.json"))("pg");
+const { Pool } = createRequire(path.join(repoRoot, "lib/db/package.json"))(
+  "pg",
+);
 
 if (!process.env.DATABASE_URL) {
   console.log("DATABASE_URL not set; skipping seed");
@@ -28,11 +29,7 @@ const products = [
     priceCents: 6500,
     inventory: 100,
     weightOz: "4",
-    images: [
-      "/brand/dose2-bottle-product.png",
-      "/brand/dose-bottle-hero.jpg",
-      "/brand/dose2-bottle-collage.png",
-    ],
+    images: [],
     tags: ["thc", "dropper", "bestseller"],
     seoTitle: "DŌSE Beverage Dropper — 1000mg Hemp-Derived Delta-9 THC",
     seoDescription:
@@ -51,7 +48,6 @@ try {
          short_description=EXCLUDED.short_description,
          description=EXCLUDED.description,
          weight_oz=EXCLUDED.weight_oz,
-         images=EXCLUDED.images,
          tags=EXCLUDED.tags,
          seo_title=EXCLUDED.seo_title,
          seo_description=EXCLUDED.seo_description,
